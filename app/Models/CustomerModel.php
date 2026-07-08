@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Models;
+
+use CodeIgniter\Model;
+
+class CustomerModel extends Model
+{
+    protected $table            = 'customers';
+    protected $primaryKey       = 'id';
+    protected $useAutoIncrement = true;
+    protected $returnType       = 'array';
+    protected $useSoftDeletes   = false;
+    protected $protectFields    = true;
+    protected $allowedFields = [
+    'company_id',
+    'user_id',
+    'customer_code',
+    'customer_name',
+    'email',
+    'agent_id',
+    'customer_type',
+    'billing_type',
+    'payment_term',
+    'credit_days',
+    'portal_status',
+    'portal_password',
+    'approval_status',
+    'account_status'
+];
+
+    protected bool $allowEmptyInserts = false;
+    protected bool $updateOnlyChanged = true;
+
+    protected array $casts = [];
+    protected array $castHandlers = [];
+
+    // Dates
+    protected $useTimestamps = false;
+    protected $dateFormat    = 'datetime';
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
+    protected $deletedField  = 'deleted_at';
+
+    // Validation
+    protected $validationRules      = [];
+    protected $validationMessages   = [];
+    protected $skipValidation       = false;
+    protected $cleanValidationRules = true;
+
+    // Callbacks
+    protected $allowCallbacks = true;
+    protected $beforeInsert   = [];
+    protected $afterInsert    = [];
+    protected $beforeUpdate   = [];
+    protected $afterUpdate    = [];
+    protected $beforeFind     = [];
+    protected $afterFind      = [];
+    protected $beforeDelete   = [];
+    protected $afterDelete    = [];
+}

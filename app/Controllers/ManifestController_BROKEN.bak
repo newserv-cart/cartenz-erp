@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Models\ManifestModel;
+use App\Models\ManifestShipmentModel;
+
+class ManifestController extends BaseController
+{
+    public function print($id)
+    {
+        $manifest = (new ManifestModel())
+            ->find($id);
+
+        $shipments = (new ManifestShipmentModel())
+            ->select('shipments.*')
+            ->join(
+                'shipments',
+                'shipments.id = manifest_shipments.shipment_id'
+            )
+            ->where(
+                'manifest_shipments.manifest_id',
+                $id
+            )
+            ->findAll();
+
+        return view(
+            'manifest/print',
+            [
+                'manifest'  => $manifest,
+                'shipments' => $shipments
+            ]
+        );
+    }
+}
+
+
+
+
+
+
+
+
+
+
