@@ -949,6 +949,10 @@ $(document).ready(function(){
         $('#senderModal').modal('show');
     });
 
+    $('#btnAddReceiver').on('click', function() {
+    $('#receiverModal').modal('show');
+});
+
     // 2. Proses Simpan SENDER via AJAX (Kembali ke ID HTML Asli)
     $('#btnSaveSender').off('click').on('click', function() {
         const senderData = {
@@ -1038,27 +1042,22 @@ $(document).ready(function(){
 $('#btnSaveReceiver, #receiverModal .btn-primary, #receiverModal button[type="submit"]').off('click').on('click', function(e) {
     e.preventDefault(); 
     
-    const $btn = $(this); // Amankan context tombol
+const $btn = $(this);
+if ($btn.prop('disabled')) return;
     
-    // Cegah double submit jika tombol sedang loading/disabled
-    if ($btn.prop('disabled')) return;
-
-    console.log("Tombol Receiver berhasil diklik!"); 
-
-    const receiverData = {
-        address_type: 'RECEIVER',
-        country_id: 1, 
-        contact_name: $('#new_receiver_name').val() || $('#receiverModal input[type="text"]').first().val(), 
-        company_name: $('#new_receiver_company').val(),
-        phone: $('#new_receiver_phone').val(), 
-        identity_number: $('#new_receiver_identity').val(),
-        province: $('#new_receiver_province').val(), 
-        city: $('#new_receiver_city').val(),
-        postal_code: $('#new_receiver_postal').val(),
-        email: $('#new_receiver_email').val(),
-        address: $('#new_receiver_address').val()
-    };
-
+  const receiverData = {
+    address_type: 'RECEIVER',
+    country_id: $('#new_receiver_country').val(),
+    contact_name: $('#new_receiver_name').val(),
+    company_name: $('#new_receiver_company').val(),
+    phone: $('#new_receiver_phone').val(),
+    identity_number: $('#new_receiver_identity').val(),
+    province: $('#new_receiver_province').val(),
+    city: $('#new_receiver_city').val(),
+    postal_code: $('#new_receiver_postal').val(),
+    email: $('#new_receiver_email').val(),
+    address: $('#new_receiver_address').val()
+};
     if (!receiverData.contact_name) {
         alert('Receiver Name is required!');
         return;
@@ -1067,6 +1066,12 @@ $('#btnSaveReceiver, #receiverModal .btn-primary, #receiverModal button[type="su
         alert('Receiver Phone Number is required!');
         return;
     }
+
+      if (!receiverData.country_id) {
+    alert('Destination Country is required!');
+    return;
+}                              
+
 
     // Kunci tombol biar user ga klik brutal pas internet lemot
     $btn.prop('disabled', true).text('Saving...');
