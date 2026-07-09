@@ -14,958 +14,254 @@
 <div class="container mt-4 mb-5">
     <h2 class="mb-4">Create Shipment</h2>
 
-<div class="card mb-3">
-
-    <div class="card-header bg-warning fw-bold">
-        🏢 CUSTOMER INFORMATION
-    </div>
-
-    <div class="card-body">
-
-        <div class="row align-items-end">
-
-    <div class="col-md-9">
-
-        <label class="form-label fw-bold">
-            🏢 Customer
-        </label>
-
-        <select
-name="customer_id"
-id="customer_id">
-
-            <option value="">
-                -- Select Customer --
-            </option>
-
-            <?php foreach($senderAddresses as $row): ?>
-
-            <option
-                value="<?= $row['id'] ?>"
-
-                data-country-id="<?= $row['country_id']?>"       
-                data-company="<?= esc($row['company_name']) ?>"
-                data-phone="<?= esc($row['phone']) ?>"
-                data-email="<?= esc($row['email']) ?>"
-                data-city="<?= esc($row['city']) ?>"
-                data-state="<?= esc($row['state']) ?>"
-                data-postal="<?= esc($row['postal_code']) ?>"
-                data-address="<?= esc($row['address']) ?>"
-                data-country="<?= esc($row['country_name']) ?>"
-                data-identity="<?= esc($row['identity_number']) ?>">
-
-                <?= esc($row['contact_name']) ?>
-                <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
-
-            </option>
-
-            <?php endforeach; ?>
-
-        </select>
-
-    </div>
-
-    <div class="col-md-3 d-grid">
-
-        <button
-            type="button"
-            id="btnAddCustomer"
-            class="btn btn-success">
-
-            ➕ Add Customer
-
-        </button>
-
-    </div>
-
-</div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Company</label>
-
-                <input
-                    id="sender_company"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Phone</label>
-
-                <input
-                    id="sender_phone"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
+    <!-- =======================================
+         CUSTOMER / SENDER INFORMATION
+    ======================================= -->
+    <div class="card mb-3">
+        <div class="card-header bg-danger fw-bold">
+            🏢 CUSTOMER INFORMATION
         </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Identity Number</label>
-
-                <input
-                    id="sender_identity"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Province</label>
-
-                <input
-                    id="sender_province"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>City</label>
-
-                <input
-                    id="sender_city"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Postal Code</label>
-
-                <input
-                    id="sender_postal_code"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
- <div class="row">
-                              
-            <div class="col-md-6 mb-3">
-
-                <label>Country</label>
-
-                <input
-                    id="sender_country"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Email</label>
-
-                <input
-                    id="sender_email"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="mb-3">
-
-            <label>Complete Address</label>
-
-            <textarea
-                id="sender_address"
-                class="form-control"
-                rows="3"
-                readonly></textarea>
-
-        </div><!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Shipment</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-
-<form method="post" action="<?= site_url('shipments/store') ?>">
-    <?= csrf_field() ?>
-
-<div class="container mt-4 mb-5">
-    <h2 class="mb-4">Create Shipment</h2>
-
-<div class="card mb-3">
-
-    <div class="card-header bg-warning fw-bold">
-        🏢 CUSTOMER INFORMATION
-    </div>
-
-    <div class="card-body">
-
-        <div class="row align-items-end">
-
-    <div class="col-md-9">
-
-        <label class="form-label fw-bold">
-            🏢 Customer
-        </label>
-
-        <select
-name="customer_id"
-id="customer_id">
-
-            <option value="">
-                -- Select Customer --
-            </option>
-
-            <?php foreach($senderAddresses as $row): ?>
-
-            <option
-                value="<?= $row['id'] ?>"
-
-                data-country-id="<?= $row['country_id']?>"       
-                data-company="<?= esc($row['company_name']) ?>"
-                data-phone="<?= esc($row['phone']) ?>"
-                data-email="<?= esc($row['email']) ?>"
-                data-city="<?= esc($row['city']) ?>"
-                data-state="<?= esc($row['state']) ?>"
-                data-postal="<?= esc($row['postal_code']) ?>"
-                data-address="<?= esc($row['address']) ?>"
-                data-country="<?= esc($row['country_name']) ?>"
-                data-identity="<?= esc($row['identity_number']) ?>">
-
-                <?= esc($row['contact_name']) ?>
-                <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
-
-            </option>
-
-            <?php endforeach; ?>
-
-        </select>
-
-    </div>
-
-    <div class="col-md-3 d-grid">
-
-        <button
-            type="button"
-            id="btnAddCustomer"
-            class="btn btn-success">
-
-            ➕ Add Customer
-
-        </button>
-
-    </div>
-
-</div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Company</label>
-
-                <input
-                    id="sender_company"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Phone</label>
-
-                <input
-                    id="sender_phone"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Identity Number</label>
-
-                <input
-                    id="sender_identity"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Province</label>
-
-                <input
-                    id="sender_province"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>City</label>
-
-                <input
-                    id="sender_city"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Postal Code</label>
-
-                <input
-                    id="sender_postal_code"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
- <div class="row">
-                              
-            <div class="col-md-6 mb-3">
-
-                <label>Country</label>
-
-                <input
-                    id="sender_country"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Email</label>
-
-                <input
-                    id="sender_email"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="mb-3">
-
-            <label>Complete Address</label>
-
-            <textarea
-                id="sender_address"
-                class="form-control"
-                rows="3"
-                readonly></textarea>
-
-        </div><!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Shipment</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-
-<form method="post" action="<?= site_url('shipments/store') ?>">
-    <?= csrf_field() ?>
-
-<div class="container mt-4 mb-5">
-    <h2 class="mb-4">Create Shipment</h2>
-
-<div class="card mb-3">
-
-    <div class="card-header bg-warning fw-bold">
-        🏢 CUSTOMER INFORMATION
-    </div>
-
-    <div class="card-body">
-
-        <div class="row align-items-end">
-
-    <div class="col-md-9">
-
-        <label class="form-label fw-bold">
-            🏢 Customer
-        </label>
-
-        <select
-name="customer_id"
-id="customer_id">
-
-            <option value="">
-                -- Select Customer --
-            </option>
-
-            <?php foreach($senderAddresses as $row): ?>
-
-            <option
-                value="<?= $row['id'] ?>"
-
-                data-country-id="<?= $row['country_id']?>"       
-                data-company="<?= esc($row['company_name']) ?>"
-                data-phone="<?= esc($row['phone']) ?>"
-                data-email="<?= esc($row['email']) ?>"
-                data-city="<?= esc($row['city']) ?>"
-                data-state="<?= esc($row['state']) ?>"
-                data-postal="<?= esc($row['postal_code']) ?>"
-                data-address="<?= esc($row['address']) ?>"
-                data-country="<?= esc($row['country_name']) ?>"
-                data-identity="<?= esc($row['identity_number']) ?>">
-
-                <?= esc($row['contact_name']) ?>
-                <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
-
-            </option>
-
-            <?php endforeach; ?>
-
-        </select>
-
-    </div>
-
-    <div class="col-md-3 d-grid">
-
-        <button
-            type="button"
-            id="btnAddCustomer"
-            class="btn btn-success">
-
-            ➕ Add Customer
-
-        </button>
-
-    </div>
-
-</div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Company</label>
-
-                <input
-                    id="sender_company"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Phone</label>
-
-                <input
-                    id="sender_phone"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Identity Number</label>
-
-                <input
-                    id="sender_identity"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Province</label>
-
-                <input
-                    id="sender_province"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>City</label>
-
-                <input
-                    id="sender_city"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Postal Code</label>
-
-                <input
-                    id="sender_postal_code"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
- <div class="row">
-                              
-            <div class="col-md-6 mb-3">
-
-                <label>Country</label>
-
-                <input
-                    id="sender_country"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Email</label>
-
-                <input
-                    id="sender_email"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="mb-3">
-
-            <label>Complete Address</label>
-
-            <textarea
-                id="sender_address"
-                class="form-control"
-                rows="3"
-                readonly></textarea>
-
-        </div>
-
-
-
-<div class="card mb-3">
-
-    <div class="card-header bg-warning">
-        👤 Receiver Information
-    </div>
-
-    <div class="card-body">
-
-        <div class="row align-items-end">
-
-    <div class="col-md-9">
-
-        <label class="form-label fw-bold">
-            👤 Receiver
-        </label>
-
-
-        
-
-        <select
-            id="receiver_id"
-            name="receiver_id"
-            class="form-select">
-
-            <option value="">
-                -- Select Receiver --
-            </option>
-
-            <?php foreach($receiverAddresses as $row): ?>
-
-            <option
-                value="<?= $row['id'] ?>"
-
-                data-country-id="<?= esc($row['country_id']) ?>"    
-                data-company="<?= esc($row['company_name']) ?>"
-                data-phone="<?= esc($row['phone']) ?>"
-                data-email="<?= esc($row['email']) ?>"
-                data-city="<?= esc($row['city']) ?>"
-                data-state="<?= esc($row['state']) ?>"
-                data-postal="<?= esc($row['postal_code']) ?>"
-                data-address="<?= esc($row['address']) ?>"
-                data-country="<?= esc($row['country_name']) ?>"
-                data-identity="<?= esc($row['identity_number']) ?>">
-
-                <?= esc($row['contact_name']) ?>
-                <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
-
-            </option>
-
-            <?php endforeach; ?>
-
-        </select>
-
-    </div>
-
-    <div class="col-md-3 d-grid">
-
-        <button
-            type="button"
-            id="btnAddReceiver"
-            class="btn btn-success">
-
-            ➕ Add Receiver
-
-        </button>
-
-    </div>
-
-</div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Company</label>
-
-                <input
-                    id="receiver_company"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Phone</label>
-
-                <input
-                    id="receiver_phone"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Identity Number</label>
-
-                <input
-                    id="receiver_identity"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Province</label>
-
-                <input
-                    id="receiver_province"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-        <div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>City</label>
-
-                <input
-                    id="receiver_city"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Postal Code</label>
-
-                <input
-                    id="receiver_postal_code"
-                    class="form-control"
-                    readonly>
-
-            </div>
-
-        </div>
-
-
-
-<div class="row">
-
-            <div class="col-md-6 mb-3">
-
-                <label>Destination Country</label>
-
-                <input
-                type="hidden"
-                id="country_id"
-                name="country_id">
-
-                <input
-                type="hidden"
-                id="transport_mode_id"
-                name="transport_mode_id"
-                value="1">
-                
-                <input
-                id="receiver_country"
-                name="receiver_country"
-                class="form-control"
-                    readonly>
-
-            </div>
-
-            <div class="col-md-6 mb-3">
-
-                <label>Email</label>
-
-            <input
-                id="receiver_email"
-                class="form-control"
-                readonly>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="mb-3">
-
-            <label>Complete Address</label>
-
-            <textarea
-                id="receiver_address"
-                class="form-control"
-                rows="3"
-                readonly></textarea>
-
-        </div>
-
-
-
-
-
-<!-- =======================================
-     SHIPMENT INFORMATION
-======================================= -->
-
-<div class="card mb-3">
-
-    <div class="card-header bg-primary text-white">
-        📦 Shipment Information
-    </div>
-
-    <div class="card-body">
-
-        <!-- Row 1 -->
-        <div class="row">
-
-            <div class="col-md-3 mb-3">
-                <label class="form-label fw-bold">
-                    Service <span class="text-danger">*</span>
-                </label>
-
-                <select
-                    name="service_id"
-                    id="service_id"
-                    class="form-select">
-
-                    <option value="">-- Select Service --</option>
-
-                    <?php foreach($services as $row): ?>
-
-                        <option value="<?= $row['id'] ?>">
-                            <?= esc($row['service_name']) ?>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-9">
+                    <label class="form-label fw-bold">🏢 Customer</label>
+                    <select name="customer_id" id="customer_id" class="form-select">
+                        <option value="">-- Select Customer --</option>
+                        <?php foreach($senderAddresses as $row): ?>
+                        <option
+                            value="<?= $row['id'] ?>"
+                            data-country-id="<?= $row['country_id']?>"       
+                            data-company="<?= esc($row['company_name']) ?>"
+                            data-phone="<?= esc($row['phone']) ?>"
+                            data-email="<?= esc($row['email']) ?>"
+                            data-city="<?= esc($row['city']) ?>"
+                            data-state="<?= esc($row['state']) ?>"
+                            data-postal="<?= esc($row['postal_code']) ?>"
+                            data-address="<?= esc($row['address']) ?>"
+                            data-country="<?= esc($row['country_name']) ?>"
+                            data-identity="<?= esc($row['identity_number']) ?>">
+                            <?= esc($row['contact_name']) ?>
+                            <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
                         </option>
-
-                    <?php endforeach; ?>
-
-                </select>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button type="button" id="btnAddCustomer" class="btn btn-success">➕ Add Customer</button>
+                </div>
             </div>
 
-            <div class="col-md-3 mb-3">
-                <label class="form-label fw-bold">
-                    Package Type <span class="text-danger">*</span>
-                </label>
-
-                <select
-                    name="package_type_id"
-                    id="package_type_id"
-                    class="form-select">
-
-                    <option value="">-- Select Package Type --</option>
-
-                    <?php foreach($packageTypes as $row): ?>
-
-                        <option value="<?= $row['id'] ?>">
-                            <?= esc($row['package_type_name']) ?>
-                        </option>
-
-                    <?php endforeach; ?>
-
-                </select>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>Company</label>
+                    <input id="sender_company" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Phone</label>
+                    <input id="sender_phone" class="form-control" readonly>
+                </div>
             </div>
 
-            <div class="col-md-3 mb-3">
-                <label class="form-label fw-bold">
-                    Payment Type <span class="text-danger">*</span>
-                </label>
-
-                <select
-                    name="payment_type"
-                    id="payment_type"
-                    class="form-select">
-
-                    <option value="">-- Select Payment --</option>
-
-                    <option value="CASH">CASH</option>
-                    <option value="DEPOSIT">DEPOSIT</option>
-                    <option value="INVOICE">INVOICE</option>
-
-                </select>
-
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>Identity Number</label>
+                    <input id="sender_identity" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Province</label>
+                    <input id="sender_province" class="form-control" readonly>
+                </div>
             </div>
 
-            <div class="col-md-3 mb-3">
-
-                <label class="form-label fw-bold">
-                    Commodity Type <span class="text-danger">*</span>
-                </label>
-
-                <select
-                    name="commodity_type_id"
-                    id="commodity_type_id"
-                    class="form-select">
-
-                    <option value="">-- Select Commodity --</option>
-
-                    <?php foreach($commodityTypes as $row): ?>
-
-                        <option value="<?= $row['id'] ?>">
-                            <?= esc($row['commodity_name']) ?>
-                        </option>
-
-                    <?php endforeach; ?>
-
-                </select>
-
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>City</label>
+                    <input id="sender_city" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Postal Code</label>
+                    <input id="sender_postal_code" class="form-control" readonly>
+                </div>
             </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>Country</label>
+                    <input id="sender_country" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Email</label>
+                    <input id="sender_email" class="form-control" readonly>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label>Complete Address</label>
+                <textarea id="sender_address" class="form-control" rows="3" readonly></textarea>
+            </div>
         </div>
-
-        <!-- Row 2 -->
-
-        <div class="row">
-
-            <div class="col-md-4 mb-3">
-
-                <label class="form-label fw-bold">
-                    Reference Number
-                </label>
-
-                <input
-                    type="text"
-                    name="customer_reference_no"
-                    id="customer_reference_no"
-                    class="form-control"
-                    placeholder="Customer Reference Number">
-
-            </div>
-
-            <div class="col-md-4 mb-3">
-
-                <label class="form-label fw-bold">
-                    Shipment Date
-                </label>
-
-                <input
-                    type="date"
-                    name="shipment_date"
-                    value="<?= date('Y-m-d') ?>"
-                    class="form-control">
-
-            </div>
-
-            <div class="col-md-4 mb-3">
-
-                <label class="form-label fw-bold">
-                    Expected Delivery
-                </label>
-
-                <input
-                    type="text"
-                    id="expected_delivery"
-                    class="form-control"
-                    placeholder="Auto Calculate"
-                    readonly>
-
-            </div>
-
-        </div>
-
     </div>
 
-</div>
+    <!-- =======================================
+         RECEIVER INFORMATION
+    ======================================= -->
+    <div class="card mb-3">
+        <div class="card-header bg-warning">
+            👤 Receiver Information
+        </div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-9">
+                    <label class="form-label fw-bold">👤 Receiver</label>
+                    <select id="receiver_id" name="receiver_id" class="form-select">
+                        <option value="">-- Select Receiver --</option>
+                        <?php foreach($receiverAddresses as $row): ?>
+                        <option
+                            value="<?= $row['id'] ?>"
+                            data-country-id="<?= esc($row['country_id']) ?>"    
+                            data-company="<?= esc($row['company_name']) ?>"
+                            data-phone="<?= esc($row['phone']) ?>"
+                            data-email="<?= esc($row['email']) ?>"
+                            data-city="<?= esc($row['city']) ?>"
+                            data-state="<?= esc($row['state']) ?>"
+                            data-postal="<?= esc($row['postal_code']) ?>"
+                            data-address="<?= esc($row['address']) ?>"
+                            data-country="<?= esc($row['country_name']) ?>"
+                            data-identity="<?= esc($row['identity_number']) ?>">
+                            <?= esc($row['contact_name']) ?>
+                            <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button type="button" id="btnAddReceiver" class="btn btn-success">➕ Add Receiver</button>
+                </div>
+            </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>Company</label>
+                    <input id="receiver_company" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Phone</label>
+                    <input id="receiver_phone" class="form-control" readonly>
+                </div>
+            </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>Identity Number</label>
+                    <input id="receiver_identity" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Province</label>
+                    <input id="receiver_province" class="form-control" readonly>
+                </div>
+            </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>City</label>
+                    <input id="receiver_city" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Postal Code</label>
+                    <input id="receiver_postal_code" class="form-control" readonly>
+                </div>
+            </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label>Destination Country</label>
+                    <input type="hidden" id="country_id" name="country_id">
+                    <input type="hidden" id="transport_mode_id" name="transport_mode_id" value="1">
+                    <input id="receiver_country" name="receiver_country" class="form-control" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label>Email</label>
+                    <input id="receiver_email" class="form-control" readonly>
+                </div>
+            </div>
 
+            <div class="mb-3">
+                <label>Complete Address</label>
+                <textarea id="receiver_address" class="form-control" rows="3" readonly></textarea>
+            </div>
+        </div>
+    </div>
 
-    
+    <!-- =======================================
+         SHIPMENT INFORMATION
+    ======================================= -->
+    <div class="card mb-3">
+        <div class="card-header bg-primary text-white">
+            📦 Shipment Information
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Service <span class="text-danger">*</span></label>
+                    <select name="service_id" id="service_id" class="form-select">
+                        <option value="">-- Select Service --</option>
+                        <?php foreach($services as $row): ?>
+                            <option value="<?= $row['id'] ?>"><?= esc($row['service_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-    <!-- Package / Colly Information -->
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Package Type <span class="text-danger">*</span></label>
+                    <select name="package_type_id" id="package_type_id" class="form-select">
+                        <option value="">-- Select Package Type --</option>
+                        <?php foreach($packageTypes as $row): ?>
+                            <option value="<?= $row['id'] ?>"><?= esc($row['package_type_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Payment Type <span class="text-danger">*</span></label>
+                    <select name="payment_type" id="payment_type" class="form-select">
+                        <option value="">-- Select Payment --</option>
+                        <option value="CASH">CASH</option>
+                        <option value="DEPOSIT">DEPOSIT</option>
+                        <option value="INVOICE">INVOICE</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Commodity Type <span class="text-danger">*</span></label>
+                    <select name="commodity_type_id" id="commodity_type_id" class="form-select">
+                        <option value="">-- Select Commodity --</option>
+                        <?php foreach($commodityTypes as $row): ?>
+                            <option value="<?= $row['id'] ?>"><?= esc($row['commodity_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Reference Number</label>
+                    <input type="text" name="customer_reference_no" id="customer_reference_no" class="form-control" placeholder="Customer Reference Number">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Shipment Date</label>
+                    <input type="date" name="shipment_date" value="<?= date('Y-m-d') ?>" class="form-control">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Expected Delivery</label>
+                    <input type="text" id="expected_delivery" class="form-control" placeholder="Auto Calculate" readonly>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =======================================
+         PACKAGE / COLLY INFORMATION
+    ======================================= -->
     <div class="card mb-3">
         <div class="card-header bg-warning">Package / Colly Information</div>
         <div class="card-body">
@@ -1056,202 +352,134 @@ id="customer_id">
         </div>
     </div>
 
+    <!-- =======================================
+         CHARGES INFORMATION
+    ======================================= -->
+    <div class="card mb-3">
+        <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+            <strong>💰 Charges Information</strong>
+            <button class="btn btn-sm btn-link text-dark text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#chargesCollapse">
+                <span id="chargesIcon">▼</span>
+            </button>
+        </div>
 
-
-
-<div class="card mb-3">
-
-    <div class="card-header bg-warning d-flex justify-content-between align-items-center">
-        <strong>💰 Charges Information</strong>
-        <button
-            class="btn btn-sm btn-link text-dark text-decoration-none"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#chargesCollapse">
-            <span id="chargesIcon">▼</span>
-        </button>
-    </div>
-
-    <div class="collapse" id="chargesCollapse">
-        <div class="card-body">
-
-            <!-- Pilihan Remote Area -->
-            <div class="row mb-3" id="rowRemoteArea">
-                <label class="col-md-4 col-form-label">Remote Area</label>
-                <div class="col-md-8">
-                    <select name="is_remote" id="is_remote" class="form-select">
-                        <option value="0">No</option>
-                        <option value="1">Yes</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="row mb-3" id="rowCustomerInsurance">
-                <div class="col-md-3">
-                    <label>Customer Insurance</label>
-                    <input type="number"
-                           id="insurance_customer"
-                           name="insurance_customer"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-                <div class="col-md-3" id="rowVendorInsurance">
-                    <label>Vendor Insurance</label>
-                    <input type="number"
-                           id="insurance_vendor"
-                           name="insurance_vendor"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-            </div>
-
-            <div class="row mb-3" id="rowCustomerPacking">
-                <div class="col-md-3">
-                    <label>Customer Packing</label>
-                    <input type="number"
-                           id="packing_customer"
-                           name="packing_customer"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-                <div class="col-md-3" id="rowVendorPacking">
-                    <label>Vendor Packing</label>
-                    <input type="number"
-                           id="packing_vendor"
-                           name="packing_vendor"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-            </div>
-
-            <div class="row mb-3" id="rowCustomerAdditional">
-                <div class="col-md-3">
-                    <label>Customer Additional</label>
-                    <input type="number"
-                           id="additional_customer"
-                           name="additional_customer"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-                <div class="col-md-3" id="rowVendorAdditional">
-                    <label>Vendor Additional</label>
-                    <input type="number"
-                           id="additional_vendor"
-                           name="additional_vendor"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-            </div>
-
-            <div class="row mb-3" id="rowDiscount">
-                <div class="col-md-3">
-                    <label>Discount</label>
-                    <input type="number"
-                           id="discount_amount"
-                           name="discount_amount"
-                           class="form-control text-end"
-                           value="0">
-                </div>
-            </div>
-
-            <!-- Bagian Biaya Khusus Express -->
-            <div id="expressCharges" style="display: none;">
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <label>Fuel Surcharge</label>
-                        <input type="number" class="form-control text-end" value="0" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label>Go Green</label>
-                        <input type="number" class="form-control text-end" value="0" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label>VAT</label>
-                        <input type="number" class="form-control text-end" value="0" readonly>
+        <div class="collapse" id="chargesCollapse">
+            <div class="card-body">
+                <div class="row mb-3" id="rowRemoteArea">
+                    <label class="col-md-4 col-form-label">Remote Area</label>
+                    <div class="col-md-8">
+                        <select name="is_remote" id="is_remote" class="form-select">
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
                     </div>
                 </div>
+
+                <div class="row mb-3" id="rowCustomerInsurance">
+                    <div class="col-md-3">
+                        <label>Customer Insurance</label>
+                        <input type="number" id="insurance_customer" name="insurance_customer" class="form-control text-end" value="0">
+                    </div>
+                    <div class="col-md-3" id="rowVendorInsurance">
+                        <label>Vendor Insurance</label>
+                        <input type="number" id="insurance_vendor" name="insurance_vendor" class="form-control text-end" value="0">
+                    </div>
+                </div>
+
+                <div class="row mb-3" id="rowCustomerPacking">
+                    <div class="col-md-3">
+                        <label>Customer Packing</label>
+                        <input type="number" id="packing_customer" name="packing_customer" class="form-control text-end" value="0">
+                    </div>
+                    <div class="col-md-3" id="rowVendorPacking">
+                        <label>Vendor Packing</label>
+                        <input type="number" id="packing_vendor" name="packing_vendor" class="form-control text-end" value="0">
+                    </div>
+                </div>
+
+                <div class="row mb-3" id="rowCustomerAdditional">
+                    <div class="col-md-3">
+                        <label>Customer Additional</label>
+                        <input type="number" id="additional_customer" name="additional_customer" class="form-control text-end" value="0">
+                    </div>
+                    <div class="col-md-3" id="rowVendorAdditional">
+                        <label>Vendor Additional</label>
+                        <input type="number" id="additional_vendor" name="additional_vendor" class="form-control text-end" value="0">
+                    </div>
+                </div>
+
+                <div class="row mb-3" id="rowDiscount">
+                    <div class="col-md-3">
+                        <label>Discount</label>
+                        <input type="number" id="discount_amount" name="discount_amount" class="form-control text-end" value="0">
+                    </div>
+                </div>
+
+                <div id="expressCharges" style="display: none;">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label>Fuel Surcharge</label>
+                            <input type="number" class="form-control text-end" value="0" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label>Go Green</label>
+                            <input type="number" class="form-control text-end" value="0" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label>VAT</label>
+                            <input type="number" class="form-control text-end" value="0" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" id="customer_total" name="customer_total" value="0">
+                <input type="hidden" id="vendor_total_charge" name="vendor_total_charge" value="0">
+                <input type="hidden" id="profit_amount" name="profit_amount" value="0">
+                <input type="hidden" id="selling_amount" value="0">
+                <input type="hidden" id="grand_total" name="grand_total" value="0">
+                <input type="hidden" id="vendor_total" value="0">
+
+                <table class="table table-bordered mt-4">
+                    <tr>
+                        <th>Freight Customer</th>
+                        <td class="text-end"><span id="shipment_charge_text">Rp 0</span></td>
+                    </tr>
+                    <tr>
+                        <th>Remote Area Charges</th>
+                        <td class="text-end"><span id="remote_charge_text">Rp 0</span></td>
+                    </tr>
+                    <tr>
+                        <th>Customer Charges</th>
+                        <td class="text-end"><span id="other_charge_text">Rp 0</span></td>
+                    </tr>
+                    <tr class="table-warning">
+                        <th>Customer Total</th>
+                        <th class="text-end text-danger"><span id="grand_total_text">Rp 0</span></th>
+                    </tr>
+                    <tr>
+                        <th>Vendor Total</th>
+                        <td class="text-end"><span id="vendor_cost_text">Rp 0</span></td>
+                    </tr>
+                    <tr class="table-success">
+                        <th>Profit</th>
+                        <th class="text-end"><span id="profit_text">Rp 0</span></th>
+                    </tr>
+                    <tr>
+                        <th>Margin</th>
+                        <td class="text-end"><span id="margin_text">0 %</span></td>
+                    </tr>
+                </table>
             </div>
-
-            <!-- Input Hidden -->
-            <input type="hidden" id="customer_total" name="customer_total" value="0">
-            <input type="hidden" id="vendor_total_charge" name="vendor_total_charge" value="0">
-            <input type="hidden" id="profit_amount" name="profit_amount" value="0">
-            <input type="hidden" id="selling_amount" value="0">
-            <input type="hidden" id="grand_total" name="grand_total" value="0">
-            <input type="hidden" id="vendor_total" value="0">
-
-            <!-- Tabel Ringkasan -->
-            <table class="table table-bordered mt-4">
-                <tr>
-                    <th>Freight Customer</th>
-                    <td class="text-end">
-                        <span id="shipment_charge_text">Rp 0</span>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Remote Area Charges</th>
-                    <td class="text-end">
-                        <span id="remote_charge_text">Rp 0</span>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Customer Charges</th>
-                    <td class="text-end">
-                        <span id="other_charge_text">Rp 0</span>
-                    </td>
-                </tr>
-                <tr class="table-warning">
-                    <th>Customer Total</th>
-                    <th class="text-end text-danger">
-                        <span id="grand_total_text">Rp 0</span>
-                    </th>
-                </tr>
-                <tr>
-                    <th>Vendor Total</th>
-                    <td class="text-end">
-                        <span id="vendor_cost_text">Rp 0</span>
-                    </td>
-                </tr>
-                <tr class="table-success">
-                    <th>Profit</th>
-                    <th class="text-end">
-                        <span id="profit_text">Rp 0</span>
-                    </th>
-                </tr>
-                <tr>
-                    <th>Margin</th>
-                    <td class="text-end">
-                        <span id="margin_text">0 %</span>
-                    </td>
-                </tr>
-            </table>
-
         </div>
     </div>
-</div>
 
+    <div class="text-end mt-3">
+        <a href="#" id="btnPricingAnalysis" class="btn btn-outline-primary">📈 Pricing Analysis</a>
+    </div>
 
-
-
-<div class="text-end mt-3">
-
-    <a href="#"
-
-       id="btnPricingAnalysis"
-
-       class="btn btn-outline-primary">
-
-       📈 Pricing Analysis
-
-    </a>
-
-</div>
-
-
-   
-
-
-    <!-- Shipment Summary -->
+    <!-- =======================================
+         SHIPMENT SUMMARY & ACTIONS
+    ======================================= -->
     <div class="card mb-3">
         <div class="card-header bg-dark text-white">Shipment Summary</div>
         <div class="card-body">
@@ -1283,11 +511,172 @@ id="customer_id">
 
 </div>
 
+</form>
+
+<!-- =======================================
+     MODAL ADD NEW SENDER
+======================================= -->
+<div class="modal fade" id="senderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">➕ Add New Sender</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Name *</label>
+                        <input type="text" id="new_sender_name" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Company</label>
+                        <input type="text" id="new_sender_company" class="form-control">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Phone *</label>
+                        <input type="text" id="new_sender_phone" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Identity No.</label>
+                        <input type="text" id="new_sender_identity" class="form-control">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Province</label>
+                        <select id="new_sender_province" class="form-select">
+                            <option value="">Select Province</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>City</label>
+                        <select id="new_sender_city" class="form-select">
+                            <option value="">Select City</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Postal Code</label>
+                        <input type="text" id="new_sender_postal" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Email</label>
+                        <input type="email" id="new_sender_email" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>Complete Address</label>
+                    <textarea id="new_sender_address" rows="3" class="form-control"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSaveSender">💾 Save Sender</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================================
+     MODAL ADD NEW RECEIVER
+======================================= -->
+<div class="modal fade" id="receiverModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">➕ Add New Receiver</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label>Destination Country *</label>
+                        <select id="new_receiver_country" name="country_id" class="form-select">
+                            <option value="">-- Select Country --</option>
+                            <?php foreach($countries as $country): ?>
+                                <option value="<?= $country['id'] ?>"><?= esc($country['country_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Name *</label>
+                        <input type="text" id="new_receiver_name" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Company</label>
+                        <input type="text" id="new_receiver_company" class="form-control">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Phone *</label>
+                        <input type="text" id="new_receiver_phone" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Identity No.</label>
+                        <input type="text" id="new_receiver_identity" class="form-control">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Province / District</label>
+                        <select id="new_receiver_province" class="form-select">
+                            <option value="">Select Province</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>City</label>
+                        <select id="new_receiver_city" class="form-select">
+                            <option value="">Select City</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Postal Code</label>
+                        <input type="text" id="new_receiver_postal" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Email</label>
+                        <input type="email" id="new_receiver_email" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>Complete Address</label>
+                    <textarea id="new_receiver_address" rows="3" class="form-control"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSaveReceiver">💾 Save Receiver</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =======================================
+     SCRIPTS
+======================================= -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const BASE_URL = "<?= base_url() ?>";
+</script>
+<script src="<?= base_url('js/modules/shipment/pricing.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/charges.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/profit.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
 
 <script>
 console.log('SCRIPT LOADED');
 
-// ✅ HITUNG VOLUME & CHARGEABLE WEIGHT
 function hitungVolume(el) {
     const card = el.closest('.card.border-primary');
     if (!card) return;
@@ -1303,10 +692,9 @@ function hitungVolume(el) {
     const charge = Math.max(berat, volume);
     card.querySelector('.chargeable').value = charge.toFixed(2);
     
-    hitungSemua(); // ← ini otomatis panggil total + tarif juga
+    hitungSemua();
 }
 
-// ✅ HITUNG TOTAL KESELURUHAN
 function hitungSemua(){
     const semuaBerat = document.querySelectorAll('.berat');
     const semuaCharge = document.querySelectorAll('.chargeable');
@@ -1323,16 +711,11 @@ function hitungSemua(){
     document.getElementById('total_nilai').value = totalNilai.toFixed(2);
     document.getElementById('total_colly').value = document.querySelectorAll('.card.border-primary').length;
 
-
-                        // ==========================
-                        // HITUNG ULANG TARIF
-                        // ==========================
-                        if (typeof loadShipmentRate === "function") {
-                            triggerLoadRate();
+    if (typeof loadShipmentRate === "function") {
+        triggerLoadRate();
+    }
 }
 
-                    }
-// ✅ URUTKAN NOMOR COLLY
 function renumberColly(){
     document.querySelectorAll('#colly-container .card.border-primary').forEach((card, index)=>{
         card.id = 'colly-' + (index + 1);
@@ -1340,7 +723,6 @@ function renumberColly(){
     });
 }
 
-// ✅ URUTKAN NOMOR BARANG
 function renumberItems(tbody){
     if(!tbody) return;
     [...tbody.rows].forEach((row, index)=>{
@@ -1348,7 +730,6 @@ function renumberItems(tbody){
     });
 }
 
-// ✅ HITUNG NILAI BARANG
 function hitungItem(row){
     if(!row) return;
     const qty = parseFloat(row.querySelector('.qty').value) || 0;
@@ -1357,58 +738,38 @@ function hitungItem(row){
     hitungSemua();
 }
 
-// ✅ AKTIFKAN EVENT INPUT
 function aktifkanEvent(){
     document.querySelectorAll('.qty, .unit_value').forEach(el => {
         el.oninput = () => hitungItem(el.closest('tr'));
     });
 }
 
-// ✅ ISI OTOMATIS ALAMAT PENERIMA
 document.getElementById('receiver_id').addEventListener('change', function () {
     const option = this.options[this.selectedIndex];
     if (!option.value) {
-        document.getElementById('receiver_name').value = '';
         document.getElementById('receiver_company').value = '';
         document.getElementById('receiver_phone').value = '';
         document.getElementById('receiver_email').value = '';
-        document.getElementById('city').value = '';
-        document.getElementById('postal_code').value = '';
-        document.getElementById('receiver_address_text').value = '';
-        document.getElementById('identity_number').value = '';
-        document.getElementById('receiver_country').value = 'ID';
+        document.getElementById('receiver_city').value = '';
+        document.getElementById('receiver_postal_code').value = '';
+        document.getElementById('receiver_address').value = '';
+        document.getElementById('receiver_identity').value = '';
+        document.getElementById('receiver_country').value = '';
+        document.getElementById('country_id').value = '';
         return;
     }
 
-   document.getElementById("receiver_company").value =
-    option.dataset.company || "";
-
-document.getElementById("receiver_phone").value =
-    option.dataset.phone || "";
-
-document.getElementById("receiver_email").value =
-    option.dataset.email || "";
-
-document.getElementById("receiver_city").value =
-    option.dataset.city || "";
-
-document.getElementById("receiver_postal_code").value =
-    option.dataset.postal || "";
-
-document.getElementById("receiver_address").value =
-    option.dataset.address || "";
-
-document.getElementById("receiver_identity").value =
-    option.dataset.identity || "";
-
-document.getElementById("receiver_country").value =
-    option.dataset.country || "";
-
-document.getElementById("country_id").value =
-    option.dataset.countryId || "";
+    document.getElementById("receiver_company").value = option.dataset.company || "";
+    document.getElementById("receiver_phone").value = option.dataset.phone || "";
+    document.getElementById("receiver_email").value = option.dataset.email || "";
+    document.getElementById("receiver_city").value = option.dataset.city || "";
+    document.getElementById("receiver_postal_code").value = option.dataset.postal || "";
+    document.getElementById("receiver_address").value = option.dataset.address || "";
+    document.getElementById("receiver_identity").value = option.dataset.identity || "";
+    document.getElementById("receiver_country").value = option.dataset.country || "";
+    document.getElementById("country_id").value = option.dataset.countryId || "";
 });
 
-// ✅ TAMBAH COLLY BARU
 document.getElementById('add-colly').addEventListener('click', function(){
     const container = document.getElementById('colly-container');
     const no = container.children.length + 1;
@@ -1449,9 +810,7 @@ document.getElementById('add-colly').addEventListener('click', function(){
                     <input type="text" class="form-control chargeable" name="packages[${no-1}][chargeable_weight]" value="1.00" readonly>
                 </div>
             </div>
-
             <hr class="my-2">
-
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">Items</h6>
                 <button type="button" class="btn btn-sm btn-success add-item">+ Add Item</button>
@@ -1496,7 +855,6 @@ document.getElementById('add-colly').addEventListener('click', function(){
     hitungSemua();
 });
 
-// ✅ HAPUS COLLY
 document.addEventListener('click', function(e){
     if(e.target.classList.contains('delete-colly')){
         const container = document.getElementById('colly-container');
@@ -1508,7 +866,6 @@ document.addEventListener('click', function(e){
     }
 });
 
-// ✅ DUPLIKAT COLLY
 document.addEventListener('click', function(e){
     if(e.target.classList.contains('duplicate-colly')){
         const current = e.target.closest('.card.border-primary');
@@ -1533,7 +890,6 @@ document.addEventListener('click', function(e){
     }
 });
 
-// ✅ TAMBAH BARANG
 document.addEventListener('click', function(e){
     if(e.target.classList.contains('add-item')){
         const tbody = e.target.closest('.card-body').querySelector('tbody');
@@ -1565,7 +921,6 @@ document.addEventListener('click', function(e){
     }
 });
 
-// ✅ HAPUS BARANG
 document.addEventListener('click', function(e){
     if(e.target.classList.contains('delete-item')){
         const tbody = e.target.closest('tbody');
@@ -1577,434 +932,252 @@ document.addEventListener('click', function(e){
     }
 });
 
-// Jalankan awal
-aktifkanEvent();
-hitungSemua();
-</script>
-
-</form>
-
-
-
-<!-- ===========================
-     MODAL ADD NEW SENDER
-============================ -->
-
-<div class="modal fade" id="senderModal" tabindex="-1" aria-hidden="true">
-
-    <div class="modal-dialog modal-lg">
-
-        <div class="modal-content">
-
-            <div class="modal-header bg-primary text-white">
-
-                <h5 class="modal-title">
-                    ➕ Add New Sender
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close btn-close-white"
-                    data-bs-dismiss="modal">
-                </button>
-
-            </div>
-
-            <div class="modal-body">
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-                        <label>Name *</label>
-                        <input
-                            type="text"
-                            id="new_sender_name"
-                            class="form-control">
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Company</label>
-                        <input
-                            type="text"
-                            id="new_sender_company"
-                            class="form-control">
-                    </div>
-
-                </div>
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-                        <label>Phone *</label>
-                        <input
-                            type="text"
-                            id="new_sender_phone"
-                            class="form-control">
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Identity No.</label>
-                        <input
-                            type="text"
-                            id="new_sender_identity"
-                            class="form-control">
-                    </div>
-
-                </div>
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-                        <label>Province</label>
-
-                        <select
-                            id="new_sender_province"
-                            class="form-select">
-
-                            <option value="">
-                                Select Province
-                            </option>
-
-                        </select>
-
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label>City</label>
-
-                        <select
-                            id="new_sender_city"
-                            class="form-select">
-
-                            <option value="">
-                                Select City
-                            </option>
-
-                        </select>
-
-                    </div>
-
-                </div>
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-
-                        <label>Postal Code</label>
-
-                        <input
-                            type="text"
-                            id="new_sender_postal"
-                            class="form-control">
-
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label>Email</label>
-
-                        <input
-                            type="email"
-                            id="new_sender_email"
-                            class="form-control">
-
-                    </div>
-
-                </div>
-
-                <div class="mb-3">
-
-                    <label>Complete Address</label>
-
-                    <textarea
-                        id="new_sender_address"
-                        rows="3"
-                        class="form-control"></textarea>
-
-                </div>
-
-            </div>
-
-            <div class="modal-footer">
-
-                <button
-                    type="button"
-                    class="btn btn-secondary"
-                    data-bs-dismiss="modal">
-
-                    Cancel
-
-                </button>
-
-                <button
-                    type="button"
-                    class="btn btn-primary"
-                    id="btnSaveSender">
-
-                    💾 Save Sender
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-
-
-
-
-
-
-<!-- ===========================
-     MODAL ADD NEW RECEIVER
-============================ -->
-
-<div class="modal fade" id="receiverModal" tabindex="-1" aria-hidden="true">
-
-    <div class="modal-dialog modal-lg">
-
-        <div class="modal-content">
-
-            <div class="modal-header bg-primary text-white">
-
-                <h5 class="modal-title">
-                    ➕ Add New Receiver
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close btn-close-white"
-                    data-bs-dismiss="modal">
-                </button>
-
-            </div>
-
-            <div class="modal-body">
-
-
-<div class="row">
-
-    <div class="col-md-12 mb-3">
-
-        <label>Destination Country *</label>
-
-        <select
-            id="new_receiver_country"
-            name="country_id"
-            class="form-select">
-
-            <option value="">-- Select Country --</option>
-
-            <?php foreach($countries as $country): ?>
-
-                <option value="<?= $country['id'] ?>">
-                    <?= esc($country['country_name']) ?>
-                </option>
-
-            <?php endforeach; ?>
-
-        </select>
-
-    </div>
-
-</div>
-
-
-
-
-
-
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-                        <label>Name *</label>
-                        <input
-                            type="text"
-                            id="new_receiver_name"
-                            class="form-control">
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Company</label>
-                        <input
-                            type="text"
-                            id="new_receiver_company"
-                            class="form-control">
-                    </div>
-
-                </div>
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-                        <label>Phone *</label>
-                        <input
-                            type="text"
-                            id="new_receiver_phone"
-                            class="form-control">
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Identity No.</label>
-                        <input
-                            type="text"
-                            id="new_receiver_identity"
-                            class="form-control">
-                    </div>
-
-                </div>
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-                        <label>Province / District</label>
-
-                        <select
-                            id="new_receiver_province"
-                            class="form-select">
-
-                            <option value="">
-                                Select Province
-                            </option>
-
-                        </select>
-
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label>City</label>
-
-                        <select
-                            id="new_receiver_city"
-                            class="form-select">
-
-                            <option value="">
-                                Select City
-                            </option>
-
-                        </select>
-
-                    </div>
-
-                </div>
-
-                <div class="row">
-
-                    <div class="col-md-6 mb-3">
-
-                        <label>Postal Code</label>
-
-                        <input
-                            type="text"
-                            id="new_receiver_postal"
-                            class="form-control">
-
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label>Email</label>
-
-                        <input
-                            type="email"
-                            id="new_receiver_email"
-                            class="form-control">
-
-                    </div>
-
-                </div>
-
-                <div class="mb-3">
-
-                    <label>Complete Address</label>
-
-                    <textarea
-                        id="new_receiver_address"
-                        rows="3"
-                        class="form-control"></textarea>
-
-                </div>
-
-            </div>
-
-            <div class="modal-footer">
-
-                <button
-                    type="button"
-                    class="btn btn-secondary"
-                    data-bs-dismiss="modal">
-
-                    Cancel
-
-                </button>
-
-                <button
-                    type="button"
-                    class="btn btn-primary"
-                    id="btnSaveReceiver">
-
-                    💾 Save Receiver
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-
-<!-- 1. jQuery DULU - agar tanda $ bisa dipakai -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-<!-- 2. Lalu Bootstrap -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- 3. Variabel global -->
-<script>
-const BASE_URL = "<?= base_url() ?>";
-</script>
-
-<!-- 4. Baru semua file JS aplikasi -->
-<script src="<?= base_url('js/modules/shipment/pricing.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/charges.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/profit.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
-
-
-<script>
-// Sementara hardcode saja, nanti diganti lagi pas Shield aktif
-window.userRole = 'admin'; // bisa ganti: operator / finance / admin
+window.userRole = 'admin';
 
 function refreshChargesUI() {
-    // ✅ Tampilkan biaya khusus Express
     const selectedEngine = $('#service_id option:selected').data('engine') || 'REGULAR';
     $('#expressCharges').toggle(selectedEngine === 'EXPRESS');
-
-    // ❌ Bagian Role kita nonaktifkan dulu sementara
-    // Nanti kita aktifkan lagi kalau sudah siap
 }
 
-// Jalankan saat buka halaman
 $(document).ready(function(){
+    aktifkanEvent();
+    hitungSemua();
     refreshChargesUI();
-});
 
-// Jalankan kalau ada perubahan
-$(document).on('change', '#service_id, #is_remote', refreshChargesUI);
+    // 1. Mengaktifkan Tombol Buka Modal
+    $('#btnAddCustomer').on('click', function() {
+        $('#senderModal').modal('show');
+    });
+
+    // 2. Proses Simpan SENDER via AJAX (Kembali ke ID HTML Asli)
+    $('#btnSaveSender').off('click').on('click', function() {
+        const senderData = {
+            address_type: 'SENDER',
+            country_id: 1, // Default Indonesia
+            contact_name: $('#new_sender_name').val(), // Dikembalikan ke id asli HTML kamu
+            company_name: $('#new_sender_company').val(),
+            phone: $('#new_sender_phone').val(), // pastikan ID di HTML input telepon adalah new_sender_phone
+            identity_number: $('#new_sender_identity').val(),
+            province: $('#new_sender_province').val(), 
+            city: $('#new_sender_city').val(),
+            postal_code: $('#new_sender_postal').val(),
+            email: $('#new_sender_email').val(),
+            address: $('#new_sender_address').val()
+        };
+
+        // Validasi data wajib
+        if (!senderData.contact_name || !senderData.phone) {
+            alert('Customer Name and Phone are required!');
+            return;
+        }
+
+        $.ajax({
+            url: BASE_URL + '/customer/address/save',
+            type: 'POST',
+            data: senderData,
+            dataType: 'json',
+            success: function(response) {
+               if (response.status === 'success') {
+                    alert('Sender address saved successfully!');
+                    
+                    // 1. Buat option baru
+                    const newOption = new Option(response.data.text, response.data.id, true, true);
+                    
+                    // 2. Suntik data lengkap ke dalam elemen option sebagai data-attribute
+                    $(newOption).attr({
+                        'data-company': response.address_details.company_name || '',
+                        'data-phone': response.address_details.phone || '',
+                        'data-email': response.address_details.email || '',
+                        'data-city': response.address_details.city || '',
+                        'data-state': response.address_details.state || '',
+                        'data-postal': response.address_details.postal_code || '',
+                        'data-address': response.address_details.address || '',
+                        'data-identity': response.address_details.identity_number || ''
+                    });
+                    
+                    
+                    // 3. Masukkan ke dropdown utama dan paksa pilih id-nya
+                    // Kita sertakan data objek aslinya langsung ke dalam trigger event-nya
+                    $('#customer_id').append(newOption).val(response.data.id).trigger({
+                        type: 'change',
+                        params: {
+                            data: response.address_details
+                        }
+                    });
+                    
+                    // 4. PAKSA ISI FORM UTAMA SECARA LIVE (Diberi delay tipis agar tidak ditimpa script bawaan)
+                    setTimeout(function() {
+                        $('input[name="sender_company"], #sender_company, #customer_company').val(response.address_details.company_name || '');
+                        $('input[name="sender_phone"], #sender_phone, #customer_phone').val(response.address_details.phone || '');
+                        $('input[name="sender_email"], #sender_email, #customer_email').val(response.address_details.email || '');
+                        $('textarea[name="sender_address"], #sender_address, #customer_address').val(response.address_details.address || '');
+                        $('input[name="sender_city"], #sender_city, #customer_city').val(response.address_details.city || '');
+                        $('input[name="receiver_province"], #receiver_province').val(response.address_details.province || '');
+                        $('input[name="sender_postal"], #sender_postal, #customer_postal').val(response.address_details.postal_code || '');
+                        $('input[name="sender_identity"], #sender_identity, #customer_identity').val(response.address_details.identity_number || '');
+                    }, 200);
+
+                    // 5. Tutup modal & bersihkan form modal
+                    $('#senderModal').modal('hide');
+                    $('#senderModal input, #senderModal textarea').val('');
+                
+                } else {
+                    alert('Gagal: ' + response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error(xhr.responseText);
+                alert('Error AJAX Sender: ' + xhr.status + ' | ' + error);
+            }
+        });
+    });
+
+/// ==========================================
+// 3. PROSES SIMPAN RECEIVER VIA AJAX (SUPER SAFE & ANTI ANTENG - OPTIMIZED)
+// ==========================================
+$('#btnSaveReceiver, #receiverModal .btn-primary, #receiverModal button[type="submit"]').off('click').on('click', function(e) {
+    e.preventDefault(); 
+    
+    const $btn = $(this); // Amankan context tombol
+    
+    // Cegah double submit jika tombol sedang loading/disabled
+    if ($btn.prop('disabled')) return;
+
+    console.log("Tombol Receiver berhasil diklik!"); 
+
+    const receiverData = {
+        address_type: 'RECEIVER',
+        country_id: 1, 
+        contact_name: $('#new_receiver_name').val() || $('#receiverModal input[type="text"]').first().val(), 
+        company_name: $('#new_receiver_company').val(),
+        phone: $('#new_receiver_phone').val(), 
+        identity_number: $('#new_receiver_identity').val(),
+        province: $('#new_receiver_province').val(), 
+        city: $('#new_receiver_city').val(),
+        postal_code: $('#new_receiver_postal').val(),
+        email: $('#new_receiver_email').val(),
+        address: $('#new_receiver_address').val()
+    };
+
+    if (!receiverData.contact_name) {
+        alert('Receiver Name is required!');
+        return;
+    }
+    if (!receiverData.phone) {
+        alert('Receiver Phone Number is required!');
+        return;
+    }
+
+    // Kunci tombol biar user ga klik brutal pas internet lemot
+    $btn.prop('disabled', true).text('Saving...');
+
+    $.ajax({
+        url: BASE_URL + '/customer/address/save', 
+        type: 'POST',
+        data: receiverData,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                alert('Receiver address saved successfully!');
+                
+                // PENTING: Amankan fallback jika backend membungkus detailnya di objek 'data' atau 'address_details'
+                const details = response.address_details || response.data || {};
+                const resData = response.data || {};
+                
+                // Bikin option baru dengan jQuery agar attribute nempel sempurna
+                const $newOption = $('<option>', {
+                    value: resData.id,
+                    text: resData.text || receiverData.contact_name,
+                    selected: true
+                }).attr({
+                    'data-company': details.company_name || '',
+                    'data-phone': details.phone || '',
+                    'data-email': details.email || '',
+                    'data-city': details.city || '',
+                    'data-state': details.state || '',
+                    'data-postal': details.postal_code || '',
+                    'data-address': details.address || '',
+                    'data-identity': details.identity_number || ''
+                });
+                
+                // Masukkan ke dropdown Receiver & trigger change untuk Select2
+                $('#receiver_id').append($newOption).trigger({
+                    type: 'change',
+                    params: { data: details }
+                });
+                
+                // Paksa isi form utama seksi Receiver
+                setTimeout(function() {
+                    $('input[name="receiver_company"], #receiver_company').val(details.company_name || '');
+                    $('input[name="receiver_phone"], #receiver_phone').val(details.phone || '');
+                    $('input[name="receiver_email"], #receiver_email').val(details.email || '');
+                    $('textarea[name="receiver_address"], #receiver_address').val(details.address || '');
+                    $('input[name="receiver_city"], #receiver_city').val(details.city || '');
+                    $('input[name="receiver_state"], #receiver_state, #receiver_province').val(details.state || '');
+                    $('input[name="receiver_postal"], #receiver_postal').val(details.postal_code || '');
+                    $('input[name="receiver_identity"], #receiver_identity').val(details.identity_number || '');
+                }, 200);
+
+                $('#receiverModal').modal('hide');
+                $('#receiverModal input, #receiverModal textarea').val('');
+            } else {
+                alert('Gagal: ' + response.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error(xhr.responseText);
+            alert('Error AJAX Receiver: ' + xhr.status);
+        },
+        complete: function() {
+            // Buka kembali kunci tombol setelah proses selesai (baik sukses/gagal)
+            $btn.prop('disabled', false).text('Save');
+        }
+    });
+});
+                    
+}); // TUTUP $(document).ready
+
+// Event Listener di luar ready
+$(document).off('change', '#service_id, #is_remote').on('change', '#service_id, #is_remote', refreshChargesUI);
+
 </script>
+
+
+
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const customerSelect = document.getElementById("customer_id");
+
+    if (!customerSelect) {
+        console.log("customer_id tidak ditemukan");
+        return;
+    }
+
+    console.log("CUSTOMER AUTOFILL READY");
+
+    customerSelect.addEventListener("change", function () {
+        const option = this.options[this.selectedIndex];
+
+        document.getElementById("sender_company").value = option.dataset.company || "";
+        document.getElementById("sender_phone").value = option.dataset.phone || "";
+        document.getElementById("sender_email").value = option.dataset.email || "";
+        document.getElementById("sender_city").value = option.dataset.city || "";
+        document.getElementById("sender_postal_code").value = option.dataset.postal || "";
+        document.getElementById("sender_address").value = option.dataset.address || "";
+        document.getElementById("sender_identity").value = option.dataset.identity || "";
+        document.getElementById("sender_country").value = option.dataset.country || "";
+        document.getElementById("sender_province").value = option.dataset.state || "";
+
+        console.log("SENDER AUTOFILLED:", option.dataset);
+    });
+});
+</script>
+
+
+
+
 
 </body>
 </html>

@@ -16,9 +16,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // ======================================
     // ADD NEW SENDER BUTTON
     // ======================================
-    const btnAddSender = document.getElementById("btnAddSender");
-    if (btnAddSender) {
-        btnAddSender.addEventListener("click", function () {
+    const btnAddCustomer = document.getElementById("btnAddCustomer");
+    if (btnAddCustomer) {
+        btnAddCustomer.addEventListener("click", function () {
             bootstrap.Modal
                 .getOrCreateInstance(document.getElementById("senderModal"))
                 .show();
@@ -28,11 +28,22 @@ document.addEventListener("DOMContentLoaded", function () {
     // ===============================
     // SENDER DROPDOWN CHANGE
     // ===============================
-    const senderSelect = document.getElementById("sender_id");
+    const senderSelect = document.getElementById("customer_id");
     if (senderSelect) {
         senderSelect.addEventListener("change", function () {
-            const selected = this.options[this.selectedIndex];
-            if (this.value && Object.keys(selected.dataset).length > 0) {
+
+    const selected = this.options[this.selectedIndex];
+
+    console.log("SELECTED OPTION");
+    console.log(selected);
+
+    console.log("DATASET");
+    console.log(selected.dataset);
+
+    if (this.value && Object.keys(selected.dataset).length > 0) {
+
+
+        
                 document.getElementById("sender_company").value      = selected.dataset.company || "";
                 document.getElementById("sender_phone").value         = selected.dataset.phone || "";
                 document.getElementById("sender_identity").value      = selected.dataset.identity || "";
@@ -62,21 +73,21 @@ document.addEventListener("DOMContentLoaded", function () {
     const btnSaveSender = document.getElementById("btnSaveSender");
     if (btnSaveSender) {
         btnSaveSender.addEventListener("click", function () {
-            const countryEl = document.getElementById("new_sender_country");
+            const countryEl = document.getElementById("new_customer_country");
             const countryId = countryEl ? countryEl.value : "";
             const countryName = countryEl && countryEl.selectedIndex >= 0 ? countryEl.options[countryEl.selectedIndex].text : "";
 
             const formData = new URLSearchParams({
                 address_type    : "SENDER",
-                contact_name    : document.getElementById("new_sender_name").value.trim(),
-                company_name    : document.getElementById("new_sender_company").value.trim(),
-                phone           : document.getElementById("new_sender_phone").value.trim(),
-                identity_number : document.getElementById("new_sender_identity").value.trim(),
-                province        : document.getElementById("new_sender_province").value.trim(),
-                city            : document.getElementById("new_sender_city").value.trim(),
-                postal_code     : document.getElementById("new_sender_postal").value.trim(),
-                address         : document.getElementById("new_sender_address").value.trim(),
-                email           : document.getElementById("new_sender_email").value.trim(),
+                contact_name    : document.getElementById("new_customer_name").value.trim(),
+                company_name    : document.getElementById("new_customer_company").value.trim(),
+                phone           : document.getElementById("new_customer_phone").value.trim(),
+                identity_number : document.getElementById("new_customer_identity").value.trim(),
+                province        : document.getElementById("new_customer_province").value.trim(),
+                city            : document.getElementById("new_customer_city").value.trim(),
+                postal_code     : document.getElementById("new_customer_postal").value.trim(),
+                address         : document.getElementById("new_customer_address").value.trim(),
+                email           : document.getElementById("new_customer_email").value.trim(),
                 country_id      : countryId,
                 csrf_token      : document.querySelector('input[name="csrf_token"]')?.value || ""
             });
@@ -91,33 +102,38 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .then(response => response.json())
             .then(res => {
-                if (res.status === "success") {
-                    alert("✅ Sender address saved successfully!");
-                    const s = res.address;
-                    const newOption = document.createElement("option");
-                    newOption.value = s.id;
-                    newOption.text = s.contact_name + (s.city ? " - " + s.city : "");
+    if (res.status === "success") {
+        alert("✅ Sender address saved successfully!");
+        
+        const s = res.address_details; // Ini array $address dari PHP
+        const newOption = document.createElement("option");
+        
+        newOption.value = res.data.id; // Mengambil ID dari res.data.id atau s.id
+        newOption.text  = res.data.text; // Menggunakan textDisplay yang sudah dibuat di PHP
 
-                    newOption.dataset.name     = s.contact_name || "";
-                    newOption.dataset.company  = s.company_name || "";
-                    newOption.dataset.phone    = s.phone || "";
-                    newOption.dataset.email    = s.email || "";
-                    newOption.dataset.state    = s.state || "";
-                    newOption.dataset.city     = s.city || "";
-                    newOption.dataset.postal   = s.postal_code || "";
-                    newOption.dataset.address  = s.address || "";
-                    newOption.dataset.identity = s.identity_number || "";
-                    newOption.dataset.country  = countryName;
+        // Mapping dataset disesuaikan dengan key dari Controller PHP
+        newOption.dataset.company   = s.company_name || "";
+        newOption.dataset.phone     = s.phone || "";
+        newOption.dataset.email     = s.email || "";
+        newOption.dataset.state     = s.state || "";        // 🛠️ FIXED: dari PHP namanya 'state'
+        newOption.dataset.city      = s.city || "";
+        newOption.dataset.postal    = s.postal_code || "";  // 🛠️ FIXED: pastikan konsisten camelCase/lowercase di dropdown change
+        newOption.dataset.identity  = s.identity_number || "";
+        newOption.dataset.country   = s.country_name || "";
+        newOption.dataset.countryId = s.country_id || "";
 
-                    senderSelect.appendChild(newOption);
-                    senderSelect.value = s.id;
-                    senderSelect.dispatchEvent(new Event("change"));
+        // Tambah ke dropdown dan select otomatis
+        senderSelect.appendChild(newOption);
+        senderSelect.value = res.data.id;
+        
+        // Pemicu biar input form langsung auto-fill setelah modal close
+        senderSelect.dispatchEvent(new Event("change"));
 
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById("senderModal")).hide();
-                } else {
-                    alert("❌ Error: " + (res.message || "Failed to save address"));
-                }
-            })
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("senderModal")).hide();
+    } else {
+        alert("❌ Error: " + (res.message || "Failed to save address"));
+    }
+})
             .catch(err => {
                 console.error("Save error:", err);
                 alert("⚠️ Server error. Please try again.");
@@ -189,33 +205,56 @@ document.addEventListener("DOMContentLoaded", function () {
             const countryId = countryEl ? countryEl.value : "";
             const countryName = countryEl && countryEl.selectedIndex >= 0 ? countryEl.options[countryEl.selectedIndex].text : "";
 
-            const formData = new URLSearchParams({
-                address_type    : "RECEIVER",
-                contact_name    : document.getElementById("new_receiver_name").value.trim(),
-                company_name    : document.getElementById("new_receiver_company").value.trim(),
-                phone           : document.getElementById("new_receiver_phone").value.trim(),
-                identity_number : document.getElementById("new_receiver_identity").value.trim(),
-                province        : document.getElementById("new_receiver_province").value.trim(),
-                city            : document.getElementById("new_receiver_city").value.trim(),
-                postal_code     : document.getElementById("new_receiver_postal").value.trim(),
-                address         : document.getElementById("new_receiver_address").value.trim(),
-                email           : document.getElementById("new_receiver_email").value.trim(),
-                country_id      : countryId,
-                csrf_token      : document.querySelector('input[name="csrf_token"]')?.value || ""
-            });
+const formData = new URLSearchParams({
 
-            fetch("/customer/address/save", {
-                method: "POST",
-                headers: {
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Accept": "application/json"
-                },
-                body: formData
-            })
+    customer_id:
+        document.getElementById("customer_id").value,
+
+    receiver_name:
+        document.getElementById("new_receiver_name").value,
+
+    company_name:
+        document.getElementById("new_receiver_company").value,
+
+    phone:
+        document.getElementById("new_receiver_phone").value,
+
+    email:
+        document.getElementById("new_receiver_email").value,
+
+    city:
+        document.getElementById("new_receiver_city").value,
+
+    state_province:
+        document.getElementById("new_receiver_province").value,
+
+    postal_code:
+        document.getElementById("new_receiver_postal").value,
+
+    address:
+        document.getElementById("new_receiver_address").value,
+
+    identity_number:
+        document.getElementById("new_receiver_identity").value,
+
+    country_id:
+        document.getElementById("new_receiver_country").value
+
+});
+             
+
+fetch("/receivers/store_ajax", {
+    method: "POST",
+    headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json"
+    },
+    body: formData
+})
             .then(response => response.json())
             .then(res => {
                 if (res.status === "success") {
-                    const s = res.address;
+                    const s = res.address_details;
                     const newOption = document.createElement("option");
                     newOption.value = s.id;
                     newOption.text = s.contact_name + (s.city ? " - " + s.city : "");
@@ -229,7 +268,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     newOption.dataset.postal   = s.postal_code || "";
                     newOption.dataset.address  = s.address || "";
                     newOption.dataset.identity = s.identity_number || "";
-                    newOption.dataset.country  = countryName;
+                    newOption.dataset.country = s.country_name;
 
                     receiverSelect.appendChild(newOption);
                     receiverSelect.value = s.id;
@@ -277,10 +316,10 @@ function calculateGrandTotal() {
 
 document.addEventListener("DOMContentLoaded", function () {
     const grandTotalFields = [
-        "insurance_amount",
-        "packing_charge",
-        "additional_charge",
-        "discount"
+        "insurance_customer",
+        "packing_customer",
+        "additional_customer",
+        "discount_amount"
     ];
 
     grandTotalFields.forEach(function (id) {
@@ -390,6 +429,7 @@ function calculatePricing() {
 
 // ✅ TRIGGER OTOMATIS SESUAI SPESIFIKASI
 $(document).ready(function() {
+    $('#customer_id').change(triggerPricing);
     $('#country_id').change(triggerPricing);
     $('#service_id').change(triggerPricing);
     $('#vendor_id').change(triggerPricing);
