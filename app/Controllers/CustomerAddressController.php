@@ -66,22 +66,22 @@ class CustomerAddressController extends BaseController
 
         ];
 
-        $id = $model->insert($data, true);
-
+       $id = $model->insert($data, true);
         $address = $model->find($id);
 
-
         $country = (new CountryModel())->find($address['country_id']);
-
         $address['country_name'] = $country['country_name'] ?? '';
 
+        // BUAT TEKS TAMPILAN UNTUK DROPDOWN
+        $textDisplay = $address['contact_name'] . ($address['company_name'] ? ' - ' . $address['company_name'] : '');
+
         return $this->response->setJSON([
-
-            'status'  => 'success',
-
-            'address' => $address
-
+            'status' => 'success',
+            'data'   => [
+                'id'   => $id, // Menggunakan $id hasil insert, bukan $newId
+                'text' => $textDisplay
+            ],
+            'address_details' => $address // Membawa sisa data alamat jika dibutuhkan di UI
         ]);
-
     }
 }

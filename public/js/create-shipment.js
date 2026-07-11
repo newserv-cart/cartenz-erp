@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.getElementById("sender_email").value        = selected.dataset.email || "";
                 document.getElementById("sender_province").value      = selected.dataset.state || "";
                 document.getElementById("sender_city").value          = selected.dataset.city || "";
-                document.getElementById("sender_postal_code").value   = selected.dataset.postal || "";
+                document.getElementById("sender_postal_code").value   = selected.dataset.postal_code || "";
                 document.getElementById("sender_address").value      = selected.dataset.address || "";
                 document.getElementById("sender_country").value       = selected.dataset.country || "";
             } else {
@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 identity_number : document.getElementById("new_customer_identity").value.trim(),
                 province        : document.getElementById("new_customer_province").value.trim(),
                 city            : document.getElementById("new_customer_city").value.trim(),
-                postal_code     : document.getElementById("new_customer_postal").value.trim(),
+                postal_code     : document.getElementById("new_customer_postal_code").value.trim(),
                 address         : document.getElementById("new_customer_address").value.trim(),
                 email           : document.getElementById("new_customer_email").value.trim(),
                 country_id      : countryId,
@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Mapping dataset disesuaikan dengan key dari Controller PHP
         newOption.dataset.company   = s.company_name || "";
         newOption.dataset.phone     = s.phone || "";
-        newOption.dataset.email     = s.email || "";
+        newOption.dataset.email     = s.email || "";   
         newOption.dataset.state     = s.state || "";        // 🛠️ FIXED: dari PHP namanya 'state'
         newOption.dataset.city      = s.city || "";
         newOption.dataset.postal    = s.postal_code || "";  // 🛠️ FIXED: pastikan konsisten camelCase/lowercase di dropdown change
@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.getElementById("receiver_email").value        = selected.dataset.email || "";
                 document.getElementById("receiver_province").value      = selected.dataset.state || "";
                 document.getElementById("receiver_city").value          = selected.dataset.city || "";
-                document.getElementById("receiver_postal_code").value   = selected.dataset.postal || "";
+                document.getElementById("receiver_postal_code").value   = selected.dataset.postal_code || "";
                 document.getElementById("receiver_address").value      = selected.dataset.address || "";
                 document.getElementById("receiver_country").value       = selected.dataset.country || "";
                 document.getElementById("country_id").value             = selected.dataset.countryId || "";
