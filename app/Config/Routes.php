@@ -750,3 +750,11 @@ $routes->post('master/regular-tariffs/save-manual', 'Master\RegularTariffControl
 
 // Download template
 $routes->get('master/regular-tariffs/download-template', 'Master\RegularTariffController::downloadTemplate');
+
+
+$routes->post('customers/store_ajax', 'Customers::store_ajax');
+
+$routes->post('receivers/store_ajax', 'ReceiverController::store_ajax');
+$routes->get( 'test/rule-engine',    'RuleEngineTestController::index');
+
+$routes->get('test/pricing', 'PricingTestController::index');
