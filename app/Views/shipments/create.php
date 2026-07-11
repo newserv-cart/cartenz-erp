@@ -36,7 +36,7 @@
                             data-email="<?= esc($row['email']) ?>"
                             data-city="<?= esc($row['city']) ?>"
                             data-state="<?= esc($row['state']) ?>"
-                            data-postal="<?= esc($row['postal_code']) ?>"
+                             data-postal-code="<?= esc($row['postal_code']) ?>" 
                             data-address="<?= esc($row['address']) ?>"
                             data-country="<?= esc($row['country_name']) ?>"
                             data-identity="<?= esc($row['identity_number']) ?>">
@@ -51,56 +51,54 @@
                 </div>
             </div>
 
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>Company</label>
-                    <input id="sender_company" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Phone</label>
-                    <input id="sender_phone" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>Identity Number</label>
-                    <input id="sender_identity" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Province</label>
-                    <input id="sender_province" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>City</label>
-                    <input id="sender_city" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Postal Code</label>
-                    <input id="sender_postal_code" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>Country</label>
-                    <input id="sender_country" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Email</label>
-                    <input id="sender_email" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="mb-3">
-                <label>Complete Address</label>
-                <textarea id="sender_address" class="form-control" rows="3" readonly></textarea>
-            </div>
-        </div>
+          <div class="row">
+    <div class="col-md-6 mb-3">
+        <label>Company</label>
+        <input id="sender_company" class="form-control" readonly>
     </div>
+    <div class="col-md-6 mb-3">
+        <label>Phone</label>
+        <input id="sender_phone" class="form-control" readonly>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label>Email</label>
+        <input id="sender_email" class="form-control" readonly>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label>Identity Number</label>
+        <input id="sender_identity" class="form-control" readonly>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label>Province</label>
+        <input id="sender_province" class="form-control" readonly>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label>City</label>
+        <input id="sender_city" class="form-control" readonly>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label>Postal Code</label>
+        <input id="sender_postal_code" class="form-control" readonly>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label>Country</label>
+        <input id="sender_country" class="form-control" readonly>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label>Complete Address</label>
+    <textarea id="sender_address" class="form-control" rows="3" readonly></textarea>
+</div>
 
     <!-- =======================================
          RECEIVER INFORMATION
@@ -112,27 +110,28 @@
         <div class="card-body">
             <div class="row align-items-end">
                 <div class="col-md-9">
-                    <label class="form-label fw-bold">👤 Receiver</label>
-                    <select id="receiver_id" name="receiver_id" class="form-select">
-                        <option value="">-- Select Receiver --</option>
-                        <?php foreach($receiverAddresses as $row): ?>
-                        <option
-                            value="<?= $row['id'] ?>"
-                            data-country-id="<?= esc($row['country_id']) ?>"    
-                            data-company="<?= esc($row['company_name']) ?>"
-                            data-phone="<?= esc($row['phone']) ?>"
-                            data-email="<?= esc($row['email']) ?>"
-                            data-city="<?= esc($row['city']) ?>"
-                            data-state="<?= esc($row['state']) ?>"
-                            data-postal="<?= esc($row['postal_code']) ?>"
-                            data-address="<?= esc($row['address']) ?>"
-                            data-country="<?= esc($row['country_name']) ?>"
-                            data-identity="<?= esc($row['identity_number']) ?>">
-                            <?= esc($row['contact_name']) ?>
-                            <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+<!-- DROPDOWN RECEIVER YANG BENAR -->
+<select id="receiver_id" name="receiver_id" class="form-select">
+    <option value="">-- Select Receiver --</option>
+    <?php foreach($receiverAddresses as $row): ?>
+    <option
+        value="<?= $row['id'] ?>"
+        data-country-id="<?= esc($row['country_id']) ?>"
+        data-company="<?= esc($row['company_name']) ?>"
+        data-phone="<?= esc($row['phone']) ?>"
+        data-email="<?= esc($row['email']) ?>"
+        data-city="<?= esc($row['city']) ?>"
+        data-state="<?= esc($row['state']) ?>"
+        data-postal-code="<?= esc($row['postal_code']) ?>"
+        data-address="<?= esc($row['address']) ?>"
+        data-country="<?= esc($row['country_name']) ?>"
+        data-identity="<?= esc($row['identity_number']) ?>"
+    >
+        <?= esc($row['contact_name']) ?>
+        <?= !empty($row['company_name']) ? ' - ' . esc($row['company_name']) : '' ?>
+    </option>
+    <?php endforeach; ?>
+</select>
                 </div>
                 <div class="col-md-3 d-grid">
                     <button type="button" id="btnAddReceiver" class="btn btn-success">➕ Add Receiver</button>
@@ -524,55 +523,58 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Name *</label>
-                        <input type="text" id="new_sender_name" class="form-control">
+                        <input type="text" id="new_sender_name" class="form-control" required>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label>Company</label>
                         <input type="text" id="new_sender_company" class="form-control">
                     </div>
                 </div>
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Phone *</label>
-                        <input type="text" id="new_sender_phone" class="form-control">
+                        <input type="text" id="new_sender_phone" class="form-control" required>
                     </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Email</label>
+                        <input type="email" id="new_sender_email" class="form-control" placeholder="email@example.com">
+                    </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Identity No.</label>
                         <input type="text" id="new_sender_identity" class="form-control">
                     </div>
-                </div>
-                <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label>Province</label>
-                        <select id="new_sender_province" class="form-select">
-                            <option value="">Select Province</option>
-                        </select>
+                        <label>Province / State</label>
+                        <input type="text" id="new_sender_province" class="form-control" placeholder="e.g. West Java">
                     </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>City</label>
-                        <select id="new_sender_city" class="form-select">
-                            <option value="">Select City</option>
-                        </select>
+                        <input type="text" id="new_sender_city" class="form-control" placeholder="e.g. Bekasi">
                     </div>
-                </div>
-                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Postal Code</label>
-                        <input type="text" id="new_sender_postal" class="form-control">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label>Email</label>
-                        <input type="email" id="new_sender_email" class="form-control">
+                        <input type="text" id="new_sender_postal_code" class="form-control" placeholder="e.g. 17111">
                     </div>
                 </div>
+
                 <div class="mb-3">
                     <label>Complete Address</label>
-                    <textarea id="new_sender_address" rows="3" class="form-control"></textarea>
+                    <textarea id="new_sender_address" rows="3" class="form-control" placeholder="Street name, building, etc."></textarea>
                 </div>
+
             </div>
+            
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="btnSaveSender">💾 Save Sender</button>
@@ -580,7 +582,6 @@
         </div>
     </div>
 </div>
-
 <!-- =======================================
      MODAL ADD NEW RECEIVER
 ======================================= -->
@@ -613,35 +614,50 @@
                         <input type="text" id="new_receiver_company" class="form-control">
                     </div>
                 </div>
+
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Phone *</label>
                         <input type="text" id="new_receiver_phone" class="form-control">
                     </div>
+
+
                     <div class="col-md-6 mb-3">
                         <label>Identity No.</label>
                         <input type="text" id="new_receiver_identity" class="form-control">
                     </div>
                 </div>
+
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Province / District</label>
-                        <select id="new_receiver_province" class="form-select">
-                            <option value="">Select Province</option>
-                        </select>
+                       <input
+                        type="text"
+                        id="new_receiver_province"
+                        class="form-control"
+                        placeholder="Province / State">
                     </div>
+
+
                     <div class="col-md-6 mb-3">
-                        <label>City</label>
-                        <select id="new_receiver_city" class="form-select">
-                            <option value="">Select City</option>
-                        </select>
-                    </div>
-                </div>
+    <label>City</label>
+    <input
+        type="text"
+        id="new_receiver_city"
+        class="form-control"
+        placeholder="City">
+</div>
+</div>
+
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Postal Code</label>
                         <input type="text" id="new_receiver_postal" class="form-control">
                     </div>
+
                     <div class="col-md-6 mb-3">
                         <label>Email</label>
                         <input type="email" id="new_receiver_email" class="form-control">
@@ -743,7 +759,7 @@ function aktifkanEvent(){
         el.oninput = () => hitungItem(el.closest('tr'));
     });
 }
-
+/////PENERIMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 document.getElementById('receiver_id').addEventListener('change', function () {
     const option = this.options[this.selectedIndex];
     if (!option.value) {
@@ -751,6 +767,7 @@ document.getElementById('receiver_id').addEventListener('change', function () {
         document.getElementById('receiver_phone').value = '';
         document.getElementById('receiver_email').value = '';
         document.getElementById('receiver_city').value = '';
+        document.getElementById('receiver_province').value = '';
         document.getElementById('receiver_postal_code').value = '';
         document.getElementById('receiver_address').value = '';
         document.getElementById('receiver_identity').value = '';
@@ -759,15 +776,16 @@ document.getElementById('receiver_id').addEventListener('change', function () {
         return;
     }
 
-    document.getElementById("receiver_company").value = option.dataset.company || "";
-    document.getElementById("receiver_phone").value = option.dataset.phone || "";
-    document.getElementById("receiver_email").value = option.dataset.email || "";
-    document.getElementById("receiver_city").value = option.dataset.city || "";
-    document.getElementById("receiver_postal_code").value = option.dataset.postal || "";
-    document.getElementById("receiver_address").value = option.dataset.address || "";
-    document.getElementById("receiver_identity").value = option.dataset.identity || "";
-    document.getElementById("receiver_country").value = option.dataset.country || "";
-    document.getElementById("country_id").value = option.dataset.countryId || "";
+    document.getElementById("receiver_company").value    = option.dataset.company || "";
+    document.getElementById("receiver_phone").value      = option.dataset.phone || "";
+    document.getElementById("receiver_email").value     = option.dataset.email || "";
+    document.getElementById("receiver_city").value       = option.dataset.city || "";
+    document.getElementById("receiver_province").value   = option.dataset.state || "";
+    document.getElementById("receiver_postal_code").value = option.dataset.postalCode || ""; // ✅ Sama persis pola Sender
+    document.getElementById("receiver_address").value    = option.dataset.address || "";
+    document.getElementById("receiver_identity").value   = option.dataset.identity || "";
+    document.getElementById("receiver_country").value   = option.dataset.country || "";
+    document.getElementById("country_id").value          = option.dataset.countryId || "";
 });
 
 document.getElementById('add-colly').addEventListener('click', function(){
@@ -953,95 +971,88 @@ $(document).ready(function(){
     $('#receiverModal').modal('show');
 });
 
-    // 2. Proses Simpan SENDER via AJAX (Kembali ke ID HTML Asli)
     $('#btnSaveSender').off('click').on('click', function() {
-        const senderData = {
-            address_type: 'SENDER',
-            country_id: 1, // Default Indonesia
-            contact_name: $('#new_sender_name').val(), // Dikembalikan ke id asli HTML kamu
-            company_name: $('#new_sender_company').val(),
-            phone: $('#new_sender_phone').val(), // pastikan ID di HTML input telepon adalah new_sender_phone
-            identity_number: $('#new_sender_identity').val(),
-            province: $('#new_sender_province').val(), 
-            city: $('#new_sender_city').val(),
-            postal_code: $('#new_sender_postal').val(),
-            email: $('#new_sender_email').val(),
-            address: $('#new_sender_address').val()
-        };
+    const senderData = {
+        address_type: 'SENDER',
+        country_id: 0,
+        contact_name: $('#new_sender_name').val(),
+        company_name: $('#new_sender_company').val(),
+        phone: $('#new_sender_phone').val(),
+        identity_number: $('#new_sender_identity').val(),
+        province: $('#new_sender_province').val(),
+        city: $('#new_sender_city').val(),
+        postal_code: $('#new_sender_postal_code').val(), // ✅ Ambil kode pos dari modal
+        email: $('#new_sender_email').val(),
+        address: $('#new_sender_address').val()
+    };
 
-        // Validasi data wajib
-        if (!senderData.contact_name || !senderData.phone) {
-            alert('Customer Name and Phone are required!');
-            return;
-        }
+    if (!senderData.contact_name || !senderData.phone) {
+        alert('Customer Name and Phone are required!');
+        return;
+    }
 
-        $.ajax({
-            url: BASE_URL + '/customer/address/save',
-            type: 'POST',
-            data: senderData,
-            dataType: 'json',
-            success: function(response) {
-               if (response.status === 'success') {
-                    alert('Sender address saved successfully!');
-                    
-                    // 1. Buat option baru
-                    const newOption = new Option(response.data.text, response.data.id, true, true);
-                    
-                    // 2. Suntik data lengkap ke dalam elemen option sebagai data-attribute
-                    $(newOption).attr({
-                        'data-company': response.address_details.company_name || '',
-                        'data-phone': response.address_details.phone || '',
-                        'data-email': response.address_details.email || '',
-                        'data-city': response.address_details.city || '',
-                        'data-state': response.address_details.state || '',
-                        'data-postal': response.address_details.postal_code || '',
-                        'data-address': response.address_details.address || '',
-                        'data-identity': response.address_details.identity_number || ''
-                    });
-                    
-                    
-                    // 3. Masukkan ke dropdown utama dan paksa pilih id-nya
-                    // Kita sertakan data objek aslinya langsung ke dalam trigger event-nya
-                    $('#customer_id').append(newOption).val(response.data.id).trigger({
-                        type: 'change',
-                        params: {
-                            data: response.address_details
-                        }
-                    });
-                    
-                    // 4. PAKSA ISI FORM UTAMA SECARA LIVE (Diberi delay tipis agar tidak ditimpa script bawaan)
-                    setTimeout(function() {
-                        $('input[name="sender_company"], #sender_company, #customer_company').val(response.address_details.company_name || '');
-                        $('input[name="sender_phone"], #sender_phone, #customer_phone').val(response.address_details.phone || '');
-                        $('input[name="sender_email"], #sender_email, #customer_email').val(response.address_details.email || '');
-                        $('textarea[name="sender_address"], #sender_address, #customer_address').val(response.address_details.address || '');
-                        $('input[name="sender_city"], #sender_city, #customer_city').val(response.address_details.city || '');
-                        $('input[name="receiver_province"], #receiver_province').val(response.address_details.province || '');
-                        $('input[name="sender_postal"], #sender_postal, #customer_postal').val(response.address_details.postal_code || '');
-                        $('input[name="sender_identity"], #sender_identity, #customer_identity').val(response.address_details.identity_number || '');
-                    }, 200);
+    $.ajax({
+        url: BASE_URL + '/customer/address/save',
+        type: 'POST',
+        data: senderData,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                alert('Sender saved successfully!');
 
-                    // 5. Tutup modal & bersihkan form modal
-                    $('#senderModal').modal('hide');
-                    $('#senderModal input, #senderModal textarea').val('');
-                
-                } else {
-                    alert('Gagal: ' + response.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error(xhr.responseText);
-                alert('Error AJAX Sender: ' + xhr.status + ' | ' + error);
+                const details = response.address_details || {};
+
+                // ✅ Buat opsi baru dengan SEMUA atribut lengkap dan konsisten
+                const newOption = new Option(response.data.text, response.data.id, true, true);
+                $(newOption).attr({
+                    'data-country-id': details.country_id || '',
+                    'data-company': details.company_name || '',
+                    'data-phone': details.phone || '',
+                    'data-email': details.email || '',
+                    'data-city': details.city || '',
+                    'data-state': details.state || details.province || '',
+                    'data-postal-code': details.postal_code || senderData.postal_code || '', // ✅ Tetap pakai nama ini
+                    'data-address': details.address || '',
+                    'data-identity': details.identity_number || '',
+                    'data-country': details.country_name || ''
+                });
+
+                // Masukkan ke dropdown dan paksa pilih
+                $('#customer_id').append(newOption).val(response.data.id).trigger('change');
+
+                // Langsung isi form tanpa perlu pilih ulang
+                setTimeout(() => {
+                    document.getElementById("sender_company").value = details.company_name || "";
+                    document.getElementById("sender_phone").value = details.phone || "";
+                    document.getElementById("sender_email").value = details.email || "";
+                    document.getElementById("sender_city").value = details.city || "";
+                    document.getElementById("sender_province").value = details.state || details.province || "";
+                    document.getElementById("sender_postal_code").value = details.postal_code || senderData.postal_code || "";
+                    document.getElementById("sender_address").value = details.address || "";
+                    document.getElementById("sender_identity").value = details.identity_number || "";
+                    document.getElementById("sender_country").value = details.country_name || "";
+                }, 150);
+
+                // Bersihkan modal
+                $('#senderModal').modal('hide');
+                $('#senderModal input, #senderModal textarea').val('');
+
+            } else {
+                alert('Gagal: ' + response.message);
             }
-        });
+        },
+        error: function(xhr) {
+            console.error(xhr.responseText);
+            alert('Error menyimpan sender!');
+        }
     });
-
+});
 /// ==========================================
 // 3. PROSES SIMPAN RECEIVER VIA AJAX (SUPER SAFE & ANTI ANTENG - OPTIMIZED)
 // ==========================================
-$('#btnSaveReceiver, #receiverModal .btn-primary, #receiverModal button[type="submit"]').off('click').on('click', function(e) {
+$('#btnSaveReceiver').off('click').on('click', function(e) {
     e.preventDefault(); 
-    
+                                        
 const $btn = $(this);
 if ($btn.prop('disabled')) return;
     
@@ -1058,6 +1069,11 @@ if ($btn.prop('disabled')) return;
     email: $('#new_receiver_email').val(),
     address: $('#new_receiver_address').val()
 };
+
+console.log('SAVE RECEIVER ASLI DIKLIK');
+console.log('Receiver data:', receiverData);
+
+
     if (!receiverData.contact_name) {
         alert('Receiver Name is required!');
         return;
@@ -1090,21 +1106,23 @@ if ($btn.prop('disabled')) return;
                 const resData = response.data || {};
                 
                 // Bikin option baru dengan jQuery agar attribute nempel sempurna
-                const $newOption = $('<option>', {
-                    value: resData.id,
-                    text: resData.text || receiverData.contact_name,
-                    selected: true
-                }).attr({
-                    'data-company': details.company_name || '',
-                    'data-phone': details.phone || '',
-                    'data-email': details.email || '',
-                    'data-city': details.city || '',
-                    'data-state': details.state || '',
-                    'data-postal': details.postal_code || '',
-                    'data-address': details.address || '',
-                    'data-identity': details.identity_number || ''
-                });
-                
+// Di dalam bagian sukses simpan Receiver
+const $newOption = $('<option>', {
+    value: resData.id,
+    text: resData.text || receiverData.contact_name,
+    selected: true
+}).attr({
+    'data-country-id': details.country_id || '',
+    'data-company': details.company_name || '',
+    'data-phone': details.phone || '',
+    'data-email': details.email || '',
+    'data-city': details.city || '',
+    'data-state': details.state || details.province || '',
+    'data-postal-code': details.postal_code || receiverData.postal_code || '', // ✅ Sama pola
+    'data-address': details.address || '',
+    'data-identity': details.identity_number || '',
+    'data-country': details.country_name || ''
+});
                 // Masukkan ke dropdown Receiver & trigger change untuk Select2
                 $('#receiver_id').append($newOption).trigger({
                     type: 'change',
@@ -1112,16 +1130,18 @@ if ($btn.prop('disabled')) return;
                 });
                 
                 // Paksa isi form utama seksi Receiver
-                setTimeout(function() {
-                    $('input[name="receiver_company"], #receiver_company').val(details.company_name || '');
-                    $('input[name="receiver_phone"], #receiver_phone').val(details.phone || '');
-                    $('input[name="receiver_email"], #receiver_email').val(details.email || '');
-                    $('textarea[name="receiver_address"], #receiver_address').val(details.address || '');
-                    $('input[name="receiver_city"], #receiver_city').val(details.city || '');
-                    $('input[name="receiver_state"], #receiver_state, #receiver_province').val(details.state || '');
-                    $('input[name="receiver_postal"], #receiver_postal').val(details.postal_code || '');
-                    $('input[name="receiver_identity"], #receiver_identity').val(details.identity_number || '');
-                }, 200);
+               setTimeout(function() {
+                                        $('#receiver_company').val(details.company_name || '');
+                                        $('#receiver_phone').val(details.phone || '');
+                                        $('#receiver_email').val(details.email || '');
+                                        $('#receiver_address').val(details.address || '');
+                                        $('#receiver_city').val(details.city || '');
+                                        $('#receiver_province').val(details.state || details.province || '');
+                                        $('#receiver_postal_code').val(details.postal_code || '');
+                                        $('#receiver_identity').val(details.identity_number || '');
+                                        $('#receiver_country').val(details.country_name || '');
+                                        $('#country_id').val(details.country_id || '');
+                                        }, 200);
 
                 $('#receiverModal').modal('hide');
                 $('#receiverModal input, #receiverModal textarea').val('');
@@ -1160,22 +1180,33 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    console.log("CUSTOMER AUTOFILL READY");
-
     customerSelect.addEventListener("change", function () {
         const option = this.options[this.selectedIndex];
 
+        if (!option.value) {
+            // Kosongkan semua kolom kalau pilih kosong
+            document.getElementById("sender_company").value = "";
+            document.getElementById("sender_phone").value = "";
+            document.getElementById("sender_email").value = "";
+            document.getElementById("sender_city").value = "";
+            document.getElementById("sender_province").value = "";
+            document.getElementById("sender_postal_code").value = ""; // Kosongkan
+            document.getElementById("sender_address").value = "";
+            document.getElementById("sender_identity").value = "";
+            document.getElementById("sender_country").value = "";
+            return;
+        }
+
+        // ⚠️ PENTING: BACA SESUAI NAMA ATRIBUT DI DROPDOWN
         document.getElementById("sender_company").value = option.dataset.company || "";
         document.getElementById("sender_phone").value = option.dataset.phone || "";
         document.getElementById("sender_email").value = option.dataset.email || "";
         document.getElementById("sender_city").value = option.dataset.city || "";
-        document.getElementById("sender_postal_code").value = option.dataset.postal || "";
+        document.getElementById("sender_province").value = option.dataset.state || "";
+        document.getElementById("sender_postal_code").value = option.dataset.postalCode || ""; // ✅ KUNCI INI
         document.getElementById("sender_address").value = option.dataset.address || "";
         document.getElementById("sender_identity").value = option.dataset.identity || "";
         document.getElementById("sender_country").value = option.dataset.country || "";
-        document.getElementById("sender_province").value = option.dataset.state || "";
-
-        console.log("SENDER AUTOFILLED:", option.dataset);
     });
 });
 </script>
