@@ -961,91 +961,8 @@ $(document).ready(function(){
     aktifkanEvent();
     hitungSemua();
     refreshChargesUI();
-
-    // 1. Mengaktifkan Tombol Buka Modal
-    $('#btnAddCustomer').on('click', function() {
-        $('#senderModal').modal('show');
-    });
-
-    $('#btnAddReceiver').on('click', function() {
+$('#btnAddReceiver').on('click', function() {
     $('#receiverModal').modal('show');
-});
-
-    $('#btnSaveSender').off('click').on('click', function() {
-    const senderData = {
-        address_type: 'SENDER',
-        country_id: 0,
-        contact_name: $('#new_sender_name').val(),
-        company_name: $('#new_sender_company').val(),
-        phone: $('#new_sender_phone').val(),
-        identity_number: $('#new_sender_identity').val(),
-        province: $('#new_sender_province').val(),
-        city: $('#new_sender_city').val(),
-        postal_code: $('#new_sender_postal_code').val(), // ✅ Ambil kode pos dari modal
-        email: $('#new_sender_email').val(),
-        address: $('#new_sender_address').val()
-    };
-
-    if (!senderData.contact_name || !senderData.phone) {
-        alert('Customer Name and Phone are required!');
-        return;
-    }
-
-    $.ajax({
-        url: BASE_URL + '/customer/address/save',
-        type: 'POST',
-        data: senderData,
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success') {
-                alert('Sender saved successfully!');
-
-                const details = response.address_details || {};
-
-                // ✅ Buat opsi baru dengan SEMUA atribut lengkap dan konsisten
-                const newOption = new Option(response.data.text, response.data.id, true, true);
-                $(newOption).attr({
-                    'data-country-id': details.country_id || '',
-                    'data-company': details.company_name || '',
-                    'data-phone': details.phone || '',
-                    'data-email': details.email || '',
-                    'data-city': details.city || '',
-                    'data-state': details.state || details.province || '',
-                    'data-postal-code': details.postal_code || senderData.postal_code || '', // ✅ Tetap pakai nama ini
-                    'data-address': details.address || '',
-                    'data-identity': details.identity_number || '',
-                    'data-country': details.country_name || ''
-                });
-
-                // Masukkan ke dropdown dan paksa pilih
-                $('#customer_id').append(newOption).val(response.data.id).trigger('change');
-
-                // Langsung isi form tanpa perlu pilih ulang
-                setTimeout(() => {
-                    document.getElementById("sender_company").value = details.company_name || "";
-                    document.getElementById("sender_phone").value = details.phone || "";
-                    document.getElementById("sender_email").value = details.email || "";
-                    document.getElementById("sender_city").value = details.city || "";
-                    document.getElementById("sender_province").value = details.state || details.province || "";
-                    document.getElementById("sender_postal_code").value = details.postal_code || senderData.postal_code || "";
-                    document.getElementById("sender_address").value = details.address || "";
-                    document.getElementById("sender_identity").value = details.identity_number || "";
-                    document.getElementById("sender_country").value = details.country_name || "";
-                }, 150);
-
-                // Bersihkan modal
-                $('#senderModal').modal('hide');
-                $('#senderModal input, #senderModal textarea').val('');
-
-            } else {
-                alert('Gagal: ' + response.message);
-            }
-        },
-        error: function(xhr) {
-            console.error(xhr.responseText);
-            alert('Error menyimpan sender!');
-        }
-    });
 });
 /// ==========================================
 // 3. PROSES SIMPAN RECEIVER VIA AJAX (SUPER SAFE & ANTI ANTENG - OPTIMIZED)
@@ -1166,53 +1083,8 @@ const $newOption = $('<option>', {
 $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, #is_remote', refreshChargesUI);
 
 </script>
-
-
-
-
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const customerSelect = document.getElementById("customer_id");
-
-    if (!customerSelect) {
-        console.log("customer_id tidak ditemukan");
-        return;
-    }
-
-    customerSelect.addEventListener("change", function () {
-        const option = this.options[this.selectedIndex];
-
-        if (!option.value) {
-            // Kosongkan semua kolom kalau pilih kosong
-            document.getElementById("sender_company").value = "";
-            document.getElementById("sender_phone").value = "";
-            document.getElementById("sender_email").value = "";
-            document.getElementById("sender_city").value = "";
-            document.getElementById("sender_province").value = "";
-            document.getElementById("sender_postal_code").value = ""; // Kosongkan
-            document.getElementById("sender_address").value = "";
-            document.getElementById("sender_identity").value = "";
-            document.getElementById("sender_country").value = "";
-            return;
-        }
-
-        // ⚠️ PENTING: BACA SESUAI NAMA ATRIBUT DI DROPDOWN
-        document.getElementById("sender_company").value = option.dataset.company || "";
-        document.getElementById("sender_phone").value = option.dataset.phone || "";
-        document.getElementById("sender_email").value = option.dataset.email || "";
-        document.getElementById("sender_city").value = option.dataset.city || "";
-        document.getElementById("sender_province").value = option.dataset.state || "";
-        document.getElementById("sender_postal_code").value = option.dataset.postalCode || ""; // ✅ KUNCI INI
-        document.getElementById("sender_address").value = option.dataset.address || "";
-        document.getElementById("sender_identity").value = option.dataset.identity || "";
-        document.getElementById("sender_country").value = option.dataset.country || "";
-    });
-});
-</script>
-
-
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/sender.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
 
 
