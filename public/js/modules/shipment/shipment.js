@@ -1,48 +1,44 @@
 /*
 =========================================
 CARTENZ ERP
-Shipment Loader
+Shipment Module Bootstrap
 =========================================
 */
 
-document.addEventListener("DOMContentLoaded", function () {
+window.Shipment = {
+    init() {
+        console.log('Shipment Module Loaded');
 
-    if (typeof initializeSender === "function")
-        initializeSender();
+        if (typeof initializeSender === 'function') {
+            initializeSender();
+        }
 
-    if (typeof initializeReceiver === "function")
-        initializeReceiver();
+        if (typeof initializeReceiver === 'function') {
+            initializeReceiver();
+        }
 
-    if (typeof initializePackage === "function")
-        initializePackage();
+        if (typeof initializePackage === 'function') {
+            initializePackage();
+        }
 
-    if (typeof initializePricing === "function")
-        initializePricing();
+        if (typeof initializePricing === 'function') {
+            initializePricing();
+        }
 
-    if (typeof initializeCharges === "function")
-        initializeCharges();
+        if (typeof initializeCharges === 'function') {
+            initializeCharges();
+        }
 
-    if (typeof initializeProfit === "function")
-        initializeProfit();
+        if (typeof initializeProfit === 'function') {
+            initializeProfit();
+        }
 
-    if (typeof initializeCommodityRule === "function")
-        initializeCommodityRule();
+        if (typeof initializeCommodityRule === 'function') {
+            initializeCommodityRule();
+        }
+    }
+};
 
-});
-
-
-document.addEventListener("DOMContentLoaded", function(){
-
-    if(typeof initializePricing==="function")
-        initializePricing();
-
-    if(typeof initializeCharges==="function")
-        initializeCharges();
-
-    if(typeof initializeProfit==="function")
-        initializeProfit();
-
-    if(typeof initializeCommodityRule==="function")
-        initializeCommodityRule();
-
+document.addEventListener('DOMContentLoaded', function () {
+    window.Shipment.init();
 });

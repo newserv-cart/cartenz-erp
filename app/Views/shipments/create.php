@@ -688,7 +688,7 @@ const BASE_URL = "<?= base_url() ?>";
 <script src="<?= base_url('js/modules/shipment/charges.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/profit.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
+
 
 <script>
 console.log('SCRIPT LOADED');
@@ -1212,7 +1212,8 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 
-
+<script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
 
 
 </body>
