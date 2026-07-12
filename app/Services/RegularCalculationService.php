@@ -39,13 +39,7 @@ class RegularCalculationService
         // AMBIL TARIF DARI MASTER
         //-------------------------------------
 
-        dd([
-    'customerId'   => $customerId,
-    'countryId'    => $countryId,
-    'serviceId'    => $serviceId,
-    'chargeWeight' => $chargeWeight,
-]);
-        $rate = $this->regularRateService->calculate(
+  $rate = $this->regularRateService->calculate(
             $customerId,
             $countryId,
             $serviceId,
@@ -58,11 +52,23 @@ class RegularCalculationService
         //-------------------------------------
         // BIAYA BERDASARKAN JENIS BARANG
         //-------------------------------------
-        $commodityCharge = $this->commodityRuleService->calculate(
-            $commodityTypeId,
-            $chargeWeight
-        );
+       $commodityResult = $this->commodityRuleService->calculate(
+    $commodityTypeId,
+    $chargeWeight
+);
 
+if (is_array($commodityResult)) {
+    $commodityCharge = (float) (
+        $commodityResult['charge_amount']
+        ?? $commodityResult['amount']
+        ?? $commodityResult['total_charge']
+        ?? $commodityResult['charge']
+        ?? 0
+    );
+} else {
+    $commodityCharge = (float) $commodityResult;
+}
+            
         //-------------------------------------
         // BIAYA TAMBAHAN & POTONGAN
         //-------------------------------------
