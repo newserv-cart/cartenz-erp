@@ -21,6 +21,10 @@ window.Shipment = {
              initializeSummary();
         }
 
+if (typeof initializeColly === "function") {
+    initializeColly();
+}
+
         if (typeof initializePackage === 'function') {
             initializePackage();
         }

@@ -527,7 +527,7 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Name *</label>
-                        <input type="text" id="new_sender_name" class="form-control" required>
+                        <input type="text" id="new_sender_name" class="form-control">
                     </div>
                     <div class="col-md-6 mb-3">
                         <label>Company</label>
@@ -538,7 +538,7 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label>Phone *</label>
-                        <input type="text" id="new_sender_phone" class="form-control" required>
+                        <input type="text" id="new_sender_phone" class="form-control">
                     </div>
                     <div class="col-md-6 mb-3">
                         <label>Email</label>
@@ -714,13 +714,7 @@ function hitungSemua(){
     }
 }
 
-function renumberColly(){
-    document.querySelectorAll('#colly-container .card.border-primary').forEach((card, index)=>{
-        card.id = 'colly-' + (index + 1);
-        card.querySelector('strong').innerText = 'COLLY #' + (index + 1);
-    });
-}
-
+// ✅ FUNGSI ITEMS DIPERTAHANKAN SESUAI PERINTAH
 function renumberItems(tbody){
     if(!tbody) return;
     [...tbody.rows].forEach((row, index)=>{
@@ -741,126 +735,8 @@ function aktifkanEvent(){
         el.oninput = () => hitungItem(el.closest('tr'));
     });
 }
-document.getElementById('add-colly').addEventListener('click', function(){
-    const container = document.getElementById('colly-container');
-    const no = container.children.length + 1;
-    
-    const html = `
-    <div class="card border-primary mb-3" id="colly-${no}">
-        <div class="card-header">
-            <strong>COLLY #${no}</strong>
-            <div class="float-end">
-                <button type="button" class="btn btn-sm btn-secondary me-1 duplicate-colly">📋 Duplicate</button>
-                <button type="button" class="btn btn-sm btn-danger delete-colly">🗑 Delete</button>
-            </div>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3 mb-3">
-                    <label>Weight (Kg)</label>
-                   <input type="number" class="form-control berat" name="packages[${no-1}][actual_weight]" step="0.01" min="0" value="1.00">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label>Length (Cm)</label>
-                    <input type="number" class="form-control panjang" name="packages[${no-1}][length_cm]" min="0" value="10">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label>Width (Cm)</label>
-                    <input type="number" class="form-control lebar" name="packages[${no-1}][width_cm]" min="0" value="10">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label>Height (Cm)</label>
-                    <input type="number" class="form-control tinggi" name="packages[${no-1}][height_cm]" min="0" value="10">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label>Volume Weight</label>
-                    <input type="text" class="form-control volume" name="packages[${no-1}][volume_weight]" value="0.20" readonly>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label>Chargeable Weight</label>
-                    <input type="text" class="form-control chargeable" name="packages[${no-1}][chargeable_weight]" value="1.00" readonly>
-                </div>
-            </div>
-            <hr class="my-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Items</h6>
-                <button type="button" class="btn btn-sm btn-success add-item">+ Add Item</button>
-            </div>
-            <table class="table table-bordered table-sm item-table">
-                <thead class="table-light">
-                    <tr>
-                        <th width="60">#</th>
-                        <th>Item Description</th>
-                        <th width="100">Qty</th>
-                        <th width="120">Currency</th>
-                        <th width="140">Unit Value</th>
-                        <th width="140">Total Value</th>
-                        <th width="80">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="text-center">1</td>
-                        <td><input type="text" name="packages[${no-1}][items][0][item_description]" class="form-control" placeholder="Item Description"></td>
-                        <td><input type="number" name="packages[${no-1}][items][0][quantity]" class="form-control qty" value="1" min="1"></td>
-                        <td>
-                            <select name="packages[${no-1}][items][0][currency]" class="form-select currency">
-                                <option value="IDR" selected>IDR</option>
-                                <option value="USD">USD</option>
-                                <option value="SGD">SGD</option>
-                                <option value="MYR">MYR</option>
-                                <option value="TWD">TWD</option>
-                            </select>
-                        </td>
-                        <td><input type="number" name="packages[${no-1}][items][0][unit_value]" class="form-control unit_value" step="0.01" value="0.00"></td>
-                        <td><input type="number" name="packages[${no-1}][items][0][total_value]" class="form-control total_value" value="0.00" readonly></td>
-                        <td class="text-center"><button type="button" class="btn btn-sm btn-danger delete-item">🗑</button></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>`;
-    
-    container.insertAdjacentHTML('beforeend', html);
-    aktifkanEvent();
-    hitungSemua();
-});
 
-document.addEventListener('click', function(e){
-    if(e.target.classList.contains('delete-colly')){
-        const container = document.getElementById('colly-container');
-        if (container.children.length > 1) {
-            e.target.closest('.card.border-primary').remove();
-            renumberColly();
-            hitungSemua();
-        }
-    }
-});
-
-document.addEventListener('click', function(e){
-    if(e.target.classList.contains('duplicate-colly')){
-        const current = e.target.closest('.card.border-primary');
-        const clone = current.cloneNode(true);        
-        const newIndex = document.querySelectorAll('.card.border-primary').length;
-        
-        clone.querySelectorAll('[name]').forEach(el => {
-            el.name = el.name.replace(/packages\[\d+\]/g, `packages[${newIndex}]`);
-        });
-
-        clone.querySelector('.berat').value = '0';
-        clone.querySelector('.panjang').value = '0';
-        clone.querySelector('.lebar').value = '0';
-        clone.querySelector('.tinggi').value = '0';
-        clone.querySelector('.volume').value = '0';
-        clone.querySelector('.chargeable').value = '0';
-
-        current.after(clone);
-        renumberColly();
-        aktifkanEvent();
-        hitungSemua();
-    }
-});
-
+// ✅ LISTENER ITEMS DIPERTAHANKAN SAMPAI SPRINT 49.6
 document.addEventListener('click', function(e){
     if(e.target.classList.contains('add-item')){
         const tbody = e.target.closest('.card-body').querySelector('tbody');
@@ -914,7 +790,13 @@ $(document).ready(function(){
     aktifkanEvent();
     hitungSemua();
     refreshChargesUI();
-}); // TUTUP $(document).ready
+
+    // Inisialisasi semua modul
+    if(typeof initializeSummary === 'function') initializeSummary();
+    if(typeof initializeColly === 'function') initializeColly();
+    if(typeof initializeSender === 'function') initializeSender();
+    if(typeof initializeReceiver === 'function') initializeReceiver();
+});
 
 // Event Listener di luar ready
 $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, #is_remote', refreshChargesUI);
@@ -922,6 +804,7 @@ $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, 
 </script>
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/summary.js?v=49.4.2') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/colly.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/sender.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
