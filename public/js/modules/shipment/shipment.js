@@ -7,7 +7,7 @@ Shipment Module Bootstrap
 
 window.Shipment = {
     init() {
-        console.log('Shipment Module Loaded');
+        console.log('✅ Shipment Module Loaded');
 
         if (typeof initializeSender === 'function') {
             initializeSender();
@@ -15,6 +15,10 @@ window.Shipment = {
 
         if (typeof initializeReceiver === 'function') {
             initializeReceiver();
+        }
+
+        if (typeof initializeSummary === "function") {
+             initializeSummary();
         }
 
         if (typeof initializePackage === 'function') {

@@ -282,19 +282,19 @@
                         <div class="row">
                             <div class="col-md-3 mb-3">
                                 <label>Weight (Kg)</label>
-                                <input type="number" class="form-control berat" name="packages[0][actual_weight]" step="0.01" min="0" value="0" oninput="hitungVolume(this);">
+                                <input type="number" class="form-control berat" name="packages[0][actual_weight]" step="0.01" min="0" value="0">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Length (Cm)</label>
-                                <input type="number" class="form-control panjang" name="packages[0][length_cm]" min="0" value="0" oninput="hitungVolume(this)">
+                                <input type="number" class="form-control panjang" name="packages[0][length_cm]" min="0" value="0">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Width (Cm)</label>
-                                <input type="number" class="form-control lebar" name="packages[0][width_cm]" min="0" value="0" oninput="hitungVolume(this)">
+                                <input type="number" class="form-control lebar" name="packages[0][width_cm]" min="0" value="0">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Height (Cm)</label>
-                                <input type="number" class="form-control tinggi" name="packages[0][height_cm]" min="0" value="0" oninput="hitungVolume(this)">
+                                <input type="number" class="form-control tinggi" name="packages[0][height_cm]" min="0" value="0">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Volume Weight</label>
@@ -693,24 +693,6 @@ const BASE_URL = "<?= base_url() ?>";
 <script>
 console.log('SCRIPT LOADED');
 
-function hitungVolume(el) {
-    const card = el.closest('.card.border-primary');
-    if (!card) return;
-
-    const p = parseFloat(card.querySelector('.panjang').value) || 0;
-    const l = parseFloat(card.querySelector('.lebar').value) || 0;
-    const t = parseFloat(card.querySelector('.tinggi').value) || 0;
-    const berat = parseFloat(card.querySelector('.berat').value) || 0;
-    
-    const volume = (p * l * t) / 5000;
-    card.querySelector('.volume').value = volume.toFixed(2);
-    
-    const charge = Math.max(berat, volume);
-    card.querySelector('.chargeable').value = charge.toFixed(2);
-    
-    hitungSemua();
-}
-
 function hitungSemua(){
     const semuaBerat = document.querySelectorAll('.berat');
     const semuaCharge = document.querySelectorAll('.chargeable');
@@ -776,19 +758,19 @@ document.getElementById('add-colly').addEventListener('click', function(){
             <div class="row">
                 <div class="col-md-3 mb-3">
                     <label>Weight (Kg)</label>
-                   <input type="number" class="form-control berat" name="packages[${no-1}][actual_weight]" step="0.01" min="0" value="1.00" oninput="hitungVolume(this);">
+                   <input type="number" class="form-control berat" name="packages[${no-1}][actual_weight]" step="0.01" min="0" value="1.00">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label>Length (Cm)</label>
-                    <input type="number" class="form-control panjang" name="packages[${no-1}][length_cm]" min="0" value="10" oninput="hitungVolume(this)">
+                    <input type="number" class="form-control panjang" name="packages[${no-1}][length_cm]" min="0" value="10">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label>Width (Cm)</label>
-                    <input type="number" class="form-control lebar" name="packages[${no-1}][width_cm]" min="0" value="10" oninput="hitungVolume(this)">
+                    <input type="number" class="form-control lebar" name="packages[${no-1}][width_cm]" min="0" value="10">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label>Height (Cm)</label>
-                    <input type="number" class="form-control tinggi" name="packages[${no-1}][height_cm]" min="0" value="10" oninput="hitungVolume(this)">
+                    <input type="number" class="form-control tinggi" name="packages[${no-1}][height_cm]" min="0" value="10">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label>Volume Weight</label>
@@ -939,6 +921,7 @@ $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, 
 
 </script>
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/summary.js?v=49.4.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/sender.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
