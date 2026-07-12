@@ -759,35 +759,6 @@ function aktifkanEvent(){
         el.oninput = () => hitungItem(el.closest('tr'));
     });
 }
-/////PENERIMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-document.getElementById('receiver_id').addEventListener('change', function () {
-    const option = this.options[this.selectedIndex];
-    if (!option.value) {
-        document.getElementById('receiver_company').value = '';
-        document.getElementById('receiver_phone').value = '';
-        document.getElementById('receiver_email').value = '';
-        document.getElementById('receiver_city').value = '';
-        document.getElementById('receiver_province').value = '';
-        document.getElementById('receiver_postal_code').value = '';
-        document.getElementById('receiver_address').value = '';
-        document.getElementById('receiver_identity').value = '';
-        document.getElementById('receiver_country').value = '';
-        document.getElementById('country_id').value = '';
-        return;
-    }
-
-    document.getElementById("receiver_company").value    = option.dataset.company || "";
-    document.getElementById("receiver_phone").value      = option.dataset.phone || "";
-    document.getElementById("receiver_email").value     = option.dataset.email || "";
-    document.getElementById("receiver_city").value       = option.dataset.city || "";
-    document.getElementById("receiver_province").value   = option.dataset.state || "";
-    document.getElementById("receiver_postal_code").value = option.dataset.postalCode || ""; // ✅ Sama persis pola Sender
-    document.getElementById("receiver_address").value    = option.dataset.address || "";
-    document.getElementById("receiver_identity").value   = option.dataset.identity || "";
-    document.getElementById("receiver_country").value   = option.dataset.country || "";
-    document.getElementById("country_id").value          = option.dataset.countryId || "";
-});
-
 document.getElementById('add-colly').addEventListener('click', function(){
     const container = document.getElementById('colly-container');
     const no = container.children.length + 1;
@@ -961,122 +932,6 @@ $(document).ready(function(){
     aktifkanEvent();
     hitungSemua();
     refreshChargesUI();
-$('#btnAddReceiver').on('click', function() {
-    $('#receiverModal').modal('show');
-});
-/// ==========================================
-// 3. PROSES SIMPAN RECEIVER VIA AJAX (SUPER SAFE & ANTI ANTENG - OPTIMIZED)
-// ==========================================
-$('#btnSaveReceiver').off('click').on('click', function(e) {
-    e.preventDefault(); 
-                                        
-const $btn = $(this);
-if ($btn.prop('disabled')) return;
-    
-  const receiverData = {
-    address_type: 'RECEIVER',
-    country_id: $('#new_receiver_country').val(),
-    contact_name: $('#new_receiver_name').val(),
-    company_name: $('#new_receiver_company').val(),
-    phone: $('#new_receiver_phone').val(),
-    identity_number: $('#new_receiver_identity').val(),
-    province: $('#new_receiver_province').val(),
-    city: $('#new_receiver_city').val(),
-    postal_code: $('#new_receiver_postal').val(),
-    email: $('#new_receiver_email').val(),
-    address: $('#new_receiver_address').val()
-};
-
-console.log('SAVE RECEIVER ASLI DIKLIK');
-console.log('Receiver data:', receiverData);
-
-
-    if (!receiverData.contact_name) {
-        alert('Receiver Name is required!');
-        return;
-    }
-    if (!receiverData.phone) {
-        alert('Receiver Phone Number is required!');
-        return;
-    }
-
-      if (!receiverData.country_id) {
-    alert('Destination Country is required!');
-    return;
-}                              
-
-
-    // Kunci tombol biar user ga klik brutal pas internet lemot
-    $btn.prop('disabled', true).text('Saving...');
-
-    $.ajax({
-        url: BASE_URL + '/customer/address/save', 
-        type: 'POST',
-        data: receiverData,
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success') {
-                alert('Receiver address saved successfully!');
-                
-                // PENTING: Amankan fallback jika backend membungkus detailnya di objek 'data' atau 'address_details'
-                const details = response.address_details || response.data || {};
-                const resData = response.data || {};
-                
-                // Bikin option baru dengan jQuery agar attribute nempel sempurna
-// Di dalam bagian sukses simpan Receiver
-const $newOption = $('<option>', {
-    value: resData.id,
-    text: resData.text || receiverData.contact_name,
-    selected: true
-}).attr({
-    'data-country-id': details.country_id || '',
-    'data-company': details.company_name || '',
-    'data-phone': details.phone || '',
-    'data-email': details.email || '',
-    'data-city': details.city || '',
-    'data-state': details.state || details.province || '',
-    'data-postal-code': details.postal_code || receiverData.postal_code || '', // ✅ Sama pola
-    'data-address': details.address || '',
-    'data-identity': details.identity_number || '',
-    'data-country': details.country_name || ''
-});
-                // Masukkan ke dropdown Receiver & trigger change untuk Select2
-                $('#receiver_id').append($newOption).trigger({
-                    type: 'change',
-                    params: { data: details }
-                });
-                
-                // Paksa isi form utama seksi Receiver
-               setTimeout(function() {
-                                        $('#receiver_company').val(details.company_name || '');
-                                        $('#receiver_phone').val(details.phone || '');
-                                        $('#receiver_email').val(details.email || '');
-                                        $('#receiver_address').val(details.address || '');
-                                        $('#receiver_city').val(details.city || '');
-                                        $('#receiver_province').val(details.state || details.province || '');
-                                        $('#receiver_postal_code').val(details.postal_code || '');
-                                        $('#receiver_identity').val(details.identity_number || '');
-                                        $('#receiver_country').val(details.country_name || '');
-                                        $('#country_id').val(details.country_id || '');
-                                        }, 200);
-
-                $('#receiverModal').modal('hide');
-                $('#receiverModal input, #receiverModal textarea').val('');
-            } else {
-                alert('Gagal: ' + response.message);
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error(xhr.responseText);
-            alert('Error AJAX Receiver: ' + xhr.status);
-        },
-        complete: function() {
-            // Buka kembali kunci tombol setelah proses selesai (baik sukses/gagal)
-            $btn.prop('disabled', false).text('Save');
-        }
-    });
-});
-                    
 }); // TUTUP $(document).ready
 
 // Event Listener di luar ready
@@ -1085,6 +940,7 @@ $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, 
 </script>
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/sender.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
 
 
