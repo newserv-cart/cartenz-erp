@@ -693,91 +693,6 @@ const BASE_URL = "<?= base_url() ?>";
 <script>
 console.log('SCRIPT LOADED');
 
-function hitungSemua(){
-    const semuaBerat = document.querySelectorAll('.berat');
-    const semuaCharge = document.querySelectorAll('.chargeable');
-    const semuaNilai = document.querySelectorAll('.total_value');
-    
-    let totalBerat = 0, totalCharge = 0, totalNilai = 0;
-
-    semuaBerat.forEach(el => totalBerat += parseFloat(el.value) || 0);
-    semuaCharge.forEach(el => totalCharge += parseFloat(el.value) || 0);
-    semuaNilai.forEach(el => totalNilai += parseFloat(el.value) || 0);
-
-    document.getElementById('total_berat').value = totalBerat.toFixed(2);
-    document.getElementById('total_chargeable').value = totalCharge.toFixed(2);
-    document.getElementById('total_nilai').value = totalNilai.toFixed(2);
-    document.getElementById('total_colly').value = document.querySelectorAll('.card.border-primary').length;
-
-    if (typeof loadShipmentRate === "function") {
-        triggerLoadRate();
-    }
-}
-
-// ✅ FUNGSI ITEMS DIPERTAHANKAN SESUAI PERINTAH
-function renumberItems(tbody){
-    if(!tbody) return;
-    [...tbody.rows].forEach((row, index)=>{
-        row.cells[0].innerText = index + 1;
-    });
-}
-
-function hitungItem(row){
-    if(!row) return;
-    const qty = parseFloat(row.querySelector('.qty').value) || 0;
-    const unit = parseFloat(row.querySelector('.unit_value').value) || 0;
-    row.querySelector('.total_value').value = (qty * unit).toFixed(2);
-    hitungSemua();
-}
-
-function aktifkanEvent(){
-    document.querySelectorAll('.qty, .unit_value').forEach(el => {
-        el.oninput = () => hitungItem(el.closest('tr'));
-    });
-}
-
-// ✅ LISTENER ITEMS DIPERTAHANKAN SAMPAI SPRINT 49.6
-document.addEventListener('click', function(e){
-    if(e.target.classList.contains('add-item')){
-        const tbody = e.target.closest('.card-body').querySelector('tbody');
-        const no = tbody.rows.length + 1;
-        const indexColly = e.target.closest('.card.border-primary').id.split('-')[1] - 1;
-        const itemKey = Date.now();
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="text-center">${no}</td>
-            <td><input type="text" class="form-control" name="packages[${indexColly}][items][${itemKey}][item_description]"></td>
-            <td><input type="number" class="form-control qty" name="packages[${indexColly}][items][${itemKey}][quantity]" value="1" min="1"></td>
-            <td>
-                <select class="form-select currency" name="packages[${indexColly}][items][${itemKey}][currency]">
-                    <option value="IDR" selected>IDR</option>
-                    <option value="USD">USD</option>
-                    <option value="SGD">SGD</option>
-                    <option value="MYR">MYR</option>
-                    <option value="TWD">TWD</option>
-                </select>
-            </td>
-            <td><input type="number" class="form-control unit_value" name="packages[${indexColly}][items][${itemKey}][unit_value]" step="0.01" value="0.00"></td>
-            <td><input type="number" class="form-control total_value" name="packages[${indexColly}][items][${itemKey}][total_value]" value="0.00" readonly></td>
-            <td class="text-center"><button type="button" class="btn btn-sm btn-danger delete-item">🗑</button></td>
-        `;
-        tbody.appendChild(row);
-        aktifkanEvent();
-        hitungSemua();
-    }
-});
-
-document.addEventListener('click', function(e){
-    if(e.target.classList.contains('delete-item')){
-        const tbody = e.target.closest('tbody');
-        if(tbody.rows.length > 1){
-            e.target.closest('tr').remove();
-            renumberItems(tbody);
-            hitungSemua();
-        }
-    }
-});
 
 window.userRole = 'admin';
 
@@ -786,16 +701,13 @@ function refreshChargesUI() {
     $('#expressCharges').toggle(selectedEngine === 'EXPRESS');
 }
 
-$(document).ready(function(){
-    aktifkanEvent();
-    hitungSemua();
-    refreshChargesUI();
+$(document).ready(function () {
+    // Panggil fungsi hitungSemua dari summary.js saja
+    if (typeof window.hitungSemua === "function") {
+        window.hitungSemua();
+    }
 
-    // Inisialisasi semua modul
-    if(typeof initializeSummary === 'function') initializeSummary();
-    if(typeof initializeColly === 'function') initializeColly();
-    if(typeof initializeSender === 'function') initializeSender();
-    if(typeof initializeReceiver === 'function') initializeReceiver();
+    refreshChargesUI();
 });
 
 // Event Listener di luar ready
@@ -805,6 +717,7 @@ $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, 
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/summary.js?v=49.4.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/colly.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/items.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/sender.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
