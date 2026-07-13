@@ -1,108 +1,424 @@
 /*
 =========================================================
 CARTENZ ERP
-Module : Shipment
-Sprint : 19
-File   : pricing.js
+Shipment Pricing Module
+Sprint 49.7A
 =========================================================
 */
 
-let rateTimer = null;
+(function (window, $) {
+    "use strict";
 
-function initializePricing() {
-    [
-        "service_id",
-        "receiver_country",
-        "country_id",
-        "total_weight",
-        "total_chargeable",
-        "customer_id"
-    ].forEach(function(id) {
-        const obj = document.getElementById(id);
-        if (obj) {
-            obj.addEventListener("change", loadPricing);
-            obj.addEventListener("keyup", loadPricing);
-        }
-    });
-}
+    const ShipmentPricing = {
+        initialized: false,
+        timer: null,
+        xhr: null,
+        lastHash: "",
 
-// Fungsi utama sesuai format baru
-function loadPricing() {
-    // Ambil nilai dasar untuk pengecekan
-    const customer_id    = $("#customer_id").val();
-    const service_id     = $("#service_id").val();
-    const country_id     = $("#country_id").val();
-    const actual_weight  = $("#total_weight").val();
-    const volume_weight  = $("#total_chargeable").val();
+        init() {
+            if (this.initialized) return;
 
-    // Validasi data wajib
-    if (!customer_id || !service_id || !country_id || !actual_weight || !volume_weight) {
-        return;
-    }
+            this.initialized = true;
+            this.bindEvents();
 
-    $.ajax({
-        url: BASE_URL + "/pricing/calculate",
-        type: "POST",
-        dataType: "json",
-        data: {
-            customer_id: customer_id,
-            service_id: service_id,
-            country_id: country_id,
-            commodity_type_id: $("#commodity_type_id").val() || 0,
-            actual_weight: actual_weight,
-            volume_weight: volume_weight,
-            insurance_amount: $("#insurance_customer").val() || 0,
-            packing_charge: $("#packing_customer").val() || 0,
-            additional_charge: $("#additional_customer").val() || 0,
-            discount_amount: $("#discount_amount").val() || 0
+            console.log("✅ Pricing Module Loaded");
         },
-        success: function(res) {
-            if (res.status !== "success") {
-                console.warn("Pricing error:", res.message || "Gagal mengambil tarif");
+
+        bindEvents() {
+            const selectors = [
+                "#customer_id",
+                "#receiver_id",
+                "#country_id",
+                "#service_id",
+                "#commodity_type_id",
+                "#transport_mode_id",
+                "#is_remote",
+                "#insurance_customer",
+                "#packing_customer",
+                "#additional_customer",
+                "#discount_amount",
+                ".berat",
+                ".panjang",
+                ".lebar",
+                ".tinggi"
+            ].join(",");
+
+            $(document)
+                .off(
+                    "input.shipmentPricing change.shipmentPricing",
+                    selectors
+                )
+                .on(
+                    "input.shipmentPricing change.shipmentPricing",
+                    selectors,
+                    () => this.schedule()
+                );
+        },
+
+        number(value) {
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        },
+
+        money(value) {
+            if (
+                window.ShipmentUtils &&
+                typeof window.ShipmentUtils.formatRupiah === "function"
+            ) {
+                return window.ShipmentUtils.formatRupiah(value);
+            }
+
+            return new Intl.NumberFormat("id-ID", {
+                style: "currency",
+                currency: "IDR",
+                minimumFractionDigits: 0
+            }).format(this.number(value));
+        },
+
+        endpoint() {
+            const baseUrl = String(
+                window.BASE_URL ||
+                window.BASEURL ||
+                window.baseUrl ||
+                ""
+            ).replace(/\/+$/, "");
+
+            return (
+                window.SHIPMENT_PRICING_ENDPOINT ||
+                baseUrl + "/pricing/calculate"
+            );
+        },
+
+        collectData() {
+            const actualWeight =
+                this.number($("#total_berat").val());
+
+            const chargeableWeight =
+                this.number($("#total_chargeable").val());
+
+            const discount =
+                this.number($("#discount_amount").val());
+
+            const senderOption =
+    document.querySelector(
+        "#customer_id option:checked"
+    );
+
+const customerId =
+    senderOption?.dataset.customerId ||
+    $("#real_customer_id").val() ||
+    "";
+
+if (customerId) {
+    $("#real_customer_id").val(customerId);
+}    
+
+            return {
+                customer_id: customerId,
+                receiver_id: $("#receiver_id").val() || "",
+                country_id: $("#country_id").val() || "",
+                service_id: $("#service_id").val() || "",
+                commodity_type_id:
+                    $("#commodity_type_id").val() || 0,
+                transport_mode_id:
+                    $("#transport_mode_id").val() || 1,
+                is_remote: $("#is_remote").val() || 0,
+
+                actual_weight: actualWeight,
+
+                /*
+                 * Backend memakai max(actual_weight, volume_weight).
+                 * total_chargeable dikirim sebagai volume_weight agar
+                 * hasil multi-colly tetap mengikuti chargeable summary.
+                 */
+                volume_weight: chargeableWeight,
+                chargeable_weight: chargeableWeight,
+
+                insurance_amount:
+                    this.number($("#insurance_customer").val()),
+                packing_charge:
+                    this.number($("#packing_customer").val()),
+                additional_charge:
+                    this.number($("#additional_customer").val()),
+
+                discount: discount,
+                discount_amount: discount,
+
+                receiver_city:
+                    $("#receiver_city").val() || "",
+                receiver_postcode:
+                    $("#receiver_postal_code").val() || ""
+            };
+        },
+
+        isReady(data) {
+            return Boolean(
+                data.customer_id &&
+                data.country_id &&
+                data.service_id &&
+                data.chargeable_weight > 0
+            );
+        },
+
+        schedule(delay = 350) {
+            clearTimeout(this.timer);
+
+            this.timer = setTimeout(
+                () => this.load(),
+                delay
+            );
+        },
+
+        load(force = false) {
+            const data = this.collectData();
+
+            if (!this.isReady(data)) {
+                this.cancel();
+                this.lastHash = "";
                 return;
             }
 
-            const p = res.data;
+            const hash = JSON.stringify(data);
 
-            // Isi nilai input
-            $("#selling_amount").val(p.freight || 0);
-            $("#vendor_cost").val(p.vendor_total || 0);
-            $("#total_charge").val(p.customer_total || 0);
-            $("#profit_amount").val(p.profit || 0);
-            $("#margin_percent").val(p.margin || 0);
-            $("#markup_percent").val(p.markup || 0);
+            if (!force && hash === this.lastHash) {
+                return;
+            }
 
-            // Isi tampilan format uang
-            $("#shipment_charge_text").text(formatMoney(p.freight));
-            $("#grand_total_text").text(formatMoney(p.customer_total));
-            $("#vendor_cost_text").text(formatMoney(p.vendor_total));
-            $("#profit_text").text(formatMoney(p.profit));
-            $("#margin_text").text((p.margin || 0) + " %");
+            this.lastHash = hash;
+            this.cancel();
+
+            this.xhr = $.ajax({
+                url: this.endpoint(),
+                type: "POST",
+                dataType: "json",
+                data: data,
+
+                success: (response) => {
+                    const normalized =
+                        this.normalizeResponse(response);
+
+                    if (!normalized.success) {
+                        this.lastHash = "";
+
+                        console.warn(
+                            "Pricing error:",
+                            normalized.message
+                        );
+
+                        return;
+                    }
+
+                    this.applyResult(normalized.data);
+                },
+
+                error: (xhr, status, error) => {
+                    if (status === "abort") return;
+
+                    this.lastHash = "";
+
+                    console.error(
+                        "Pricing AJAX error:",
+                        error,
+                        xhr.responseText
+                    );
+                },
+
+                complete: () => {
+                    this.xhr = null;
+                }
+            });
         },
-        error: function(xhr, status, error) {
-            console.error("AJAX Error:", error, xhr.responseText);
+
+        cancel() {
+            if (!this.xhr) return;
+
+            this.xhr.abort();
+            this.xhr = null;
+        },
+
+        normalizeResponse(response) {
+            if (!response || typeof response !== "object") {
+                return {
+                    success: false,
+                    message: "Response pricing tidak valid.",
+                    data: {}
+                };
+            }
+
+            if (
+                response.status &&
+                response.status !== "success"
+            ) {
+                return {
+                    success: false,
+                    message:
+                        response.message ||
+                        "Gagal menghitung pricing.",
+                    data: {}
+                };
+            }
+
+            if (response.success === false) {
+                return {
+                    success: false,
+                    message:
+                        response.message ||
+                        "Gagal menghitung pricing.",
+                    data: {}
+                };
+            }
+
+            return {
+                success: true,
+                message: "",
+                data:
+                    response.data &&
+                    typeof response.data === "object"
+                        ? response.data
+                        : response
+            };
+        },
+
+        applyResult(payload) {
+            const freight = this.number(
+                payload.freight ??
+                payload.base_tariff?.selling_rate
+            );
+
+            const fuel =
+                this.number(payload.fuel);
+
+            const remote =
+                this.number(payload.remote);
+
+            const goGreen = this.number(
+                payload.gogreen ??
+                payload.go_green
+            );
+
+            const insurance =
+                this.number(payload.insurance);
+
+            const packing =
+                this.number(payload.packing);
+
+            const additional =
+                this.number(
+                    payload.additional ??
+                    payload.customer_charge_total
+                );
+
+            const discount =
+                this.number(payload.discount);
+
+            const customerTotal =
+                this.number(
+                    payload.customer_total ??
+                    payload.total
+                );
+
+            const vendorTotal =
+                this.number(
+                    payload.vendor_total ??
+                    payload.vendor_cost
+                );
+
+            /*
+             * Charges Module lama menghitung:
+             * selling + insurance + packing + additional - discount.
+             * Karena itu selling_amount diisi subtotal sistem supaya
+             * hasil akhirnya sama dengan customer_total backend.
+             */
+            const systemSubtotal = Math.max(
+                0,
+                customerTotal -
+                insurance -
+                packing -
+                additional +
+                discount
+            );
+
+            $("#selling_amount").val(systemSubtotal);
+            $("#vendor_total").val(vendorTotal);
+
+            $("#insurance_customer").val(insurance);
+            $("#packing_customer").val(packing);
+            $("#additional_customer").val(additional);
+            $("#discount_amount").val(discount);
+
+            $("#shipment_charge_text").text(
+                this.money(freight)
+            );
+
+            $("#remote_charge_text").text(
+                this.money(remote)
+            );
+
+            window.ShipmentPricingState = {
+                freight,
+                fuel,
+                remote,
+                gogreen: goGreen,
+                insurance,
+                packing,
+                additional,
+                discount,
+                customerTotal,
+                vendorTotal,
+                profit: this.number(payload.profit),
+                margin: this.number(
+                    payload.margin ??
+                    payload.margin_percent
+                ),
+                markup: this.number(
+                    payload.markup ??
+                    payload.markup_percent
+                ),
+                warnings: Array.isArray(payload.warnings)
+                    ? payload.warnings
+                    : []
+            };
+
+            if (
+                typeof window.calculateGrandTotal ===
+                "function"
+            ) {
+                window.calculateGrandTotal();
+            }
+
+            if (
+                typeof window.calculateVendorTotal ===
+                "function"
+            ) {
+                window.calculateVendorTotal();
+            }
+
+            $(document).trigger(
+                "shipment:pricing:updated",
+                [window.ShipmentPricingState]
+            );
         }
-    });
-}
+    };
 
-// Fungsi format uang
-function formatMoney(x) {
-    const amount = Number(x) || 0;
-    return "Rp " + amount.toLocaleString("id-ID");
-}
+    window.ShipmentPricing = ShipmentPricing;
 
-// Pemicu tambahan untuk perubahan pada biaya tambahan
-$(document).on("change keyup",
-    "#insurance_customer, #packing_customer, #additional_customer, #discount_amount, #commodity_type_id",
-    loadPricing
-);
+    window.initializePricing = function () {
+        return window.ShipmentPricing.init();
+    };
 
-// Tetap pertahankan fungsi lama jika masih dipakai di tempat lain
-function triggerLoadRate() {
-    loadPricing();
-}
+    window.loadPricing = function () {
+        return window.ShipmentPricing.load(true);
+    };
 
-function loadShipmentRate() {
-    // Tetap ada jika dipanggil dari tempat lain, tapi mengarah ke logika baru
-    loadPricing();
-}
+    window.calculatePricing = function () {
+        return window.ShipmentPricing.load(true);
+    };
+
+    window.triggerLoadRate = function () {
+        return window.ShipmentPricing.schedule();
+    };
+
+    window.loadShipmentRate = function () {
+        return window.ShipmentPricing.schedule();
+    };
+})(window, jQuery);

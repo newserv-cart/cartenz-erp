@@ -25,11 +25,21 @@
             <div class="row align-items-end">
                 <div class="col-md-9">
                     <label class="form-label fw-bold">🏢 Customer</label>
-                    <select name="customer_id" id="customer_id" class="form-select">
+                    <input
+    type="hidden"
+    name="customer_id"
+    id="real_customer_id"
+    value="">
+
+<select
+    name="sender_address_id"
+    id="customer_id"
+    class="form-select">
                         <option value="">-- Select Customer --</option>
                         <?php foreach($senderAddresses as $row): ?>
                         <option
                             value="<?= $row['id'] ?>"
+                            data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"v
                             data-country-id="<?= $row['country_id']?>"       
                             data-company="<?= esc($row['company_name']) ?>"
                             data-phone="<?= esc($row['phone']) ?>"
@@ -718,7 +728,8 @@ $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, 
 <script src="<?= base_url('js/modules/shipment/summary.js?v=49.4.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/colly.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/items.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/sender.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/pricing.js?v=49.7.2') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/sender.js?v=49.7.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
 

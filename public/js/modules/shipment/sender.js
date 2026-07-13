@@ -54,6 +54,13 @@ window.ShipmentSender = {
     // ISI FORM UTAMA
     // ==================================================
     fill(data) {
+
+        $("#real_customer_id").val(
+            data.customerId ||
+            data.customer_id ||
+            ""
+        );    
+
         $("#sender_company").val(
             data.company || ""
         );
@@ -97,6 +104,8 @@ window.ShipmentSender = {
     // KOSONGKAN FORM UTAMA
     // ==================================================
     clear() {
+
+        $("#real_customer_id").val("");
         $("#sender_company").val("");
         $("#sender_phone").val("");
         $("#sender_email").val("");
@@ -382,6 +391,11 @@ window.ShipmentSender = {
                                 );
 
                             $(option).attr({
+
+                                "data-customer-id":
+                                    details.customer_id 
+                                    || "",
+
                                 "data-country-id":
                                     details.country_id
                                     || "",
