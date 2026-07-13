@@ -40,13 +40,13 @@
                         <option
                             value="<?= $row['id'] ?>"
                             data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"v
-                            data-country-id="<?= $row['country_id']?>"       
+                            data-country-id="<?= $row['country_id']?>"
                             data-company="<?= esc($row['company_name']) ?>"
                             data-phone="<?= esc($row['phone']) ?>"
                             data-email="<?= esc($row['email']) ?>"
                             data-city="<?= esc($row['city']) ?>"
                             data-state="<?= esc($row['state']) ?>"
-                             data-postal-code="<?= esc($row['postal_code']) ?>" 
+                             data-postal-code="<?= esc($row['postal_code']) ?>"
                             data-address="<?= esc($row['address']) ?>"
                             data-country="<?= esc($row['country_name']) ?>"
                             data-identity="<?= esc($row['identity_number']) ?>">
@@ -492,7 +492,7 @@
     <div class="card mb-3">
         <div class="card-header bg-dark text-white">Shipment Summary</div>
         <div class="card-body">
-            <div class="row mb-4"> 
+            <div class="row mb-4">
                 <div class="col-md-3 mb-3">
                     <label>Total Colly</label>
                     <input type="text" class="form-control" id="total_colly" name="total_colly" value="1" readonly>
@@ -584,7 +584,7 @@
                 </div>
 
             </div>
-            
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="btnSaveSender">💾 Save Sender</button>
@@ -713,7 +713,7 @@ $(document).ready(function () {
         window.hitungSemua();
     }
 
-    
+
 });
 
 
