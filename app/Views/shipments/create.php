@@ -706,10 +706,6 @@ console.log('SCRIPT LOADED');
 
 window.userRole = 'admin';
 
-function refreshChargesUI() {
-    const selectedEngine = $('#service_id option:selected').data('engine') || 'REGULAR';
-    $('#expressCharges').toggle(selectedEngine === 'EXPRESS');
-}
 
 $(document).ready(function () {
     // Panggil fungsi hitungSemua dari summary.js saja
@@ -717,11 +713,9 @@ $(document).ready(function () {
         window.hitungSemua();
     }
 
-    refreshChargesUI();
+    
 });
 
-// Event Listener di luar ready
-$(document).off('change', '#service_id, #is_remote').on('change', '#service_id, #is_remote', refreshChargesUI);
 
 </script>
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
@@ -729,6 +723,8 @@ $(document).off('change', '#service_id, #is_remote').on('change', '#service_id, 
 <script src="<?= base_url('js/modules/shipment/colly.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/items.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/pricing.js?v=49.7.2') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/charges.js?v=49.7.3') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/profit.js?v=49.7.3') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/sender.js?v=49.7.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>

@@ -1,154 +1,220 @@
 /*
 =========================================================
 CARTENZ ERP
-Module : Shipment
-Sprint : 20
-File   : charges.js
+Shipment Charges Module
+Sprint 49.7B
 =========================================================
 */
 
-function initializeCharges(){
+(function (window, $) {
+    "use strict";
 
-    initializeChargeCalculation();
+    const ShipmentCharges = {
+        initialized: false,
 
-    initializeChargesCollapse();
+        init() {
+            if (this.initialized) {
+                return;
+            }
 
-}
+            this.initialized = true;
 
-// ======================================
-// REGISTER EVENT
-// ======================================
+            this.bindEvents();
+            this.initializeCollapse();
+            this.refreshServiceUI();
+            this.calculateGrandTotal();
 
-function initializeChargeCalculation(){
+            console.log("✅ Charges Module Loaded");
+        },
 
-    const ids=[
+        bindEvents() {
+            const chargeSelectors = [
+                "#insurance_customer",
+                "#packing_customer",
+                "#additional_customer",
+                "#discount_amount"
+            ].join(",");
 
-        "insurance_customer",
+            $(document)
+                .off(
+                    "input.shipmentCharges change.shipmentCharges",
+                    chargeSelectors
+                )
+                .on(
+                    "input.shipmentCharges change.shipmentCharges",
+                    chargeSelectors,
+                    () => {
+                        this.calculateGrandTotal();
+                    }
+                );
 
-        "packing_customer",
+            $(document)
+                .off(
+                    "change.shipmentChargesUI",
+                    "#service_id, #is_remote"
+                )
+                .on(
+                    "change.shipmentChargesUI",
+                    "#service_id, #is_remote",
+                    () => {
+                        this.refreshServiceUI();
+                    }
+                );
 
-        "additional_customer",
+            $(document)
+                .off(
+                    "shipment:pricing:updated.shipmentCharges"
+                )
+                .on(
+                    "shipment:pricing:updated.shipmentCharges",
+                    () => {
+                        this.calculateGrandTotal();
+                    }
+                );
+        },
 
-        "discount_amount",
+        number(value) {
+            const parsed = parseFloat(value);
 
-        "selling_amount"
+            return Number.isFinite(parsed)
+                ? parsed
+                : 0;
+        },
 
-    ];
+        value(id) {
+            return this.number(
+                document.getElementById(id)?.value
+            );
+        },
 
-    ids.forEach(function(id){
+        money(value) {
+            const amount = this.number(value);
 
-        const obj=document.getElementById(id);
+            return "Rp " +
+                amount.toLocaleString("id-ID");
+        },
 
-        if(obj){
+        calculateGrandTotal() {
+            const shipment =
+                this.value("selling_amount");
 
-            obj.addEventListener("input",calculateGrandTotal);
+            const insurance =
+                this.value("insurance_customer");
 
-            obj.addEventListener("change",calculateGrandTotal);
+            const packing =
+                this.value("packing_customer");
 
+            const additional =
+                this.value("additional_customer");
+
+            const discount =
+                this.value("discount_amount");
+
+            const otherCharges = Math.max(
+                0,
+                insurance +
+                packing +
+                additional
+            );
+
+            const customerTotal = Math.max(
+                0,
+                shipment +
+                otherCharges -
+                discount
+            );
+
+            $("#other_charge_text").text(
+                this.money(otherCharges)
+            );
+
+            $("#grand_total_text").text(
+                this.money(customerTotal)
+            );
+
+            $("#grand_total").val(customerTotal);
+            $("#customer_total").val(customerTotal);
+
+            const state = {
+                shipment,
+                insurance,
+                packing,
+                additional,
+                discount,
+                otherCharges,
+                customerTotal
+            };
+
+            window.ShipmentChargesState = state;
+
+            $(document).trigger(
+                "shipment:charges:updated",
+                [state]
+            );
+
+            return state;
+        },
+
+        initializeCollapse() {
+            const $collapse =
+                $("#chargesCollapse");
+
+            if (!$collapse.length) {
+                return;
+            }
+
+            $collapse
+                .off(
+                    "show.bs.collapse.shipmentCharges " +
+                    "hide.bs.collapse.shipmentCharges"
+                )
+                .on(
+                    "show.bs.collapse.shipmentCharges",
+                    () => {
+                        $("#chargesIcon").text("▲");
+                    }
+                )
+                .on(
+                    "hide.bs.collapse.shipmentCharges",
+                    () => {
+                        $("#chargesIcon").text("▼");
+                    }
+                );
+        },
+
+        refreshServiceUI() {
+            const selected =
+                document.querySelector(
+                    "#service_id option:checked"
+                );
+
+            const engine = String(
+                selected?.dataset.engine ||
+                selected?.dataset.serviceCode ||
+                selected?.textContent ||
+                "REGULAR"
+            ).toUpperCase();
+
+            $("#expressCharges").toggle(
+                engine.includes("EXPRESS")
+            );
         }
+    };
 
-    });
+    window.ShipmentCharges =
+        ShipmentCharges;
 
-    calculateGrandTotal();
+    window.initializeCharges = function () {
+        return window.ShipmentCharges.init();
+    };
 
-}
+    window.calculateGrandTotal = function () {
+        return window.ShipmentCharges
+            .calculateGrandTotal();
+    };
 
-// ======================================
-// GRAND TOTAL
-// ======================================
-
-function calculateGrandTotal(){
-
-    let shipment =
-        parseFloat(document.getElementById("selling_amount")?.value) || 0;
-
-    let insurance =
-        parseFloat(document.getElementById("insurance_customer")?.value) || 0;
-
-    let packing =
-        parseFloat(document.getElementById("packing_customer")?.value) || 0;
-
-    let additional =
-        parseFloat(document.getElementById("additional_customer")?.value) || 0;
-
-    let discount =
-        parseFloat(document.getElementById("discount_amount")?.value) || 0;
-
-    let other =
-        insurance +
-        packing +
-        additional;
-
-    let grand =
-        shipment +
-        other -
-        discount;
-
-    if(other < 0){
-        other = 0;
-    }
-
-    if(grand < 0){
-        grand = 0;
-    }
-
-    const otherText =
-        document.getElementById("other_charge_text");
-
-    if(otherText){
-
-        otherText.innerHTML =
-            "Rp " + other.toLocaleString("id-ID");
-
-    }
-
-    const grandText =
-        document.getElementById("grand_total_text");
-
-    if(grandText){
-
-        grandText.innerHTML =
-            "Rp " + grand.toLocaleString("id-ID");
-
-    }
-
-    const hidden =
-        document.getElementById("grand_total");
-
-    if(hidden){
-
-        hidden.value = grand;
-
-    }
-
-}
-
-// ======================================
-// COLLAPSE ICON
-// ======================================
-
-function initializeChargesCollapse(){
-
-    const collapse =
-        document.getElementById("chargesCollapse");
-
-    const icon =
-        document.getElementById("chargesIcon");
-
-    if(collapse && icon){
-
-        collapse.addEventListener("show.bs.collapse",function(){
-
-            icon.innerHTML="▲";
-
-        });
-
-        collapse.addEventListener("hide.bs.collapse",function(){
-
-            icon.innerHTML="▼";
-
-        });
-
-    }
-
-}
+    window.refreshChargesUI = function () {
+        return window.ShipmentCharges
+            .refreshServiceUI();
+    };
+})(window, jQuery);

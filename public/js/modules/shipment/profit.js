@@ -1,151 +1,179 @@
 /*
 =========================================================
 CARTENZ ERP
-Module : Shipment
-Sprint : 21
-File   : profit.js
+Shipment Profit Module
+Sprint 49.7B
 =========================================================
 */
 
-function initializeProfit(){
+(function (window, $) {
+    "use strict";
 
-    const ids = [
+    const ShipmentProfit = {
+        initialized: false,
 
-        "vendor_total",
+        init() {
+            if (this.initialized) {
+                return;
+            }
 
-        "insurance_vendor",
+            this.initialized = true;
 
-        "packing_vendor",
+            this.bindEvents();
+            this.calculate();
 
-        "additional_vendor",
+            console.log("✅ Profit Module Loaded");
+        },
 
-        "grand_total"
+        bindEvents() {
+            const vendorSelectors = [
+                "#insurance_vendor",
+                "#packing_vendor",
+                "#additional_vendor"
+            ].join(",");
 
-    ];
+            $(document)
+                .off(
+                    "input.shipmentProfit change.shipmentProfit",
+                    vendorSelectors
+                )
+                .on(
+                    "input.shipmentProfit change.shipmentProfit",
+                    vendorSelectors,
+                    () => {
+                        this.calculate();
+                    }
+                );
 
-    ids.forEach(function(id){
+            $(document)
+                .off(
+                    "shipment:charges:updated.shipmentProfit"
+                )
+                .on(
+                    "shipment:charges:updated.shipmentProfit",
+                    () => {
+                        this.calculate();
+                    }
+                );
 
-        const obj = document.getElementById(id);
+            $(document)
+                .off(
+                    "shipment:pricing:updated.shipmentProfit"
+                )
+                .on(
+                    "shipment:pricing:updated.shipmentProfit",
+                    () => {
+                        this.calculate();
+                    }
+                );
+        },
 
-        if(obj){
+        number(value) {
+            const parsed = parseFloat(value);
 
-            obj.addEventListener("input", function(){
+            return Number.isFinite(parsed)
+                ? parsed
+                : 0;
+        },
 
-                calculateVendorTotal();
+        value(id) {
+            return this.number(
+                document.getElementById(id)?.value
+            );
+        },
 
-            });
+        money(value) {
+            const amount = this.number(value);
 
-            obj.addEventListener("change", function(){
+            return "Rp " +
+                amount.toLocaleString("id-ID");
+        },
 
-                calculateVendorTotal();
+        calculate() {
+            const customerTotal =
+                this.value("grand_total");
 
-            });
+            const vendorFreight =
+                this.value("vendor_total");
 
+            const vendorInsurance =
+                this.value("insurance_vendor");
+
+            const vendorPacking =
+                this.value("packing_vendor");
+
+            const vendorAdditional =
+                this.value("additional_vendor");
+
+            const vendorTotal = Math.max(
+                0,
+                vendorFreight +
+                vendorInsurance +
+                vendorPacking +
+                vendorAdditional
+            );
+
+            const profit =
+                customerTotal -
+                vendorTotal;
+
+            const margin =
+                customerTotal > 0
+                    ? (profit / customerTotal) * 100
+                    : 0;
+
+            $("#vendor_total_charge").val(
+                vendorTotal
+            );
+
+            $("#profit_amount").val(profit);
+
+            $("#vendor_cost_text").text(
+                this.money(vendorTotal)
+            );
+
+            $("#profit_text").text(
+                this.money(profit)
+            );
+
+            $("#margin_text").text(
+                margin.toFixed(2) + " %"
+            );
+
+            const state = {
+                customerTotal,
+                vendorFreight,
+                vendorInsurance,
+                vendorPacking,
+                vendorAdditional,
+                vendorTotal,
+                profit,
+                margin
+            };
+
+            window.ShipmentProfitState = state;
+
+            $(document).trigger(
+                "shipment:profit:updated",
+                [state]
+            );
+
+            return state;
         }
+    };
 
-    });
+    window.ShipmentProfit =
+        ShipmentProfit;
 
-    calculateVendorTotal();
+    window.initializeProfit = function () {
+        return window.ShipmentProfit.init();
+    };
 
-}
+    window.calculateVendorTotal = function () {
+        return window.ShipmentProfit.calculate();
+    };
 
-// ======================================
-// HITUNG TOTAL BIAYA VENDOR
-// ======================================
-
-function calculateVendorTotal(){
-
-    let freight =
-        parseFloat(document.getElementById("vendor_total")?.value) || 0;
-
-    let insurance =
-        parseFloat(document.getElementById("insurance_vendor")?.value) || 0;
-
-    let packing =
-        parseFloat(document.getElementById("packing_vendor")?.value) || 0;
-
-    let additional =
-        parseFloat(document.getElementById("additional_vendor")?.value) || 0;
-
-    let total =
-        freight +
-        insurance +
-        packing +
-        additional;
-
-    const hidden =
-        document.getElementById("vendor_total_charge");
-
-    if(hidden){
-
-        hidden.value = total;
-
-    }
-
-    const text =
-        document.getElementById("vendor_cost_text");
-
-    if(text){
-
-        text.innerHTML =
-            "Rp " + total.toLocaleString("id-ID");
-
-    }
-
-    calculateProfit();
-
-}
-
-// ======================================
-// HITUNG PROFIT
-// ======================================
-
-function calculateProfit(){
-
-    let customer =
-        parseFloat(document.getElementById("grand_total")?.value) || 0;
-
-    let vendor =
-        parseFloat(document.getElementById("vendor_total_charge")?.value) || 0;
-
-    let profit =
-        customer - vendor;
-
-    let margin = 0;
-
-    if(customer > 0){
-
-        margin = (profit / customer) * 100;
-
-    }
-
-    const profitText =
-        document.getElementById("profit_text");
-
-    if(profitText){
-
-        profitText.innerHTML =
-            "Rp " + profit.toLocaleString("id-ID");
-
-    }
-
-    const marginText =
-        document.getElementById("margin_text");
-
-    if(marginText){
-
-        marginText.innerHTML =
-            margin.toFixed(2) + " %";
-
-    }
-
-    const hidden =
-        document.getElementById("profit_amount");
-
-    if(hidden){
-
-        hidden.value = profit;
-
-    }
-
-}
+    window.calculateProfit = function () {
+        return window.ShipmentProfit.calculate();
+    };
+})(window, jQuery);
