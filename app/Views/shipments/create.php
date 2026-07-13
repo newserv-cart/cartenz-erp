@@ -8,7 +8,12 @@
 </head>
 <body>
 
-<form method="post" action="<?= site_url('shipments/store') ?>">
+<form
+    id="shipmentForm"
+    method="post"
+    action="<?= site_url('shipments/store') ?>"
+    data-base-url="<?= esc(rtrim(base_url(), '/')) ?>"
+    data-user-role="admin">
     <?= csrf_field() ?>
 
 <div class="container mt-4 mb-5">
@@ -39,7 +44,7 @@
                         <?php foreach($senderAddresses as $row): ?>
                         <option
                             value="<?= $row['id'] ?>"
-                            data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"v
+                            data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"
                             data-country-id="<?= $row['country_id']?>"
                             data-company="<?= esc($row['company_name']) ?>"
                             data-phone="<?= esc($row['phone']) ?>"
@@ -215,7 +220,11 @@
                     <select name="service_id" id="service_id" class="form-select">
                         <option value="">-- Select Service --</option>
                         <?php foreach($services as $row): ?>
-                            <option value="<?= $row['id'] ?>"><?= esc($row['service_name']) ?></option>
+                            <option
+        value="<?= $row['id'] ?>"
+        data-engine="<?= esc(strtoupper($row['service_code'] ?? $row['service_name'] ?? 'REGULAR')) ?>">
+        <?= esc($row['service_name']) ?>
+    </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -691,33 +700,7 @@
 ======================================= -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const BASE_URL = "<?= base_url() ?>";
-</script>
-<script src="<?= base_url('js/modules/shipment/pricing.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/charges.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/profit.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
 
-
-<script>
-console.log('SCRIPT LOADED');
-
-
-window.userRole = 'admin';
-
-
-$(document).ready(function () {
-    // Panggil fungsi hitungSemua dari summary.js saja
-    if (typeof window.hitungSemua === "function") {
-        window.hitungSemua();
-    }
-
-
-});
-
-
-</script>
 <script src="<?= base_url('js/modules/shipment/utils.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/summary.js?v=49.4.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/colly.js') ?>"></script>
@@ -725,9 +708,10 @@ $(document).ready(function () {
 <script src="<?= base_url('js/modules/shipment/pricing.js?v=49.7.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/charges.js?v=49.7.3') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/profit.js?v=49.7.3') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/sender.js?v=49.7.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/shipment.js') ?>"></script>
+<script src="<?= base_url('js/modules/shipment/shipment.js?v=49.7.4') ?>"></script>
 
 
 </body>
