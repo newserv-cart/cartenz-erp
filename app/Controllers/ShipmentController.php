@@ -26,14 +26,28 @@ use App\Models\ShipmentHistoryModel;
 use App\Services\ShipmentCalculationService;
 use App\Services\CommodityRuleService;
 use App\Services\PricingEngine;
+use App\Services\ShipmentLifecycleService;
 
 class ShipmentController extends BaseController
 {
     public function index()
     {
         $shipmentModel = new ShipmentModel();
-        $data['shipments'] = $shipmentModel->orderBy('id', 'DESC')->findAll();
-        return view('shipments/index', $data);
+        $lifecycle     = new ShipmentLifecycleService();
+
+        $shipments = $shipmentModel
+            ->orderBy('id', 'DESC')
+            ->findAll();
+
+        foreach ($shipments as &$shipment) {
+            $shipment['_actions'] =
+                $lifecycle->getActionState($shipment);
+        }
+        unset($shipment);
+
+        return view('shipments/index', [
+            'shipments' => $shipments,
+        ]);
     }
 
     public function testAwb()
@@ -1165,27 +1179,74 @@ class ShipmentController extends BaseController
 
     public function delete($id)
     {
-        $db = db_connect();
-        $shipmentModel = new ShipmentModel();
-        $packageModel  = new ShipmentPackageModel();
-        $itemModel     = new ShipmentPackageItemModel();
-        $trackingModel = new ShipmentTrackingModel();
+        $reason = (string) $this->request->getPost(
+            'delete_reason'
+        );
 
-        $db->transBegin();
+        $confirmAwb = (string) $this->request->getPost(
+            'confirm_awb'
+        );
+
         try {
-            $packages = $packageModel->where('shipment_id', $id)->findAll();
-            foreach ($packages as $package) {
-                $itemModel->where('shipment_package_id', $package['id'])->delete();
-            }
-            $packageModel->where('shipment_id', $id)->delete();
-            $trackingModel->where('shipment_id', $id)->delete();
-            $shipmentModel->delete($id);
+            $result = (new ShipmentLifecycleService())
+                ->deletePermanently(
+                    (int) $id,
+                    $reason,
+                    $confirmAwb,
+                    auth()->id() ?? null
+                );
 
-            $db->transCommit();
-            return redirect()->to('/shipments')->with('success', 'Shipment Deleted Successfully');
+            return redirect()
+                ->to(site_url('shipments'))
+                ->with(
+                    'success',
+                    'Shipment ' .
+                    $result['awb_no'] .
+                    ' berhasil dihapus permanen. ' .
+                    'Audit penghapusan tetap tersimpan.'
+                );
         } catch (\Throwable $e) {
-            $db->transRollback();
-            return redirect()->back()->with('error', 'Failed to delete: ' . $e->getMessage());
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function cancel($id)
+    {
+        $reason = (string) $this->request->getPost(
+            'cancel_reason'
+        );
+
+        try {
+            $result = (new ShipmentLifecycleService())
+                ->cancel(
+                    (int) $id,
+                    $reason,
+                    auth()->id() ?? null
+                );
+
+            return redirect()
+                ->to(
+                    site_url(
+                        'shipments/detail/' .
+                        (int) $id
+                    )
+                )
+                ->with(
+                    'success',
+                    'Shipment ' .
+                    $result['awb_no'] .
+                    ' dibatalkan dari status ' .
+                    $result['previous_status'] .
+                    '.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
         }
     }
 
@@ -1375,7 +1436,7 @@ class ShipmentController extends BaseController
         if (
             in_array(
                 $currentPublicStatus,
-                ['ON_HOLD', 'RETURN_TO_SENDER'],
+                ['ON_HOLD', 'RETURN_TO_SENDER', 'CANCELLED'],
                 true
             )
         ) {
@@ -1390,7 +1451,7 @@ class ShipmentController extends BaseController
                 if (
                     !in_array(
                         $candidate,
-                        ['ON_HOLD', 'RETURN_TO_SENDER'],
+                        ['ON_HOLD', 'RETURN_TO_SENDER', 'CANCELLED'],
                         true
                     )
                 ) {
@@ -1456,6 +1517,7 @@ class ShipmentController extends BaseController
                 'DELIVERED',
                 'ON_HOLD',
                 'RETURN_TO_SENDER',
+                'CANCELLED',
             ],
             true
         );
@@ -1471,6 +1533,7 @@ class ShipmentController extends BaseController
             'DELIVERED'        => 'Delivered',
             'ON_HOLD'          => 'On Hold',
             'RETURN_TO_SENDER' => 'Return to Sender',
+            'CANCELLED'        => 'Cancelled',
             default            => 'Shipment Update',
         };
     }
@@ -1492,6 +1555,8 @@ class ShipmentController extends BaseController
                 'Perjalanan kiriman tertunda sementara dan sedang ditangani.',
             'RETURN_TO_SENDER' =>
                 'Kiriman sedang dikembalikan kepada pengirim.',
+            'CANCELLED' =>
+                'Pengiriman telah dibatalkan.',
             default =>
                 'Status pengiriman telah diperbarui.',
         };
@@ -2236,6 +2301,12 @@ class ShipmentController extends BaseController
                 );
             }
 
+            if ($targetStatus === 'CANCELLED') {
+                throw new \RuntimeException(
+                    'Gunakan tombol Cancel Shipment agar alasan dan audit pembatalan tercatat.'
+                );
+            }
+
             if (
                 (int) ($targetMaster['requires_location'] ?? 0) === 1
                 && $location === ''
@@ -2468,6 +2539,7 @@ public function detail($id)
     $costModel     = new ShipmentCostDetailModel();
     $statusModel   = new TrackingStatusModel();
     $historyModel  = new ShipmentHistoryModel();
+    $lifecycle     = new ShipmentLifecycleService();
 
     $shipment = $shipmentModel
         ->select([
@@ -2608,6 +2680,8 @@ public function detail($id)
             ? round(($profit / $customerTotal) * 100, 2)
             : 0.0);
 
+    $actionState = $lifecycle->getActionState($shipment);
+
     return view('shipments/detail', [
         'shipment'          => $shipment,
         'packages'          => $packages,
@@ -2623,6 +2697,7 @@ public function detail($id)
         'vendorTotal'       => round($vendorTotal, 2),
         'profit'            => round($profit, 2),
         'margin'            => round($margin, 2),
+        'actionState'       => $actionState,
     ]);
 }
 // Taruh ini di dalam isi class-nya

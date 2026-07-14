@@ -90,3 +90,26 @@ $profitClass = $profitValue < 0 ? 'text-danger' : 'text-success';
         </div>
     </div>
 </div>
+
+<?php if (!empty($actionState)): ?>
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+                <div>
+                    <div class="fw-bold">Shipment Actions</div>
+                    <div class="small text-muted">
+                        Cancel mempertahankan data. Delete permanen hanya tersedia
+                        untuk DRAFT yang belum terhubung ke proses lain.
+                    </div>
+                </div>
+
+                <div>
+                    <?php $actionShipment = $shipment; ?>
+                    <?= $this->include(
+                        'shipments/partials/lifecycle_actions'
+                    ) ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>

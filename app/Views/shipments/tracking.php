@@ -189,6 +189,7 @@ $statusNames = [
     'DELIVERED'        => 'Delivered',
     'ON_HOLD'          => 'On Hold',
     'RETURN_TO_SENDER' => 'Return to Sender',
+    'CANCELLED'        => 'Cancelled',
 ];
 
 $statusClasses = [
@@ -199,6 +200,7 @@ $statusClasses = [
     'DELIVERED'        => 'success',
     'ON_HOLD'          => 'danger',
     'RETURN_TO_SENDER' => 'danger',
+    'CANCELLED'        => 'danger',
 ];
 
 $normalSteps = [
@@ -447,6 +449,10 @@ if ($currentStepIndex === false) {
             <div class="alert alert-danger">
                 Pengiriman sedang dalam proses dikembalikan
                 kepada pengirim.
+            </div>
+        <?php elseif ($currentPublicStatus === 'CANCELLED'): ?>
+            <div class="alert alert-danger">
+                Pengiriman telah dibatalkan.
             </div>
         <?php endif; ?>
 

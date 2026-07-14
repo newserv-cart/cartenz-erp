@@ -20,7 +20,15 @@ $routes->get('shipments/view/(:num)', 'ShipmentController::view/$1');
 $routes->get('shipments/edit/(:num)', 'ShipmentController::edit/$1');
 $routes->post('shipments/update/(:num)', 'ShipmentController::update/$1');
 
-$routes->get('shipments/delete/(:num)', 'ShipmentController::delete/$1');
+$routes->post(
+    'shipments/cancel/(:num)',
+    'ShipmentController::cancel/$1'
+);
+
+$routes->post(
+    'shipments/delete/(:num)',
+    'ShipmentController::delete/$1'
+);
 $routes->get('test-pdf', 'ShipmentController::testPdf');
 
 $routes->get(

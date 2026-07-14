@@ -68,6 +68,10 @@ class ShipmentModel extends Model
         'is_invoiced',
         'shipment_status',
         'public_tracking_status',
+        'cancel_reason',
+        'cancelled_at',
+        'cancelled_by',
+        'cancelled_from_status',
         'tracking_no_vendor',
         'remarks',
 

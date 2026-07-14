@@ -128,6 +128,9 @@ class ShipmentTrackingModel extends Model
             'RETURN_TO_SENDER'
                 => 'RETURN_TO_SENDER',
 
+            'CANCELLED'
+                => 'CANCELLED',
+
             default
                 => '',
         };
@@ -135,7 +138,7 @@ class ShipmentTrackingModel extends Model
 
     public function getLastNonExceptionTracking(
         int $shipmentId,
-        array $exceptionStatuses = ['ON_HOLD', 'RETURN_TO_SENDER']
+        array $exceptionStatuses = ['ON_HOLD', 'RETURN_TO_SENDER', 'CANCELLED']
     ): ?array {
         $builder = $this
             ->where('shipment_id', $shipmentId);

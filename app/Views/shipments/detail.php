@@ -21,6 +21,10 @@
 
     <?= $this->include('shipments/partials/tabs') ?>
 
+    <?= $this->include(
+        'shipments/partials/lifecycle_modals'
+    ) ?>
+
 </div>
 
 <?= $this->endSection() ?>

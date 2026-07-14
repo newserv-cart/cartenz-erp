@@ -22,6 +22,20 @@ $updatedAt = $shipment['updated_at'] ?? null;
 
                 <tbody>
                     <?php foreach ($historyRows as $row): ?>
+                        <?php
+                        $eventType = strtoupper(
+                            (string) (
+                                $row['event_type']
+                                ?? 'UPDATED'
+                            )
+                        );
+
+                        $historyColor = match ($eventType) {
+                            'CANCELLED', 'DELETED' => 'danger',
+                            'CREATED' => 'success',
+                            default => 'warning',
+                        };
+                        ?>
                         <tr>
                             <td>
                                 <?= esc(
@@ -30,11 +44,8 @@ $updatedAt = $shipment['updated_at'] ?? null;
                             </td>
 
                             <td>
-                                <span class="badge bg-warning text-dark">
-                                    <?= esc(
-                                        $row['event_type']
-                                        ?? 'UPDATED'
-                                    ) ?>
+                                <span class="badge bg-<?= esc($historyColor) ?> <?= $historyColor === 'warning' ? 'text-dark' : '' ?>">
+                                    <?= esc($eventType) ?>
                                 </span>
                             </td>
 
@@ -77,6 +88,22 @@ $updatedAt = $shipment['updated_at'] ?? null;
                     <?php endif; ?>
 
                     <?php foreach (($tracking ?? []) as $row): ?>
+                        <?php
+                        $trackingStatus = strtoupper(
+                            (string) (
+                                $row['tracking_status']
+                                ?? 'TRACKING'
+                            )
+                        );
+
+                        $trackingColor = in_array(
+                            $trackingStatus,
+                            ['CANCELLED', 'RETURN_TO_SENDER'],
+                            true
+                        )
+                            ? 'danger'
+                            : 'primary';
+                        ?>
                         <tr>
                             <td>
                                 <?= esc(
@@ -87,11 +114,8 @@ $updatedAt = $shipment['updated_at'] ?? null;
                             </td>
 
                             <td>
-                                <span class="badge bg-primary">
-                                    <?= esc(
-                                        $row['tracking_status']
-                                        ?? 'TRACKING'
-                                    ) ?>
+                                <span class="badge bg-<?= esc($trackingColor) ?>">
+                                    <?= esc($trackingStatus) ?>
                                 </span>
                             </td>
 
