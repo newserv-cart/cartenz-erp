@@ -21,6 +21,7 @@ use App\Models\CommodityTypeModel;
 use App\Libraries\RegularRate;
 use App\Models\CommodityChargeRuleModel;
 use App\Models\ShipmentModel;
+use App\Models\ShipmentCostDetailModel;
 use App\Services\ShipmentCalculationService;
 use App\Services\CommodityRuleService;
 use App\Services\PricingEngine;
@@ -1108,23 +1109,163 @@ public function getCommodityRule()
 
 public function detail($id)
 {
+    $shipmentId = (int) $id;
+
     $shipmentModel = new ShipmentModel();
+    $packageModel  = new ShipmentPackageModel();
+    $itemModel     = new ShipmentPackageItemModel();
+    $trackingModel = new ShipmentTrackingModel();
+    $costModel     = new ShipmentCostDetailModel();
+    $statusModel   = new TrackingStatusModel();
 
     $shipment = $shipmentModel
-        ->select('shipments.*, customers.customer_name, countries.country_name, services.service_name')
-        ->join('customers', 'customers.id = shipments.customer_id', 'left')
-        ->join('countries', 'countries.id = shipments.country_id', 'left')
-        ->join('services', 'services.id = shipments.service_id', 'left')
-        ->find($id);
+        ->select([
+            'shipments.*',
+            'customers.customer_name',
+            'customers.company_name AS customer_company',
+            'customers.phone AS customer_phone',
+            'customers.email AS customer_email',
+            'countries.country_name',
+            'services.service_name',
+            'vendors.vendor_name',
+            'package_types.package_type_name',
+            'commodity_types.commodity_name',
+            'currencies.currency_code',
+        ])
+        ->join(
+            'customers',
+            'customers.id = shipments.customer_id',
+            'left'
+        )
+        ->join(
+            'countries',
+            'countries.id = shipments.country_id',
+            'left'
+        )
+        ->join(
+            'services',
+            'services.id = shipments.service_id',
+            'left'
+        )
+        ->join(
+            'vendors',
+            'vendors.id = shipments.vendor_id',
+            'left'
+        )
+        ->join(
+            'package_types',
+            'package_types.id = shipments.package_type_id',
+            'left'
+        )
+        ->join(
+            'commodity_types',
+            'commodity_types.id = shipments.commodity_type_id',
+            'left'
+        )
+        ->join(
+            'currencies',
+            'currencies.id = shipments.currency_id',
+            'left'
+        )
+        ->where('shipments.id', $shipmentId)
+        ->first();
 
     if (!$shipment) {
-        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+            'Shipment tidak ditemukan.'
+        );
     }
 
-    return view('shipments/detail', [
-        'shipment' => $shipment
-    ]);
+    $packages = $packageModel
+        ->where('shipment_id', $shipmentId)
+        ->orderBy('package_no', 'ASC')
+        ->orderBy('id', 'ASC')
+        ->findAll();
 
+    foreach ($packages as &$package) {
+        $package['items'] = $itemModel
+            ->where('shipment_package_id', $package['id'])
+            ->orderBy('id', 'ASC')
+            ->findAll();
+    }
+    unset($package);
+
+    $tracking = $trackingModel
+        ->where('shipment_id', $shipmentId)
+        ->orderBy('event_time', 'DESC')
+        ->orderBy('id', 'DESC')
+        ->findAll();
+
+    $statuses = $statusModel
+        ->where('is_active', 1)
+        ->orderBy('sort_order', 'ASC')
+        ->findAll();
+
+    $costDetails = $costModel
+        ->where('shipment_id', $shipmentId)
+        ->orderBy('party', 'ASC')
+        ->orderBy('id', 'ASC')
+        ->findAll();
+
+    $customerCosts = [];
+    $vendorCosts   = [];
+    $customerCostTotal = 0.0;
+    $vendorCostTotal   = 0.0;
+
+    foreach ($costDetails as $cost) {
+        $amount = (float) ($cost['amount'] ?? 0);
+        $party  = strtoupper((string) ($cost['party'] ?? ''));
+
+        if ($party === 'CUSTOMER') {
+            $customerCosts[] = $cost;
+            $customerCostTotal += $amount;
+            continue;
+        }
+
+        if ($party === 'VENDOR') {
+            $vendorCosts[] = $cost;
+            $vendorCostTotal += $amount;
+        }
+    }
+
+    $customerTotal = (float) (
+        $shipment['total_charge']
+        ?? $shipment['selling_amount']
+        ?? $customerCostTotal
+    );
+
+    $vendorTotal = (float) (
+        $shipment['vendor_total']
+        ?? $shipment['vendor_cost']
+        ?? $vendorCostTotal
+    );
+
+    $profit = (float) (
+        $shipment['profit_amount']
+        ?? ($customerTotal - $vendorTotal)
+    );
+
+    $margin = isset($shipment['margin_percent'])
+        ? (float) $shipment['margin_percent']
+        : ($customerTotal > 0
+            ? round(($profit / $customerTotal) * 100, 2)
+            : 0.0);
+
+    return view('shipments/detail', [
+        'shipment'          => $shipment,
+        'packages'          => $packages,
+        'tracking'          => $tracking,
+        'statuses'          => $statuses,
+        'costDetails'       => $costDetails,
+        'customerCosts'     => $customerCosts,
+        'vendorCosts'       => $vendorCosts,
+        'customerCostTotal' => round($customerCostTotal, 2),
+        'vendorCostTotal'   => round($vendorCostTotal, 2),
+        'customerTotal'     => round($customerTotal, 2),
+        'vendorTotal'       => round($vendorTotal, 2),
+        'profit'            => round($profit, 2),
+        'margin'            => round($margin, 2),
+    ]);
 }
 // Taruh ini di dalam isi class-nya
 public function calculateRate()
