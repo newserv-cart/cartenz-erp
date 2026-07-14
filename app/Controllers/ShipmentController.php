@@ -354,28 +354,251 @@ class ShipmentController extends BaseController
         $dompdf->stream('test.pdf', ['Attachment' => false]);
     }
 
+    public function publicTrackingIndex()
+    {
+        return view('shipments/tracking', [
+            'shipment'           => null,
+            'publicEvents'        => [],
+            'currentPublicStatus' => null,
+            'progressStatus'      => null,
+            'notFound'            => false,
+        ]);
+    }
+
+    public function publicTrackingSearch()
+    {
+        $awb = $this->normalizePublicAwb(
+            $this->request->getPost('awb_no')
+        );
+
+        if ($awb === '') {
+            return redirect()
+                ->to(site_url('track'))
+                ->withInput()
+                ->with(
+                    'tracking_error',
+                    'Masukkan nomor AWB yang ingin dilacak.'
+                );
+        }
+
+        return redirect()->to(
+            site_url('track/' . rawurlencode($awb))
+        );
+    }
+
     public function track($awb)
     {
+        $awb = $this->normalizePublicAwb($awb);
+
+        if ($awb === '') {
+            return $this->publicTrackingNotFound('');
+        }
+
         $shipmentModel = new ShipmentModel();
         $trackingModel = new ShipmentTrackingModel();
 
+        /*
+         * Select only customer-safe shipment fields.
+         * Internal status, pricing, addresses, vendor cost, and profit
+         * are deliberately not passed to the public page.
+         */
         $shipment = $shipmentModel
-            ->where('awb_no', $awb)
+            ->select([
+                'shipments.id',
+                'shipments.awb_no',
+                'shipments.shipment_date',
+                'shipments.public_tracking_status',
+                'shipments.total_colly',
+                'countries.country_name',
+                'services.service_name',
+            ])
+            ->join(
+                'countries',
+                'countries.id = shipments.country_id',
+                'left'
+            )
+            ->join(
+                'services',
+                'services.id = shipments.service_id',
+                'left'
+            )
+            ->where('shipments.awb_no', $awb)
             ->first();
 
         if (!$shipment) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+            return $this->publicTrackingNotFound($awb);
         }
 
-        $tracking = $trackingModel->getPublicTrackingHistory(
+        $trackingRows = $trackingModel->getPublicTrackingHistory(
             (int) $shipment['id']
         );
 
+        $publicEvents = [];
+
+        foreach ($trackingRows as $row) {
+            $statusCode = strtoupper(
+                trim((string) ($row['public_status'] ?? ''))
+            );
+
+            if (!$this->isAllowedPublicStatus($statusCode)) {
+                continue;
+            }
+
+            $publicEvents[] = [
+                'status_code' => $statusCode,
+                'status_name' => $this->publicStatusName($statusCode),
+                'message'     => $this->publicStatusMessage($statusCode),
+                'event_time'  => $row['event_time']
+                    ?? $row['created_at']
+                    ?? null,
+            ];
+        }
+
+        $currentPublicStatus = strtoupper(
+            trim(
+                (string) (
+                    $shipment['public_tracking_status']
+                    ?? ''
+                )
+            )
+        );
+
+        if (
+            !$this->isAllowedPublicStatus(
+                $currentPublicStatus
+            )
+        ) {
+            $latestPublicEvent = $publicEvents !== []
+                ? $publicEvents[array_key_last($publicEvents)]
+                : null;
+
+            $currentPublicStatus = $latestPublicEvent['status_code']
+                ?? 'CREATED';
+        }
+
+        $progressStatus = $currentPublicStatus;
+
+        if (
+            in_array(
+                $currentPublicStatus,
+                ['ON_HOLD', 'RETURN_TO_SENDER'],
+                true
+            )
+        ) {
+            for (
+                $index = count($publicEvents) - 1;
+                $index >= 0;
+                $index--
+            ) {
+                $candidate =
+                    $publicEvents[$index]['status_code'];
+
+                if (
+                    !in_array(
+                        $candidate,
+                        ['ON_HOLD', 'RETURN_TO_SENDER'],
+                        true
+                    )
+                ) {
+                    $progressStatus = $candidate;
+                    break;
+                }
+            }
+        }
+
         return view('shipments/tracking', [
-            'shipment' => $shipment,
-            'tracking' => $tracking,
+            'shipment'           => $shipment,
+            'publicEvents'        => $publicEvents,
+            'currentPublicStatus' => $currentPublicStatus,
+            'progressStatus'      => $progressStatus,
+            'notFound'            => false,
         ]);
     }
+
+    private function publicTrackingNotFound(string $awb)
+    {
+        $html = view('shipments/tracking', [
+            'shipment'           => null,
+            'publicEvents'        => [],
+            'currentPublicStatus' => null,
+            'progressStatus'      => null,
+            'notFound'            => true,
+            'searchedAwb'         => $awb,
+        ]);
+
+        return $this->response
+            ->setStatusCode(404)
+            ->setBody($html);
+    }
+
+    private function normalizePublicAwb($value): string
+    {
+        $awb = strtoupper(
+            trim((string) $value)
+        );
+
+        $awb = preg_replace(
+            '/[^A-Z0-9\-]/',
+            '',
+            $awb
+        ) ?? '';
+
+        return substr($awb, 0, 50);
+    }
+
+    private function isAllowedPublicStatus(string $status): bool
+    {
+        return in_array(
+            $status,
+            [
+                'CREATED',
+                'PICKED_UP',
+                'IN_TRANSIT',
+                'OUT_FOR_DELIVERY',
+                'DELIVERED',
+                'ON_HOLD',
+                'RETURN_TO_SENDER',
+            ],
+            true
+        );
+    }
+
+    private function publicStatusName(string $status): string
+    {
+        return match ($status) {
+            'CREATED'          => 'Shipment Created',
+            'PICKED_UP'        => 'Picked Up',
+            'IN_TRANSIT'       => 'In Transit',
+            'OUT_FOR_DELIVERY' => 'Out for Delivery',
+            'DELIVERED'        => 'Delivered',
+            'ON_HOLD'          => 'On Hold',
+            'RETURN_TO_SENDER' => 'Return to Sender',
+            default            => 'Shipment Update',
+        };
+    }
+
+    private function publicStatusMessage(string $status): string
+    {
+        return match ($status) {
+            'CREATED' =>
+                'Informasi pengiriman telah diterima.',
+            'PICKED_UP' =>
+                'Kiriman telah dijemput dari pengirim.',
+            'IN_TRANSIT' =>
+                'Kiriman sedang dalam perjalanan menuju tujuan.',
+            'OUT_FOR_DELIVERY' =>
+                'Kurir sedang mengantarkan kiriman ke penerima.',
+            'DELIVERED' =>
+                'Kiriman telah diterima di tujuan.',
+            'ON_HOLD' =>
+                'Perjalanan kiriman tertunda sementara dan sedang ditangani.',
+            'RETURN_TO_SENDER' =>
+                'Kiriman sedang dikembalikan kepada pengirim.',
+            default =>
+                'Status pengiriman telah diperbarui.',
+        };
+    }
+
     public function store()
     {
         $db            = db_connect();

@@ -33,11 +33,21 @@ $routes->post(
     'ShipmentController::addTracking/$1'
 );
 
-$routes->get('track', 'TrackingController::index');
+// Public customer tracking — no authentication filter.
+$routes->get(
+    'track',
+    'ShipmentController::publicTrackingIndex'
+);
 
-$routes->post('track/search', 'TrackingController::search');
+$routes->post(
+    'track/search',
+    'ShipmentController::publicTrackingSearch'
+);
 
-$routes->get('track/(:any)', 'TrackingController::detail/$1');
+$routes->get(
+    'track/(:segment)',
+    'ShipmentController::track/$1'
+);
 
 $routes->get(
     'tracking-status',

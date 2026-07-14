@@ -48,12 +48,14 @@ class ShipmentTrackingModel extends Model
     /**
      * Riwayat publik dengan status berurutan yang sama digabung.
      * Event internal tetap tersimpan lengkap di database.
+     *
+     * Fallback mapping menjaga data legacy tetap dapat dilihat
+     * walaupun public_status pada baris lama belum terisi.
      */
     public function getPublicTrackingHistory(int $shipmentId): array
     {
         $rows = $this
             ->where('shipment_id', $shipmentId)
-            ->where('public_status IS NOT NULL', null, false)
             ->orderBy('event_time', 'ASC')
             ->orderBy('id', 'ASC')
             ->findAll();
@@ -67,13 +69,24 @@ class ShipmentTrackingModel extends Model
             );
 
             if ($publicStatus === '') {
+                $publicStatus = $this->mapInternalToPublic(
+                    (string) ($row['tracking_status'] ?? '')
+                );
+            }
+
+            if ($publicStatus === '') {
                 continue;
             }
 
-            if ($publicStatus === $lastPublicStatus && $result !== []) {
+            $row['public_status'] = $publicStatus;
+
+            if (
+                $publicStatus === $lastPublicStatus
+                && $result !== []
+            ) {
                 $lastIndex = array_key_last($result);
 
-                // Simpan event terakhir dari status publik yang sama.
+                // Tampilkan event terbaru dari status publik yang sama.
                 $result[$lastIndex] = $row;
                 continue;
             }
@@ -83,6 +96,41 @@ class ShipmentTrackingModel extends Model
         }
 
         return $result;
+    }
+
+    private function mapInternalToPublic(string $internalStatus): string
+    {
+        return match (strtoupper(trim($internalStatus))) {
+            'DRAFT',
+            'CREATED',
+            'MANIFESTED'
+                => 'CREATED',
+
+            'PICKED_UP'
+                => 'PICKED_UP',
+
+            'SENT_TO_MAIN_WAREHOUSE',
+            'RECEIVED_AT_MAIN_WAREHOUSE',
+            'ARRIVED_HUB',
+            'IN_TRANSIT_HUB',
+            'IN_TRANSIT'
+                => 'IN_TRANSIT',
+
+            'OUT_FOR_DELIVERY'
+                => 'OUT_FOR_DELIVERY',
+
+            'DELIVERED'
+                => 'DELIVERED',
+
+            'ON_HOLD'
+                => 'ON_HOLD',
+
+            'RETURN_TO_SENDER'
+                => 'RETURN_TO_SENDER',
+
+            default
+                => '',
+        };
     }
 
     public function getLastNonExceptionTracking(
