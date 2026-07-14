@@ -23,6 +23,7 @@ use App\Models\CommodityChargeRuleModel;
 use App\Models\ShipmentModel;
 use App\Services\ShipmentCalculationService;
 use App\Services\CommodityRuleService;
+use App\Services\PricingEngine;
 
 class ShipmentController extends BaseController
 {
@@ -37,46 +38,74 @@ class ShipmentController extends BaseController
     {
         return AwbGenerator::generate();
     }
-
     public function create()
     {
-        $customer = (new CustomerModel())->find(1);
-        $addressModel = new CustomerAddressModel();
+        $senderAddressModel   = new CustomerAddressModel();
+        $receiverAddressModel = new CustomerAddressModel();
 
-        // Sender Address Book
-        $senderAddresses = $addressModel
-            ->select('customer_addresses.*, countries.country_name')
-            ->join('countries', 'countries.id = customer_addresses.country_id', 'left')
-            ->where('customer_addresses.customer_id', $customer['id'])
+        $addressSelect = implode(', ', [
+            'customer_addresses.*',
+            'countries.country_name',
+            'customers.customer_name AS owner_customer_name',
+            'customers.customer_code AS owner_customer_code',
+        ]);
+
+        $senderAddresses = $senderAddressModel
+            ->select($addressSelect)
+            ->join(
+                'countries',
+                'countries.id = customer_addresses.country_id',
+                'left'
+            )
+            ->join(
+                'customers',
+                'customers.id = customer_addresses.customer_id',
+                'inner'
+            )
             ->where('customer_addresses.address_type', 'SENDER')
             ->where('customer_addresses.status', 1)
+            ->where('customers.status', 1)
+            ->orderBy('customers.customer_name', 'ASC')
             ->orderBy('customer_addresses.contact_name', 'ASC')
             ->findAll();
 
-        // Receiver Address Book
-        $receiverAddresses = $addressModel
-            ->select('customer_addresses.*, countries.country_name')
-            ->join('countries', 'countries.id = customer_addresses.country_id', 'left')
-            ->where('customer_addresses.customer_id', $customer['id'])
+        $receiverAddresses = $receiverAddressModel
+            ->select($addressSelect)
+            ->join(
+                'countries',
+                'countries.id = customer_addresses.country_id',
+                'left'
+            )
+            ->join(
+                'customers',
+                'customers.id = customer_addresses.customer_id',
+                'inner'
+            )
             ->where('customer_addresses.address_type', 'RECEIVER')
             ->where('customer_addresses.status', 1)
+            ->where('customers.status', 1)
             ->orderBy('customer_addresses.contact_name', 'ASC')
             ->findAll();
 
-        $countryModel       = new CountryModel();
-        $serviceModel       = new ServiceModel();
-        $packageTypeModel   = new PackageTypeModel();
-        $commodityModel     = new CommodityTypeModel();
-        $countries = $countryModel->where('status', 1)->orderBy('country_name', 'ASC')->findAll();
-
         return view('shipments/create', [
-            'customer'           => $customer,
-            'senderAddresses'    => $senderAddresses,
-            'receiverAddresses'  => $receiverAddresses,
-            'countries'          => $countries,
-            'services'           => $serviceModel->orderBy('service_name')->findAll(),
-            'packageTypes'       => $packageTypeModel->orderBy('package_type_name')->findAll(),
-            'commodityTypes'     => $commodityModel->orderBy('commodity_name')->findAll(),
+            'senderAddresses'   => $senderAddresses,
+            'receiverAddresses' => $receiverAddresses,
+            'countries'         => (new CountryModel())
+                ->where('status', 1)
+                ->orderBy('country_name', 'ASC')
+                ->findAll(),
+            'services'          => (new ServiceModel())
+                ->where('status', 1)
+                ->orderBy('service_name', 'ASC')
+                ->findAll(),
+            'packageTypes'      => (new PackageTypeModel())
+                ->where('status', 1)
+                ->orderBy('package_type_name', 'ASC')
+                ->findAll(),
+            'commodityTypes'    => (new CommodityTypeModel())
+                ->where('status', 1)
+                ->orderBy('commodity_name', 'ASC')
+                ->findAll(),
         ]);
     }
 
@@ -335,153 +364,645 @@ class ShipmentController extends BaseController
         $tracking = $trackingModel->where('tracking_code', $awb)->orderBy('event_time', 'DESC')->findAll();
         return view('shipments/tracking', ['shipment' => $shipment, 'tracking' => $tracking]);
     }
+    public function store()
+    {
+        $db            = db_connect();
+        $shipmentModel = new ShipmentModel();
 
-public function store()
-{
-    $db = db_connect();
-    $shipmentModel = new ShipmentModel();
+        $db->transBegin();
 
-    $db->transBegin();
-    try {
-        // =====================================
-        // 1. Ambil data input
-        // =====================================
-        $post = $this->request->getPost();
-        
+        try {
+            $post = $this->request->getPost();
 
-        // =====================================
-        // 2. Validasi data
-        // =====================================
-        $rules = [
-            'customer_id'       => 'required|integer',
-            'country_id'        => 'required|integer',
-            'service_id'        => 'required|integer',
-            'commodity_type_id' => 'required|integer',
-            'total_weight'      => 'required|numeric|greater_than[0]',
-            'total_chargeable'  => 'required|numeric|greater_than[0]',
-            'sender_name'       => 'required|max_length[150]',
-            'sender_phone'      => 'permit_empty|max_length[30]',
-            'receiver_name'     => 'required|max_length[150]',
-            'receiver_phone'    => 'permit_empty|max_length[30]',
-        ];
+            $rules = [
+                'customer_id'       => 'required|is_natural_no_zero',
+                'sender_address_id' => 'required|is_natural_no_zero',
+                'receiver_id'       => 'required|is_natural_no_zero',
+                'service_id'        => 'required|is_natural_no_zero',
+                'package_type_id'   => 'required|is_natural_no_zero',
+                'commodity_type_id' => 'required|is_natural_no_zero',
+                'payment_type'      => 'required|in_list[CASH,DEPOSIT,INVOICE]',
+                'shipment_date'     => 'required|valid_date[Y-m-d]',
+            ];
 
-        if (!$this->validate($rules)) {
-            throw new \Exception('Validasi gagal: ' . implode(', ', $this->validator->getErrors()));
+            if (!$this->validate($rules)) {
+                throw new \RuntimeException(
+                    'Validasi gagal: ' .
+                    implode(', ', $this->validator->getErrors())
+                );
+            }
+
+            if (empty($post['packages']) || !is_array($post['packages'])) {
+                throw new \RuntimeException('Data paket belum diinput.');
+            }
+
+            $customerId     = (int) $post['customer_id'];
+            $senderAddressId = (int) $post['sender_address_id'];
+            $receiverId     = (int) $post['receiver_id'];
+            $serviceId      = (int) $post['service_id'];
+            $packageTypeId  = (int) $post['package_type_id'];
+            $commodityId    = (int) $post['commodity_type_id'];
+            $transportModeId = max(1, (int) ($post['transport_mode_id'] ?? 1));
+
+            $customer = (new CustomerModel())
+                ->where('id', $customerId)
+                ->where('status', 1)
+                ->first();
+
+            if (!$customer) {
+                throw new \RuntimeException('Customer tidak ditemukan atau tidak aktif.');
+            }
+
+            $addressModel = new CustomerAddressModel();
+
+            $sender = $addressModel
+                ->where('id', $senderAddressId)
+                ->where('customer_id', $customerId)
+                ->where('address_type', 'SENDER')
+                ->where('status', 1)
+                ->first();
+
+            if (!$sender) {
+                throw new \RuntimeException(
+                    'Alamat sender tidak ditemukan atau bukan milik customer terpilih.'
+                );
+            }
+
+            $receiver = (new CustomerAddressModel())
+                ->where('id', $receiverId)
+                ->where('customer_id', $customerId)
+                ->where('address_type', 'RECEIVER')
+                ->where('status', 1)
+                ->first();
+
+            if (!$receiver) {
+                throw new \RuntimeException(
+                    'Alamat receiver tidak ditemukan atau bukan milik customer terpilih.'
+                );
+            }
+
+            $countryId = (int) ($receiver['country_id'] ?? 0);
+
+            if ($countryId <= 0) {
+                throw new \RuntimeException('Negara tujuan receiver belum lengkap.');
+            }
+
+            if (
+                !empty($post['country_id']) &&
+                (int) $post['country_id'] !== $countryId
+            ) {
+                throw new \RuntimeException(
+                    'Negara tujuan tidak sama dengan alamat receiver.'
+                );
+            }
+
+            $country = (new CountryModel())
+                ->where('id', $countryId)
+                ->where('status', 1)
+                ->first();
+
+            $service = (new ServiceModel())
+                ->where('id', $serviceId)
+                ->where('status', 1)
+                ->first();
+
+            $packageType = (new PackageTypeModel())
+                ->where('id', $packageTypeId)
+                ->where('status', 1)
+                ->first();
+
+            $commodity = (new CommodityTypeModel())
+                ->where('id', $commodityId)
+                ->where('status', 1)
+                ->first();
+
+            if (!$country || !$service || !$packageType || !$commodity) {
+                throw new \RuntimeException(
+                    'Master Country, Service, Package Type, atau Commodity tidak valid.'
+                );
+            }
+
+            $transportMode = $db->table('transport_modes')
+                ->where('id', $transportModeId)
+                ->where('status', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!$transportMode) {
+                throw new \RuntimeException('Transport mode tidak valid.');
+            }
+
+            $packageSummary = $this->normalizePackages(
+                $post['packages'],
+                $db
+            );
+
+            $customerInsurance = $this->money($post['insurance_customer'] ?? 0);
+            $customerPacking   = $this->money($post['packing_customer'] ?? 0);
+            $customerAdditional = $this->money($post['additional_customer'] ?? 0);
+            $discountAmount    = $this->money($post['discount_amount'] ?? 0);
+
+            $vendorInsurance = $this->money($post['insurance_vendor'] ?? 0);
+            $vendorPacking   = $this->money($post['packing_vendor'] ?? 0);
+            $vendorAdditional = $this->money($post['additional_vendor'] ?? 0);
+
+            $shipmentType = strtoupper(
+                (string) ($packageType['package_type_code'] ?? 'PACKAGE')
+            );
+
+            if (!in_array($shipmentType, ['DOCUMENT', 'PACKAGE'], true)) {
+                $shipmentType = str_contains($shipmentType, 'DOC')
+                    ? 'DOCUMENT'
+                    : 'PACKAGE';
+            }
+
+            $zone = $this->resolveExpressZone(
+                $db,
+                (int) ($country['express_zone_id'] ?? 0)
+            );
+
+            $pricingInput = [
+                'customer_id'        => $customerId,
+                'country_id'         => $countryId,
+                'service_id'         => $serviceId,
+                'commodity_type_id'  => $commodityId,
+                'transport_mode_id'  => $transportModeId,
+                'package_type_id'    => $packageTypeId,
+                'vendor_id'          => (int) ($service['vendor_id'] ?? 0),
+                'shipment_type'      => $shipmentType,
+                'zone'               => $zone,
+                'actual_weight'      => $packageSummary['actual_weight'],
+
+                // Service lama memakai max(actual_weight, volume_weight).
+                // Nilai ini sengaja memakai total chargeable multi-colly.
+                'volume_weight'      => $packageSummary['chargeable_weight'],
+                'chargeable_weight'  => $packageSummary['chargeable_weight'],
+                'total_colly'        => $packageSummary['total_colly'],
+                'total_items'        => $packageSummary['total_items'],
+                'insurance_amount'   => $customerInsurance,
+                'packing_charge'     => $customerPacking,
+                'additional_charge'  => $customerAdditional,
+                'discount_amount'    => $discountAmount,
+                'discount'           => $discountAmount,
+                'receiver_city'      => (string) ($receiver['city'] ?? ''),
+                'receiver_postcode'  => (string) ($receiver['postal_code'] ?? ''),
+            ];
+
+            $pricing = (new ShipmentCalculationService())
+                ->calculate($pricingInput);
+
+            $freight = $this->money($pricing['freight'] ?? 0);
+            $customerTotal = $this->money(
+                $pricing['customer_total'] ?? 0
+            );
+            $vendorBaseTotal = $this->money(
+                $pricing['vendor_total'] ?? 0
+            );
+
+            if ($freight <= 0 || $customerTotal <= 0) {
+                throw new \RuntimeException(
+                    'Tarif customer tidak ditemukan. Periksa master tariff.'
+                );
+            }
+
+            $vendorTotal = round(
+                $vendorBaseTotal +
+                $vendorInsurance +
+                $vendorPacking +
+                $vendorAdditional,
+                2
+            );
+
+            $profit = round($customerTotal - $vendorTotal, 2);
+            $margin = $customerTotal > 0
+                ? round(($profit / $customerTotal) * 100, 2)
+                : 0;
+            $markup = $vendorTotal > 0
+                ? round(($profit / $vendorTotal) * 100, 2)
+                : 0;
+
+            $awbNo = AwbGenerator::generate();
+
+            $shipmentData = [
+                'company_id'           => $customer['company_id'] ?? null,
+                'awb_no'               => $awbNo,
+                'shipment_mode'        => 'MULTI_COLLY',
+                'customer_reference_no'=> $this->clean($post['customer_reference_no'] ?? ''),
+                'shipment_date'        => $post['shipment_date'],
+                'customer_id'          => $customerId,
+                'sender_address_id'    => $senderAddressId,
+                'sender_country_id'    => $sender['country_id'] ?? null,
+                'receiver_address_id'  => $receiverId,
+                'agent_id'             => $customer['agent_id'] ?? null,
+                'vendor_id'            => $service['vendor_id'] ?? null,
+                'country_id'           => $countryId,
+                'service_id'           => $serviceId,
+                'transport_mode_id'    => $transportModeId,
+                'delivery_type_id'     => !empty($post['delivery_type_id'])
+                    ? (int) $post['delivery_type_id']
+                    : null,
+                'package_type_id'      => $packageTypeId,
+                'payment_type'         => strtoupper((string) $post['payment_type']),
+                'commodity_type_id'    => $commodityId,
+                'total_colly'          => $packageSummary['total_colly'],
+                'actual_weight'        => $packageSummary['actual_weight'],
+                'volume_weight'        => $packageSummary['volume_weight'],
+                'chargeable_weight'    => $packageSummary['chargeable_weight'],
+                'declared_value'       => $packageSummary['declared_value'],
+                'currency_id'          => $packageSummary['currency_id'],
+                'insurance_amount'     => $customerInsurance,
+                'packing_charge'       => $customerPacking,
+                'additional_charge'    => $customerAdditional,
+                'discount_amount'      => $discountAmount,
+                'freight_charge'       => $freight,
+                'remote_charge'        => $this->money($pricing['remote'] ?? 0),
+                'selling_amount'       => $freight,
+                'vendor_cost'          => $vendorBaseTotal,
+                'vendor_freight'       => $vendorBaseTotal,
+                'fuel_charge'          => $this->money($pricing['fuel'] ?? 0),
+                'vendor_remote_charge' => $this->money(
+                    $pricing['vendor_breakdown']['remote'] ?? 0
+                ),
+                'go_green_charge'      => $this->money(
+                    $pricing['gogreen'] ?? $pricing['go_green'] ?? 0
+                ),
+                'handling_charge'      => $this->money(
+                    $pricing['vendor_breakdown']['handling'] ?? 0
+                ),
+                'vat_amount'           => $this->money(
+                    $pricing['tax'] ??
+                    $pricing['vendor_breakdown']['vat'] ??
+                    0
+                ),
+                'vendor_total'         => $vendorTotal,
+                'total_charge'         => $customerTotal,
+                'profit_amount'        => $profit,
+                'margin_percent'       => $margin,
+                'markup_percent'       => $markup,
+                'shipment_status'      => 'DRAFT',
+                'remarks'              => $this->clean($post['remarks'] ?? ''),
+
+                // Snapshot sender agar histori tidak berubah saat address book diedit.
+                'sender_name'          => $this->clean($sender['contact_name'] ?? ''),
+                'sender_company'       => $this->clean($sender['company_name'] ?? ''),
+                'sender_phone'         => $this->clean($sender['phone'] ?? ''),
+                'sender_email'         => $this->clean($sender['email'] ?? ''),
+                'sender_identity_number' => $this->clean(
+                    $sender['identity_number'] ?? ''
+                ),
+                'sender_address'       => $this->clean($sender['address'] ?? ''),
+                'sender_city'          => $this->clean($sender['city'] ?? ''),
+                'sender_state'         => $this->clean($sender['state'] ?? ''),
+                'sender_postal_code'   => $this->clean($sender['postal_code'] ?? ''),
+
+                // Snapshot receiver.
+                'receiver_name'        => $this->clean($receiver['contact_name'] ?? ''),
+                'receiver_company'     => $this->clean($receiver['company_name'] ?? ''),
+                'receiver_phone'       => $this->clean($receiver['phone'] ?? ''),
+                'receiver_email'       => $this->clean($receiver['email'] ?? ''),
+                'receiver_id_number'   => $this->clean(
+                    $receiver['identity_number'] ?? ''
+                ),
+                'receiver_address'     => $this->clean($receiver['address'] ?? ''),
+                'receiver_city'        => $this->clean($receiver['city'] ?? ''),
+                'receiver_state'       => $this->clean($receiver['state'] ?? ''),
+                'receiver_postal_code' => $this->clean($receiver['postal_code'] ?? ''),
+            ];
+
+            $shipmentId = $shipmentModel->insert($shipmentData, true);
+
+            if ($shipmentId === false) {
+                throw new \RuntimeException(
+                    'Gagal menyimpan shipment: ' .
+                    implode(', ', $shipmentModel->errors())
+                );
+            }
+
+            $this->savePackages(
+                (int) $shipmentId,
+                $packageSummary['packages'],
+                $packageTypeId
+            );
+
+            $this->saveCostBreakdown(
+                (int) $shipmentId,
+                'CUSTOMER',
+                [
+                    ['code' => 'FREIGHT', 'name' => 'Freight Customer', 'amount' => $freight],
+                    ['code' => 'INSURANCE', 'name' => 'Customer Insurance', 'amount' => $customerInsurance],
+                    ['code' => 'PACKING', 'name' => 'Customer Packing', 'amount' => $customerPacking],
+                    ['code' => 'ADDITIONAL', 'name' => 'Customer Additional', 'amount' => $customerAdditional],
+                    ['code' => 'DISCOUNT', 'name' => 'Discount', 'amount' => -$discountAmount],
+                ]
+            );
+
+            $this->saveCostBreakdown(
+                (int) $shipmentId,
+                'VENDOR',
+                [
+                    ['code' => 'BASE_VENDOR_COST', 'name' => 'Base Vendor Cost', 'amount' => $vendorBaseTotal],
+                    ['code' => 'INSURANCE', 'name' => 'Vendor Insurance', 'amount' => $vendorInsurance],
+                    ['code' => 'PACKING', 'name' => 'Vendor Packing', 'amount' => $vendorPacking],
+                    ['code' => 'ADDITIONAL', 'name' => 'Vendor Additional', 'amount' => $vendorAdditional],
+                ]
+            );
+
+            $this->createTracking((int) $shipmentId, $awbNo);
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Transaksi database gagal.');
+            }
+
+            $db->transCommit();
+
+            return redirect()
+                ->to(site_url('shipments'))
+                ->with('success', 'Shipment berhasil dibuat: ' . $awbNo);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            log_message(
+                'error',
+                'Shipment store failed: {message}',
+                ['message' => $e->getMessage()]
+            );
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Gagal membuat shipment: ' . $e->getMessage());
         }
-
-        // Validasi email terpisah
-        $receiverEmail = trim($post['receiver_email'] ?? '');
-        if (!empty($receiverEmail) && !filter_var($receiverEmail, FILTER_VALIDATE_EMAIL)) {
-            throw new \Exception('Alamat email penerima tidak valid.');
-        }
-
-        // Cek apakah ada input paket
-        if (empty($post['packages'])) {
-            throw new \Exception('Data paket belum diinput.');
-        }
-
-        $customerId = (int) $post['customer_id'];
-
-        // =====================================
-        // 3. Generate AWB setelah validasi
-        // =====================================
-        // Nanti bisa diubah jika AwbGenerator dikembangkan
-        $awbNo = \App\Libraries\AwbGenerator::generate();
-
-        // =====================================
-        // 4. Hitung pricing
-        // =====================================
-        $calculator = new \App\Services\ShipmentCalculationService();
-        $pricing = $calculator->calculate($post);
-
-        // =====================================
-        // 5. Siapkan data shipment
-        // =====================================
-        $chargeWeight = max(
-            (float) $post['total_weight'],
-            (float) $post['total_chargeable']
-        );
-
-        $data = $post;
-
-        $data['awb_no']              = $awbNo;
-        $data['customer_id']         = $customerId;
-        $data['chargeable_weight']   = $chargeWeight;
-        $data['shipment_status']     = 'DRAFT';
-
-        // Data dari hasil perhitungan tarif
-        $data['selling_amount']      = $pricing['freight']        ?? 0;
-        $data['insurance_amount']    = $pricing['insurance']      ?? 0;
-        $data['packing_charge']      = $pricing['packing']        ?? 0;
-        $data['additional_charge']   = $pricing['additional']     ?? 0;
-        $data['discount_amount']     = $pricing['discount']       ?? 0;
-        $data['total_charge']        = $pricing['customer_total'] ?? 0;
-        $data['vendor_cost']         = $pricing['vendor_total']   ?? 0;
-        $data['vendor_total']        = $pricing['vendor_total']   ?? 0;
-        $data['profit_amount']       = $pricing['profit']         ?? 0;
-        $data['margin_percent']      = $pricing['margin']         ?? 0;
-        $data['markup_percent']      = $pricing['markup']         ?? 0;
-
-        // Bersihkan input
-        $data['sender_name']         = trim(strip_tags($post['sender_name'] ?? ''));
-        $data['sender_phone']        = trim(strip_tags($post['sender_phone'] ?? ''));
-        $data['sender_address']      = trim(strip_tags($post['sender_address'] ?? ''));
-        $data['receiver_name']       = trim(strip_tags($post['receiver_name'] ?? ''));
-        $data['receiver_phone']      = trim(strip_tags($post['receiver_phone'] ?? ''));
-        $data['receiver_email']      = $receiverEmail;
-        $data['receiver_address']    = trim(strip_tags($post['receiver_address'] ?? ''));
-
-        // =====================================
-        // 6. Simpan data utama
-        // =====================================
-        $shipmentModel->insert($data);
-        $shipmentId = $shipmentModel->getInsertID();
-
-        // =====================================
-        // 7. Simpan rincian biaya
-        // =====================================
-        $this->saveCostBreakdown($shipmentId, 'CUSTOMER', $pricing['pricing_breakdown']);
-        $this->saveCostBreakdown($shipmentId, 'VENDOR',   $pricing['vendor_breakdown']);
-
-        // =====================================
-        // 8. Simpan paket
-        // =====================================
-        $this->savePackages($shipmentId, $post['packages']);
-
-        // =====================================
-        // 9. Simpan tracking awal
-        // =====================================
-        $this->createTracking($shipmentId, $awbNo);
-
-        // =====================================
-        // Selesai
-        // =====================================
-        $db->transCommit();
-        return redirect()->to('/shipments')->with('success', 'Shipment berhasil dibuat: ' . $awbNo);
-
-    } catch (\Throwable $e) {
-        $db->transRollback();
-        return redirect()->back()->withInput()->with('error', 'Gagal membuat pengiriman: ' . $e->getMessage());
     }
-}
+    private function normalizePackages(array $rawPackages, $db): array
+    {
+        $currencyRows = $db->table('currencies')
+            ->select('id, currency_code')
+            ->where('status', 1)
+            ->get()
+            ->getResultArray();
 
+        $currencyMap = [];
 
+        foreach ($currencyRows as $currency) {
+            $currencyMap[strtoupper((string) $currency['currency_code'])] =
+                (int) $currency['id'];
+        }
 
-private function createTracking(int $shipmentId, string $awbNo): void
-{
-    $trackingModel = new \App\Models\ShipmentTrackingModel();
+        $packages = [];
+        $totalActual = 0.0;
+        $totalVolume = 0.0;
+        $totalChargeable = 0.0;
+        $declaredValue = 0.0;
+        $totalItems = 0;
+        $shipmentCurrencyCode = null;
+        $shipmentCurrencyId = null;
 
-    $trackingModel->insert([
-        'shipment_id'       => $shipmentId,
-        'tracking_code'     => $awbNo,
-        'tracking_status'   => 'CREATED',
-        'tracking_location' => 'System',
-        'tracking_notes'    => 'Shipment berhasil dibuat',
-        'event_time'        => date('Y-m-d H:i:s'),
-        'event_type'        => 'SYSTEM',
-        'created_by'        => auth()->id() ?? null
-    ]);
-}
+        foreach (array_values($rawPackages) as $packageIndex => $rawPackage) {
+            if (!is_array($rawPackage)) {
+                continue;
+            }
+
+            $actual = max(0, $this->money($rawPackage['actual_weight'] ?? 0));
+            $length = max(0, $this->money($rawPackage['length_cm'] ?? 0));
+            $width  = max(0, $this->money($rawPackage['width_cm'] ?? 0));
+            $height = max(0, $this->money($rawPackage['height_cm'] ?? 0));
+
+            $volume = round(($length * $width * $height) / 5000, 2);
+            $chargeable = round(max($actual, $volume), 2);
+
+            if ($chargeable <= 0) {
+                throw new \RuntimeException(
+                    'Berat Colly #' . ($packageIndex + 1) . ' harus lebih dari 0.'
+                );
+            }
+
+            $normalizedItems = [];
+            $rawItems = is_array($rawPackage['items'] ?? null)
+                ? $rawPackage['items']
+                : [];
+
+            foreach (array_values($rawItems) as $itemIndex => $rawItem) {
+                if (!is_array($rawItem)) {
+                    continue;
+                }
+
+                $description = $this->clean(
+                    $rawItem['item_description'] ?? ''
+                );
+
+                if ($description === '') {
+                    throw new \RuntimeException(
+                        'Item description pada Colly #' .
+                        ($packageIndex + 1) .
+                        ' baris #' .
+                        ($itemIndex + 1) .
+                        ' wajib diisi.'
+                    );
+                }
+
+                $quantity = (int) ($rawItem['quantity'] ?? 0);
+
+                if ($quantity <= 0) {
+                    throw new \RuntimeException(
+                        'Quantity item harus lebih dari 0.'
+                    );
+                }
+
+                $unitValue = max(0, $this->money($rawItem['unit_value'] ?? 0));
+                $currencyCode = strtoupper(
+                    $this->clean($rawItem['currency'] ?? 'USD')
+                );
+
+                if (!isset($currencyMap[$currencyCode])) {
+                    throw new \RuntimeException(
+                        'Currency ' . $currencyCode . ' tidak ditemukan.'
+                    );
+                }
+
+                if ($shipmentCurrencyCode === null) {
+                    $shipmentCurrencyCode = $currencyCode;
+                    $shipmentCurrencyId = $currencyMap[$currencyCode];
+                } elseif ($shipmentCurrencyCode !== $currencyCode) {
+                    throw new \RuntimeException(
+                        'Satu shipment sementara hanya boleh memakai satu currency.'
+                    );
+                }
+
+                $totalValue = round($quantity * $unitValue, 2);
+                $declaredValue += $totalValue;
+                $totalItems++;
+
+                $normalizedItems[] = [
+                    'item_description' => $description,
+                    'quantity'         => $quantity,
+                    'unit_type'        => 'PCS',
+                    'unit_value'       => $unitValue,
+                    'currency_id'      => $currencyMap[$currencyCode],
+                    'total_value'      => $totalValue,
+                ];
+            }
+
+            if ($normalizedItems === []) {
+                throw new \RuntimeException(
+                    'Colly #' . ($packageIndex + 1) . ' belum memiliki item.'
+                );
+            }
+
+            $packages[] = [
+                'package_no'       => $packageIndex + 1,
+                'actual_weight'    => round($actual, 2),
+                'length_cm'        => round($length, 2),
+                'width_cm'         => round($width, 2),
+                'height_cm'        => round($height, 2),
+                'volume_weight'    => $volume,
+                'chargeable_weight'=> $chargeable,
+                'items'            => $normalizedItems,
+            ];
+
+            $totalActual += $actual;
+            $totalVolume += $volume;
+            $totalChargeable += $chargeable;
+        }
+
+        if ($packages === []) {
+            throw new \RuntimeException('Tidak ada paket yang valid.');
+        }
+
+        return [
+            'packages'          => $packages,
+            'total_colly'       => count($packages),
+            'total_items'       => $totalItems,
+            'actual_weight'     => round($totalActual, 2),
+            'volume_weight'     => round($totalVolume, 2),
+            'chargeable_weight' => round($totalChargeable, 2),
+            'declared_value'    => round($declaredValue, 2),
+            'currency_id'       => $shipmentCurrencyId,
+        ];
+    }
+
+    private function savePackages(
+        int $shipmentId,
+        array $packages,
+        int $packageTypeId
+    ): void {
+        $packageModel = new ShipmentPackageModel();
+        $itemModel    = new ShipmentPackageItemModel();
+
+        foreach ($packages as $package) {
+            $items = $package['items'];
+            unset($package['items']);
+
+            $package['shipment_id'] = $shipmentId;
+            $package['package_type_id'] = $packageTypeId;
+
+            $packageId = $packageModel->insert($package, true);
+
+            if ($packageId === false) {
+                throw new \RuntimeException(
+                    'Gagal menyimpan package: ' .
+                    implode(', ', $packageModel->errors())
+                );
+            }
+
+            foreach ($items as $item) {
+                $item['shipment_package_id'] = (int) $packageId;
+
+                if ($itemModel->insert($item) === false) {
+                    throw new \RuntimeException(
+                        'Gagal menyimpan package item: ' .
+                        implode(', ', $itemModel->errors())
+                    );
+                }
+            }
+        }
+    }
+
+    private function saveCostBreakdown(
+        int $shipmentId,
+        string $party,
+        array $components
+    ): void {
+        $model = new \App\Models\ShipmentCostDetailModel();
+
+        foreach ($components as $component) {
+            $rawAmount = $component['amount'] ?? 0;
+            $amount = is_numeric($rawAmount)
+                ? round((float) $rawAmount, 2)
+                : 0.0;
+
+            if (abs($amount) < 0.00001) {
+                continue;
+            }
+
+            if ($model->insert([
+                'shipment_id'   => $shipmentId,
+                'party'         => strtoupper($party),
+                'component_code'=> strtoupper((string) $component['code']),
+                'component_name'=> (string) $component['name'],
+                'amount'        => $amount,
+                'remarks'       => $component['remarks'] ?? null,
+            ]) === false) {
+                throw new \RuntimeException(
+                    'Gagal menyimpan cost breakdown: ' .
+                    implode(', ', $model->errors())
+                );
+            }
+        }
+    }
+
+    private function createTracking(int $shipmentId, string $awbNo): void
+    {
+        $trackingModel = new ShipmentTrackingModel();
+
+        if ($trackingModel->insert([
+            'shipment_id'       => $shipmentId,
+            'tracking_code'     => $awbNo,
+            'tracking_status'   => 'DRAFT',
+            'tracking_location' => 'Cartenz System',
+            'tracking_notes'    => 'Shipment berhasil dibuat',
+            'event_time'        => date('Y-m-d H:i:s'),
+            'created_by'        => auth()->id() ?? null,
+            'created_at'        => date('Y-m-d H:i:s'),
+        ]) === false) {
+            throw new \RuntimeException(
+                'Gagal membuat tracking awal: ' .
+                implode(', ', $trackingModel->errors())
+            );
+        }
+    }
+
+    private function resolveExpressZone($db, int $zoneId): int
+    {
+        if ($zoneId <= 0) {
+            return 1;
+        }
+
+        $zone = $db->table('express_zones')
+            ->where('id', $zoneId)
+            ->where('status', 1)
+            ->get()
+            ->getRowArray();
+
+        if (!$zone) {
+            return $zoneId;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) ($zone['zone_code'] ?? ''));
+
+        return $digits !== '' ? (int) $digits : $zoneId;
+    }
+
+    private function money($value): float
+    {
+        $number = is_numeric($value) ? (float) $value : 0.0;
+
+        return round(max(0, $number), 2);
+    }
+
+    private function clean($value): string
+    {
+        return trim(strip_tags((string) $value));
+    }
     public function addTracking($shipmentId)
     {
         $shipmentModel = new ShipmentModel();
@@ -667,4 +1188,33 @@ public function calculateRate()
             ]);
         }
     }
+
+    public function calculatePricing()
+{
+    $shipment = [
+        'customer_id'        => $this->request->getPost('customer_id'),
+        'country_id'         => $this->request->getPost('country_id'),
+        'service_id'         => $this->request->getPost('service_id'),
+        'commodity_type_id'  => $this->request->getPost('commodity_type_id'),
+
+        'actual_weight'      => $this->request->getPost('actual_weight'),
+        'volume_weight'      => $this->request->getPost('volume_weight'),
+        'chargeable_weight'  => $this->request->getPost('chargeable_weight'),
+
+        'total_colly'        => $this->request->getPost('total_colly'),
+
+        'insurance_amount'   => $this->request->getPost('insurance_amount'),
+        'packing_charge'     => $this->request->getPost('packing_charge'),
+        'additional_charge'  => $this->request->getPost('additional_charge'),
+        'discount_amount'    => $this->request->getPost('discount_amount'),
+
+        'service_engine'     => 'REGULAR'
+    ];
+
+    $pricing = new PricingEngine();
+
+    return $this->response->setJSON(
+        $pricing->calculate($shipment)
+    );
+}
 }

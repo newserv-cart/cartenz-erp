@@ -12,7 +12,7 @@ $routes->get('/shipments', 'ShipmentController::index');
 $routes->get('/shipments/test-awb', 'ShipmentController::testAwb');
 
 $routes->get('shipments/create', 'ShipmentController::create');
-$routes->match(['get','post'], 'shipments/store', 'ShipmentController::store');
+$routes->post('shipments/store', 'ShipmentController::store');
 
 $routes->get('shipments/view/(:num)', 'ShipmentController::view/$1');
 
@@ -732,14 +732,6 @@ $routes->post(
 
 $routes->post('pricing/calculate','PricingController::calculate');
 
-// ===============================
-// PRICING ENGINE
-// ===============================
-$routes->group('pricing', function($routes){
-
-    $routes->post('calculate', 'PricingController::calculate');
-
-});
 
 
 // Muat daftar tarif
@@ -754,7 +746,10 @@ $routes->get('master/regular-tariffs/download-template', 'Master\RegularTariffCo
 
 $routes->post('customers/store_ajax', 'Customers::store_ajax');
 
-$routes->post('receivers/store_ajax', 'ReceiverController::store_ajax');
 $routes->get( 'test/rule-engine',    'RuleEngineTestController::index');
 
 $routes->get('test/pricing', 'PricingTestController::index');
+$routes->post(
+    'shipments/calculate-pricing',
+    'ShipmentController::calculatePricing'
+);

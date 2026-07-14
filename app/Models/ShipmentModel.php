@@ -3,24 +3,27 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
-use App\Models\ManifestDetailModel;
+
 class ShipmentModel extends Model
 {
     protected $table            = 'shipments';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-
-    protected $protectFields = true;
+    protected $protectFields    = true;
 
     protected $allowedFields = [
         'company_id',
         'awb_no',
+        'shipment_mode',
         'customer_reference_no',
+        'shipment_date',
         'vendor_awb_no',
         'master_awb_no',
 
         'customer_id',
+        'sender_address_id',
+        'sender_country_id',
         'receiver_address_id',
         'agent_id',
         'vendor_id',
@@ -30,48 +33,68 @@ class ShipmentModel extends Model
         'transport_mode_id',
         'delivery_type_id',
         'package_type_id',
+        'payment_type',
         'commodity_type_id',
 
         'total_colly',
-
         'actual_weight',
         'volume_weight',
         'chargeable_weight',
-
         'declared_value',
         'currency_id',
-        'insurance_amount',
 
+        'insurance_amount',
+        'packing_charge',
+        'additional_charge',
+        'discount_amount',
+
+        'freight_charge',
+        'remote_charge',
         'selling_amount',
         'vendor_cost',
+        'vendor_freight',
+        'fuel_charge',
+        'vendor_remote_charge',
+        'go_green_charge',
+        'handling_charge',
+        'vat_amount',
+        'vendor_total',
         'total_charge',
         'profit_amount',
-        'payment_type',
+        'margin_percent',
+        'markup_percent',
 
         'invoice_id',
-
-        'shipment_date',
+        'is_invoiced',
         'shipment_status',
         'tracking_no_vendor',
         'remarks',
 
-          
-   
-   
+        'sender_name',
+        'sender_company',
+        'sender_phone',
+        'sender_email',
+        'sender_identity_number',
+        'sender_address',
+        'sender_city',
+        'sender_state',
+        'sender_postal_code',
 
+        'receiver_name',
+        'receiver_company',
+        'receiver_phone',
+        'receiver_email',
+        'receiver_id_number',
+        'receiver_address',
+        'receiver_city',
+        'receiver_state',
+        'receiver_postal_code',
     ];
 
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
-
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
-
-    /*
-    |--------------------------------------------------------------------------
-    | Helper Methods
-    |--------------------------------------------------------------------------
-    */
 
     public function getByAwb($awbNo)
     {
@@ -87,63 +110,4 @@ class ShipmentModel extends Model
     {
         return $this->where('shipment_status', 'DELIVERED')->findAll();
     }
-
-    public function print($id)
-{
-    $manifest = (new ManifestModel())
-        ->find($id);
-
-    $details = (new ManifestDetailModel())
-        ->where('manifest_id', $id)
-        ->findAll();
-
-    return view(
-        'manifests/print',
-        [
-            'manifest' => $manifest,
-            'details'  => $details,
-        ]
-    );
-}
-
-public function calculateRate()
-{
-
-    $countryId = $this->request->getPost('country_id');
-
-    $serviceId = $this->request->getPost('service_id');
-
-    $weight = $this->request->getPost('chargeable_weight');
-
-    if(empty($countryId) || empty($serviceId) || empty($weight)){
-
-        return $this->response->setJSON([
-
-            'success'=>false
-
-        ]);
-
-    }
-
-    /*
-        Sprint 19
-
-        sementara kita isi dummy dulu.
-
-        nanti diganti query regular_tariffs
-        dan express tariff
-    */
-
-    $selling = $weight * 50000;
-
-    return $this->response->setJSON([
-
-        'success'=>true,
-
-        'selling_amount'=>$selling
-
-    ]);
-
-}
-
 }

@@ -19,6 +19,18 @@
 <div class="container mt-4 mb-5">
     <h2 class="mb-4">Create Shipment</h2>
 
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="alert alert-danger">
+            <?= esc(session()->getFlashdata('error')) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if (session()->getFlashdata('success')): ?>
+        <div class="alert alert-success">
+            <?= esc(session()->getFlashdata('success')) ?>
+        </div>
+    <?php endif; ?>
+
     <!-- =======================================
          CUSTOMER / SENDER INFORMATION
     ======================================= -->
@@ -55,6 +67,9 @@
                             data-address="<?= esc($row['address']) ?>"
                             data-country="<?= esc($row['country_name']) ?>"
                             data-identity="<?= esc($row['identity_number']) ?>">
+                            <?= !empty($row['owner_customer_name'])
+                                ? esc($row['owner_customer_name']) . ' — '
+                                : '' ?>
                             <?= esc($row['contact_name']) ?>
                             <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
                         </option>
@@ -131,6 +146,7 @@
     <?php foreach($receiverAddresses as $row): ?>
     <option
         value="<?= $row['id'] ?>"
+        data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"
         data-country-id="<?= esc($row['country_id']) ?>"
         data-company="<?= esc($row['company_name']) ?>"
         data-phone="<?= esc($row['phone']) ?>"
@@ -142,6 +158,9 @@
         data-country="<?= esc($row['country_name']) ?>"
         data-identity="<?= esc($row['identity_number']) ?>"
     >
+        <?= !empty($row['owner_customer_name'])
+            ? esc($row['owner_customer_name']) . ' — '
+            : '' ?>
         <?= esc($row['contact_name']) ?>
         <?= !empty($row['company_name']) ? ' - ' . esc($row['company_name']) : '' ?>
     </option>
