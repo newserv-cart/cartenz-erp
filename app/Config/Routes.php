@@ -29,13 +29,6 @@ $routes->get(
 );
 
 $routes->post(
-    'shipments/tracking/(:num)',
-    'ShipmentController::addTracking/$1'
-);
-
-
-
-$routes->post(
     'shipments/tracking/add/(:num)',
     'ShipmentController::addTracking/$1'
 );
@@ -51,7 +44,7 @@ $routes->get(
     'TrackingStatusController::index'
 );
 
-$routes->get(
+$routes->post(
     'shipments/quick-status/(:num)/(:segment)',
     'ShipmentController::quickStatus/$1/$2'
 );

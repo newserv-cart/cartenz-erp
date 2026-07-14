@@ -359,11 +359,22 @@ class ShipmentController extends BaseController
         $shipmentModel = new ShipmentModel();
         $trackingModel = new ShipmentTrackingModel();
 
-        $shipment = $shipmentModel->where('awb_no', $awb)->first();
-        if (!$shipment) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        $shipment = $shipmentModel
+            ->where('awb_no', $awb)
+            ->first();
 
-        $tracking = $trackingModel->where('tracking_code', $awb)->orderBy('event_time', 'DESC')->findAll();
-        return view('shipments/tracking', ['shipment' => $shipment, 'tracking' => $tracking]);
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+        $tracking = $trackingModel->getPublicTrackingHistory(
+            (int) $shipment['id']
+        );
+
+        return view('shipments/tracking', [
+            'shipment' => $shipment,
+            'tracking' => $tracking,
+        ]);
     }
     public function store()
     {
@@ -641,6 +652,7 @@ class ShipmentController extends BaseController
                 'margin_percent'       => $margin,
                 'markup_percent'       => $markup,
                 'shipment_status'      => 'DRAFT',
+                'public_tracking_status'=> 'CREATED',
                 'remarks'              => $this->clean($post['remarks'] ?? ''),
 
                 // Snapshot sender agar histori tidak berubah saat address book diedit.
@@ -959,6 +971,7 @@ class ShipmentController extends BaseController
             'shipment_id'       => $shipmentId,
             'tracking_code'     => $awbNo,
             'tracking_status'   => 'DRAFT',
+            'public_status'     => 'CREATED',
             'tracking_location' => 'Cartenz System',
             'tracking_notes'    => 'Shipment berhasil dibuat',
             'event_time'        => date('Y-m-d H:i:s'),
@@ -1006,58 +1019,274 @@ class ShipmentController extends BaseController
     }
     public function addTracking($shipmentId)
     {
-        $shipmentModel = new ShipmentModel();
-        $trackingModel = new ShipmentTrackingModel();
-        $statusModel   = new TrackingStatusModel();
+        $status   = (string) $this->request->getPost('tracking_status');
+        $location = (string) $this->request->getPost('tracking_location');
+        $notes    = (string) $this->request->getPost('tracking_notes');
 
-        $shipment = $shipmentModel->find($shipmentId);
-        if (!$shipment) return redirect()->back()->with('error', 'Shipment not found');
+        try {
+            $result = $this->applyTrackingTransition(
+                (int) $shipmentId,
+                $status,
+                $location,
+                $notes
+            );
 
-        $status = $this->request->getPost('tracking_status');
-        $validStatuses = array_column($statusModel->where('is_active', 1)->findAll(), 'tracking_status');
-        if (!in_array($status, $validStatuses)) return redirect()->back()->with('error', 'Invalid status selected');
-
-        $trackingModel->insert([
-            'shipment_id'       => $shipmentId,
-            'tracking_code'     => $shipment['awb_no'],
-            'tracking_status'   => $status,
-            'tracking_location' => $this->request->getPost('tracking_location') ?? '',
-            'tracking_notes'    => $this->request->getPost('tracking_notes') ?? '',
-            'event_time'        => date('Y-m-d H:i:s'),
-            'created_at'        => date('Y-m-d H:i:s'),
-        ]);
-
-        $shipmentModel->update($shipmentId, ['shipment_status' => $status]);
-        return redirect()->back()->with('success', 'Tracking Updated');
+            return redirect()
+                ->to(site_url('shipments/detail/' . (int) $shipmentId))
+                ->with(
+                    'success',
+                    'Status internal diperbarui ke ' .
+                    $result['internal_status'] .
+                    ' dan status publik menjadi ' .
+                    $result['public_status'] . '.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->to(site_url('shipments/detail/' . (int) $shipmentId))
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
     }
 
     public function quickStatus($shipmentId, $status)
     {
+        try {
+            $result = $this->applyTrackingTransition(
+                (int) $shipmentId,
+                (string) $status,
+                'Cartenz System',
+                'Quick status update'
+            );
+
+            return redirect()
+                ->to(site_url('shipments/detail/' . (int) $shipmentId))
+                ->with(
+                    'success',
+                    'Status diperbarui ke ' .
+                    $result['internal_status'] . '.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->to(site_url('shipments/detail/' . (int) $shipmentId))
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    private function applyTrackingTransition(
+        int $shipmentId,
+        string $targetStatus,
+        string $location,
+        string $notes
+    ): array {
+        $db = db_connect();
+
         $shipmentModel = new ShipmentModel();
         $trackingModel = new ShipmentTrackingModel();
         $statusModel   = new TrackingStatusModel();
 
-        $shipment = $shipmentModel->find($shipmentId);
-        if (!$shipment) return redirect()->to(site_url('shipments'))->with('error', 'Shipment not found');
+        $targetStatus = strtoupper(trim($targetStatus));
+        $location     = trim(strip_tags($location));
+        $notes        = trim(strip_tags($notes));
 
-        $validStatuses = array_column($statusModel->where('is_active', 1)->findAll(), 'tracking_status');
-        if (!in_array($status, $validStatuses)) return redirect()->back()->with('error', 'Invalid status');
+        $db->transBegin();
 
-        $lastTracking = $trackingModel->where('shipment_id', $shipmentId)->orderBy('event_time', 'DESC')->first();
-        if ($lastTracking && $lastTracking['tracking_status'] === $status) return redirect()->back()->with('error', 'Status sudah sama');
+        try {
+            $shipment = $shipmentModel->find($shipmentId);
 
-        $trackingModel->insert([
-            'shipment_id'       => $shipmentId,
-            'tracking_code'     => $shipment['awb_no'],
-            'tracking_status'   => $status,
-            'tracking_location' => 'Cartenz System',
-            'tracking_notes'    => 'Status updated to: ' . $status,
-            'event_time'        => date('Y-m-d H:i:s'),
-            'created_at'        => date('Y-m-d H:i:s'),
-        ]);
+            if (!$shipment) {
+                throw new \RuntimeException('Shipment tidak ditemukan.');
+            }
 
-        $shipmentModel->update($shipmentId, ['shipment_status' => $status]);
-        return redirect()->to('/shipments/view/' . $shipmentId)->with('success', 'Status updated to: ' . $status);
+            $targetMaster = $statusModel->getByCode($targetStatus);
+
+            if (!$targetMaster) {
+                throw new \RuntimeException(
+                    'Status ' . $targetStatus . ' tidak aktif atau tidak terdaftar.'
+                );
+            }
+
+            $currentStatus = strtoupper(
+                trim((string) ($shipment['shipment_status'] ?? 'DRAFT'))
+            );
+
+            if ($currentStatus === $targetStatus) {
+                throw new \RuntimeException(
+                    'Status shipment sudah ' . $targetStatus . '.'
+                );
+            }
+
+            if (
+                (int) ($targetMaster['requires_location'] ?? 0) === 1
+                && $location === ''
+            ) {
+                throw new \RuntimeException(
+                    'Lokasi wajib diisi untuk status ' . $targetStatus . '.'
+                );
+            }
+
+            if (
+                (int) ($targetMaster['requires_notes'] ?? 0) === 1
+                && $notes === ''
+            ) {
+                throw new \RuntimeException(
+                    'Catatan wajib diisi untuk status ' . $targetStatus . '.'
+                );
+            }
+
+            $this->assertTrackingTransition(
+                $shipmentId,
+                $currentStatus,
+                $targetStatus,
+                $trackingModel
+            );
+
+            $publicStatus = strtoupper(
+                trim((string) (
+                    $targetMaster['public_status_code']
+                    ?? $targetStatus
+                ))
+            );
+
+            $now = date('Y-m-d H:i:s');
+
+            if ($trackingModel->insert([
+                'shipment_id'       => $shipmentId,
+                'tracking_code'     => (string) $shipment['awb_no'],
+                'tracking_status'   => $targetStatus,
+                'public_status'     => $publicStatus,
+                'tracking_location' => $location !== ''
+                    ? $location
+                    : 'Cartenz System',
+                'tracking_notes'    => $notes,
+                'event_time'        => $now,
+                'created_by'        => auth()->id() ?? null,
+                'created_at'        => $now,
+            ]) === false) {
+                throw new \RuntimeException(
+                    'Gagal menyimpan tracking: ' .
+                    implode(', ', $trackingModel->errors())
+                );
+            }
+
+            if ($shipmentModel->update($shipmentId, [
+                'shipment_status'       => $targetStatus,
+                'public_tracking_status'=> $publicStatus,
+            ]) === false) {
+                throw new \RuntimeException(
+                    'Gagal memperbarui status shipment: ' .
+                    implode(', ', $shipmentModel->errors())
+                );
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Transaksi tracking gagal.');
+            }
+
+            $db->transCommit();
+
+            return [
+                'internal_status' => $targetStatus,
+                'public_status'   => $publicStatus,
+            ];
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
+    }
+
+    private function assertTrackingTransition(
+        int $shipmentId,
+        string $currentStatus,
+        string $targetStatus,
+        ShipmentTrackingModel $trackingModel
+    ): void {
+        $normalFlow = [
+            'DRAFT',
+            'CREATED',
+            'MANIFESTED',
+            'PICKED_UP',
+            'SENT_TO_MAIN_WAREHOUSE',
+            'RECEIVED_AT_MAIN_WAREHOUSE',
+            'ARRIVED_HUB',
+            'IN_TRANSIT_HUB',
+            'IN_TRANSIT',
+            'OUT_FOR_DELIVERY',
+            'DELIVERED',
+        ];
+
+        $terminalStatuses = [
+            'DELIVERED',
+            'RETURN_TO_SENDER',
+        ];
+
+        if (in_array($currentStatus, $terminalStatuses, true)) {
+            throw new \RuntimeException(
+                'Status ' . $currentStatus . ' bersifat terminal dan tidak dapat diubah.'
+            );
+        }
+
+        if ($targetStatus === 'ON_HOLD') {
+            return;
+        }
+
+        if ($targetStatus === 'RETURN_TO_SENDER') {
+            if (in_array($currentStatus, ['DRAFT', 'CREATED'], true)) {
+                throw new \RuntimeException(
+                    'RETURN_TO_SENDER belum dapat digunakan sebelum pickup.'
+                );
+            }
+
+            return;
+        }
+
+        $currentForValidation = $currentStatus;
+
+        if ($currentStatus === 'ON_HOLD') {
+            $lastNormal = $trackingModel->getLastNonExceptionTracking(
+                $shipmentId
+            );
+
+            $currentForValidation = strtoupper(
+                trim((string) (
+                    $lastNormal['tracking_status']
+                    ?? 'DRAFT'
+                ))
+            );
+        }
+
+        $currentIndex = array_search(
+            $currentForValidation,
+            $normalFlow,
+            true
+        );
+
+        $targetIndex = array_search(
+            $targetStatus,
+            $normalFlow,
+            true
+        );
+
+        if ($targetIndex === false) {
+            throw new \RuntimeException(
+                'Status tujuan tidak termasuk workflow utama.'
+            );
+        }
+
+        if ($currentIndex === false) {
+            throw new \RuntimeException(
+                'Status aktif ' . $currentForValidation .
+                ' tidak dikenali oleh workflow.'
+            );
+        }
+
+        if ($targetIndex <= $currentIndex) {
+            throw new \RuntimeException(
+                'Status tidak boleh mundur dari ' .
+                $currentForValidation .
+                ' ke ' .
+                $targetStatus . '.'
+            );
+        }
     }
 
     public function printLabel($id)

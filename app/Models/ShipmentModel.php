@@ -67,6 +67,7 @@ class ShipmentModel extends Model
         'invoice_id',
         'is_invoiced',
         'shipment_status',
+        'public_tracking_status',
         'tracking_no_vendor',
         'remarks',
 
