@@ -1,4 +1,5 @@
 <?php
+$historyRows = $shipmentHistories ?? [];
 $createdAt = $shipment['created_at'] ?? null;
 $updatedAt = $shipment['updated_at'] ?? null;
 ?>
@@ -20,52 +21,111 @@ $updatedAt = $shipment['updated_at'] ?? null;
                 </thead>
 
                 <tbody>
+                    <?php foreach ($historyRows as $row): ?>
+                        <tr>
+                            <td>
+                                <?= esc(
+                                    $row['created_at'] ?? '-'
+                                ) ?>
+                            </td>
+
+                            <td>
+                                <span class="badge bg-warning text-dark">
+                                    <?= esc(
+                                        $row['event_type']
+                                        ?? 'UPDATED'
+                                    ) ?>
+                                </span>
+                            </td>
+
+                            <td>
+                                <div class="fw-semibold">
+                                    <?= esc(
+                                        $row['event_title']
+                                        ?? 'Shipment Updated'
+                                    ) ?>
+                                </div>
+
+                                <div>
+                                    <?= esc(
+                                        $row['description']
+                                        ?? '-'
+                                    ) ?>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+
                     <?php if ($createdAt): ?>
                         <tr>
                             <td><?= esc($createdAt) ?></td>
-                            <td>
-                                <span class="badge bg-success">CREATED</span>
-                            </td>
-                            <td>
-                                Shipment <?= esc($shipment['awb_no'] ?? '-') ?> dibuat.
-                            </td>
-                        </tr>
-                    <?php endif; ?>
 
-                    <?php if ($updatedAt && $updatedAt !== $createdAt): ?>
-                        <tr>
-                            <td><?= esc($updatedAt) ?></td>
                             <td>
-                                <span class="badge bg-warning text-dark">UPDATED</span>
+                                <span class="badge bg-success">
+                                    CREATED
+                                </span>
                             </td>
+
                             <td>
-                                Data shipment terakhir diperbarui.
+                                Shipment
+                                <?= esc(
+                                    $shipment['awb_no'] ?? '-'
+                                ) ?>
+                                dibuat.
                             </td>
                         </tr>
                     <?php endif; ?>
 
                     <?php foreach (($tracking ?? []) as $row): ?>
                         <tr>
-                            <td><?= esc($row['event_time'] ?? $row['created_at'] ?? '-') ?></td>
+                            <td>
+                                <?= esc(
+                                    $row['event_time']
+                                    ?? $row['created_at']
+                                    ?? '-'
+                                ) ?>
+                            </td>
+
                             <td>
                                 <span class="badge bg-primary">
-                                    <?= esc($row['tracking_status'] ?? 'TRACKING') ?>
+                                    <?= esc(
+                                        $row['tracking_status']
+                                        ?? 'TRACKING'
+                                    ) ?>
                                 </span>
                             </td>
+
                             <td>
-                                <?= esc($row['tracking_notes'] ?? '-') ?>
-                                <?php if (!empty($row['tracking_location'])): ?>
+                                <?= esc(
+                                    $row['tracking_notes'] ?? '-'
+                                ) ?>
+
+                                <?php if (
+                                    !empty(
+                                        $row['tracking_location']
+                                    )
+                                ): ?>
                                     <div class="small text-muted">
-                                        <?= esc($row['tracking_location']) ?>
+                                        <?= esc(
+                                            $row[
+                                                'tracking_location'
+                                            ]
+                                        ) ?>
                                     </div>
                                 <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
 
-                    <?php if (!$createdAt && empty($tracking)): ?>
+                    <?php if (
+                        $historyRows === []
+                        && !$createdAt
+                        && empty($tracking)
+                    ): ?>
                         <tr>
-                            <td colspan="3" class="text-center text-muted">
+                            <td
+                                colspan="3"
+                                class="text-center text-muted">
                                 Belum ada history shipment.
                             </td>
                         </tr>
