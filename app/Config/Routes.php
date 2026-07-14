@@ -22,12 +22,14 @@ $routes->post('shipments/update/(:num)', 'ShipmentController::update/$1');
 
 $routes->post(
     'shipments/cancel/(:num)',
-    'ShipmentController::cancel/$1'
+    'ShipmentController::cancel/$1',
+    ['filter' => 'group:superadmin,admin']
 );
 
 $routes->post(
     'shipments/delete/(:num)',
-    'ShipmentController::delete/$1'
+    'ShipmentController::delete/$1',
+    ['filter' => 'group:superadmin,admin']
 );
 $routes->get('test-pdf', 'ShipmentController::testPdf');
 

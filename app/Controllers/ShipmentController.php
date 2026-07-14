@@ -1193,7 +1193,7 @@ class ShipmentController extends BaseController
                     (int) $id,
                     $reason,
                     $confirmAwb,
-                    auth()->id() ?? null
+                    $this->requireLifecycleActorId()
                 );
 
             return redirect()
@@ -1224,7 +1224,7 @@ class ShipmentController extends BaseController
                 ->cancel(
                     (int) $id,
                     $reason,
-                    auth()->id() ?? null
+                    $this->requireLifecycleActorId()
                 );
 
             return redirect()
@@ -1932,6 +1932,20 @@ class ShipmentController extends BaseController
                 ->with('error', 'Gagal membuat shipment: ' . $e->getMessage());
         }
     }
+    private function requireLifecycleActorId(): int
+    {
+        $userId = auth()->id();
+
+        if (!$userId) {
+            throw new \RuntimeException(
+                'Sesi login admin tidak ditemukan. ' .
+                'Silakan login ulang sebelum Cancel atau Delete shipment.'
+            );
+        }
+
+        return (int) $userId;
+    }
+
     private function normalizePackages(array $rawPackages, $db): array
     {
         $currencyRows = $db->table('currencies')
