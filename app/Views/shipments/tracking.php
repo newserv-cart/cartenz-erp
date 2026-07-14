@@ -39,19 +39,34 @@
         }
 
         .tracking-search {
-            box-shadow: 0 1rem 2.5rem rgba(31, 45, 61, .08);
+            box-shadow:
+                0 1rem 2.5rem
+                rgba(31, 45, 61, .08);
         }
 
         .status-card {
             border: 0;
-            box-shadow: 0 .5rem 1.5rem rgba(31, 45, 61, .07);
+            box-shadow:
+                0 .5rem 1.5rem
+                rgba(31, 45, 61, .07);
+        }
+
+        .progress-scroll {
+            overflow-x: auto;
+            scroll-snap-type: x proximity;
+            scrollbar-width: thin;
+        }
+
+        .progress-track {
+            min-width: 710px;
         }
 
         .progress-step {
-            min-width: 145px;
-            flex: 1 0 145px;
+            min-width: 135px;
+            flex: 1 0 135px;
             position: relative;
             text-align: center;
+            scroll-snap-align: center;
         }
 
         .progress-dot {
@@ -75,7 +90,9 @@
         }
 
         .progress-step.current .progress-dot {
-            box-shadow: 0 0 0 .35rem rgba(13, 110, 253, .15);
+            box-shadow:
+                0 0 0 .35rem
+                rgba(13, 110, 253, .15);
         }
 
         .timeline-item {
@@ -108,6 +125,47 @@
         .safe-note {
             font-size: .9rem;
         }
+
+        .copy-feedback {
+            min-height: 1.25rem;
+        }
+
+        @media (max-width: 575.98px) {
+            .tracking-shell {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .brand-mark {
+                font-size: 1.05rem;
+            }
+
+            .tracking-search .card-body,
+            .status-card .card-body {
+                padding: 1.25rem;
+            }
+
+            .status-actions {
+                width: 100%;
+            }
+
+            .status-actions .btn {
+                flex: 1 1 auto;
+            }
+
+            .timeline-item {
+                padding-left: 2.25rem;
+            }
+
+            .timeline-item:not(:last-child)::before {
+                left: .6rem;
+            }
+
+            .timeline-dot {
+                width: 1.25rem;
+                height: 1.25rem;
+            }
+        }
     </style>
 </head>
 
@@ -120,6 +178,7 @@ $currentPublicStatus =
 $progressStatus =
     $progressStatus ?? $currentPublicStatus;
 $notFound = $notFound ?? false;
+$invalidFormat = $invalidFormat ?? false;
 $searchedAwb = $searchedAwb ?? '';
 
 $statusNames = [
@@ -173,14 +232,17 @@ if ($currentStepIndex === false) {
         </div>
     </header>
 
-    <div class="card tracking-search border-0 mb-4">
+    <div
+        class="card tracking-search border-0 mb-4"
+        id="tracking-search">
+
         <div class="card-body p-4">
             <h1 class="h4 fw-bold mb-2">
                 Track Your Shipment
             </h1>
 
             <p class="text-muted mb-3">
-                Masukkan nomor AWB untuk melihat status pengiriman.
+                Masukkan nomor AWB CARTENZ untuk melihat status pengiriman.
             </p>
 
             <?php if (session()->getFlashdata('tracking_error')): ?>
@@ -192,14 +254,16 @@ if ($currentStepIndex === false) {
             <form
                 method="post"
                 action="<?= site_url('track/search') ?>"
-                class="row g-2">
+                class="row g-2"
+                id="trackingForm"
+                novalidate>
 
                 <?= csrf_field() ?>
 
                 <div class="col-md">
                     <label
                         for="awb_no"
-                        class="visually-hidden">
+                        class="form-label fw-semibold">
                         Nomor AWB
                     </label>
 
@@ -210,12 +274,29 @@ if ($currentStepIndex === false) {
                         name="awb_no"
                         value="<?= esc(old('awb_no') ?? $searchedAwb) ?>"
                         placeholder="Contoh: CTZ260700015"
-                        maxlength="50"
+                        minlength="12"
+                        maxlength="12"
+                        pattern="CTZ[0-9]{9}"
                         autocomplete="off"
+                        autocapitalize="characters"
+                        spellcheck="false"
+                        aria-describedby="awbHelp awbInvalid"
                         required>
+
+                    <div
+                        id="awbHelp"
+                        class="form-text">
+                        Format: CTZ diikuti 9 angka. Jangan masukkan URL, spasi, atau tanda hubung.
+                    </div>
+
+                    <div
+                        id="awbInvalid"
+                        class="invalid-feedback">
+                        Masukkan nomor AWB saja, contoh: CTZ260700015.
+                    </div>
                 </div>
 
-                <div class="col-md-auto d-grid">
+                <div class="col-md-auto d-grid align-self-end">
                     <button
                         type="submit"
                         class="btn btn-primary btn-lg px-4">
@@ -226,7 +307,19 @@ if ($currentStepIndex === false) {
         </div>
     </div>
 
-    <?php if ($notFound): ?>
+    <?php if ($invalidFormat): ?>
+        <div class="alert alert-danger status-card">
+            <h2 class="h5 fw-bold">
+                Format AWB tidak valid
+            </h2>
+
+            <p class="mb-0">
+                Masukkan nomor AWB saja dengan format
+                <strong>CTZ + 9 angka</strong>,
+                contoh: <strong>CTZ260700015</strong>.
+            </p>
+        </div>
+    <?php elseif ($notFound): ?>
         <div class="alert alert-warning status-card">
             <h2 class="h5 fw-bold">
                 Shipment tidak ditemukan
@@ -251,7 +344,10 @@ if ($currentStepIndex === false) {
             ?? 'Shipment Update';
         ?>
 
-        <div class="card status-card mb-4">
+        <div
+            class="card status-card mb-4"
+            id="tracking-result">
+
             <div class="card-body p-4">
                 <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
                     <div>
@@ -259,9 +355,17 @@ if ($currentStepIndex === false) {
                             Air Waybill
                         </div>
 
-                        <h2 class="h3 fw-bold mb-0">
+                        <h2
+                            class="h3 fw-bold mb-1"
+                            id="awbDisplay">
                             <?= esc($shipment['awb_no']) ?>
                         </h2>
+
+                        <div
+                            class="small text-success copy-feedback"
+                            id="copyFeedback"
+                            aria-live="polite">
+                        </div>
                     </div>
 
                     <div class="text-md-end">
@@ -273,6 +377,23 @@ if ($currentStepIndex === false) {
                             <?= esc($currentName) ?>
                         </span>
                     </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3 status-actions">
+                    <button
+                        type="button"
+                        class="btn btn-outline-primary btn-sm"
+                        id="copyAwbButton"
+                        data-awb="<?= esc($shipment['awb_no']) ?>">
+                        📋 Copy AWB
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        id="trackAnotherButton">
+                        🔎 Track Another Shipment
+                    </button>
                 </div>
 
                 <hr>
@@ -334,8 +455,8 @@ if ($currentStepIndex === false) {
                 Shipment Progress
             </div>
 
-            <div class="card-body overflow-auto">
-                <div class="d-flex gap-2 py-2">
+            <div class="card-body progress-scroll">
+                <div class="d-flex gap-2 py-2 progress-track">
                     <?php foreach ($normalSteps as $index => $step): ?>
                         <?php
                         $stepState = '';
@@ -425,6 +546,145 @@ if ($currentStepIndex === false) {
 
 <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+</script>
+
+<script>
+(function () {
+    "use strict";
+
+    const form =
+        document.getElementById("trackingForm");
+
+    const awbInput =
+        document.getElementById("awb_no");
+
+    if (awbInput) {
+        awbInput.addEventListener(
+            "input",
+            function () {
+                this.value =
+                    this.value.toUpperCase();
+
+                const valid =
+                    /^CTZ\d{9}$/.test(this.value);
+
+                this.setCustomValidity(
+                    valid || this.value === ""
+                        ? ""
+                        : "Masukkan nomor AWB saja, contoh: CTZ260700015."
+                );
+            }
+        );
+    }
+
+    if (form) {
+        form.addEventListener(
+            "submit",
+            function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                form.classList.add("was-validated");
+            }
+        );
+    }
+
+    const copyButton =
+        document.getElementById(
+            "copyAwbButton"
+        );
+
+    const copyFeedback =
+        document.getElementById(
+            "copyFeedback"
+        );
+
+    async function copyText(text) {
+        if (
+            navigator.clipboard
+            && window.isSecureContext
+        ) {
+            await navigator.clipboard.writeText(
+                text
+            );
+            return;
+        }
+
+        const textarea =
+            document.createElement("textarea");
+
+        textarea.value = text;
+        textarea.setAttribute(
+            "readonly",
+            ""
+        );
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        document.execCommand("copy");
+        textarea.remove();
+    }
+
+    if (copyButton) {
+        copyButton.addEventListener(
+            "click",
+            async function () {
+                try {
+                    await copyText(
+                        this.dataset.awb || ""
+                    );
+
+                    if (copyFeedback) {
+                        copyFeedback.textContent =
+                            "AWB copied.";
+                    }
+                } catch (error) {
+                    if (copyFeedback) {
+                        copyFeedback.textContent =
+                            "Failed to copy AWB.";
+                    }
+                }
+            }
+        );
+    }
+
+    const trackAnotherButton =
+        document.getElementById(
+            "trackAnotherButton"
+        );
+
+    if (trackAnotherButton && awbInput) {
+        trackAnotherButton.addEventListener(
+            "click",
+            function () {
+                awbInput.value = "";
+                awbInput.setCustomValidity("");
+                form?.classList.remove(
+                    "was-validated"
+                );
+
+                document
+                    .getElementById(
+                        "tracking-search"
+                    )
+                    ?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start"
+                    });
+
+                window.setTimeout(
+                    () => awbInput.focus(),
+                    350
+                );
+            }
+        );
+    }
+})();
 </script>
 </body>
 </html>

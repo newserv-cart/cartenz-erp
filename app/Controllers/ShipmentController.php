@@ -362,16 +362,17 @@ class ShipmentController extends BaseController
             'currentPublicStatus' => null,
             'progressStatus'      => null,
             'notFound'            => false,
+            'invalidFormat'       => false,
         ]);
     }
 
     public function publicTrackingSearch()
     {
-        $awb = $this->normalizePublicAwb(
-            $this->request->getPost('awb_no')
+        $rawAwb = (string) $this->request->getPost(
+            'awb_no'
         );
 
-        if ($awb === '') {
+        if ($rawAwb === '') {
             return redirect()
                 ->to(site_url('track'))
                 ->withInput()
@@ -381,6 +382,20 @@ class ShipmentController extends BaseController
                 );
         }
 
+        if (!AwbGenerator::isValidPublicAwb($rawAwb)) {
+            return redirect()
+                ->to(site_url('track'))
+                ->withInput()
+                ->with(
+                    'tracking_error',
+                    'Masukkan nomor AWB saja dengan format CTZ + 9 angka, contoh: ' .
+                    AwbGenerator::PUBLIC_EXAMPLE .
+                    '.'
+                );
+        }
+
+        $awb = AwbGenerator::normalize($rawAwb);
+
         return redirect()->to(
             site_url('track/' . rawurlencode($awb))
         );
@@ -388,11 +403,15 @@ class ShipmentController extends BaseController
 
     public function track($awb)
     {
-        $awb = $this->normalizePublicAwb($awb);
+        $rawAwb = (string) $awb;
 
-        if ($awb === '') {
-            return $this->publicTrackingNotFound('');
+        if (!AwbGenerator::isValidPublicAwb($rawAwb)) {
+            return $this->publicTrackingInvalidFormat(
+                AwbGenerator::normalize($rawAwb)
+            );
         }
+
+        $awb = AwbGenerator::normalize($rawAwb);
 
         $shipmentModel = new ShipmentModel();
         $trackingModel = new ShipmentTrackingModel();
@@ -512,6 +531,7 @@ class ShipmentController extends BaseController
             'currentPublicStatus' => $currentPublicStatus,
             'progressStatus'      => $progressStatus,
             'notFound'            => false,
+            'invalidFormat'       => false,
         ]);
     }
 
@@ -523,6 +543,7 @@ class ShipmentController extends BaseController
             'currentPublicStatus' => null,
             'progressStatus'      => null,
             'notFound'            => true,
+            'invalidFormat'       => false,
             'searchedAwb'         => $awb,
         ]);
 
@@ -531,19 +552,21 @@ class ShipmentController extends BaseController
             ->setBody($html);
     }
 
-    private function normalizePublicAwb($value): string
+    private function publicTrackingInvalidFormat(string $awb)
     {
-        $awb = strtoupper(
-            trim((string) $value)
-        );
+        $html = view('shipments/tracking', [
+            'shipment'           => null,
+            'publicEvents'        => [],
+            'currentPublicStatus' => null,
+            'progressStatus'      => null,
+            'notFound'            => false,
+            'invalidFormat'       => true,
+            'searchedAwb'         => $awb,
+        ]);
 
-        $awb = preg_replace(
-            '/[^A-Z0-9\-]/',
-            '',
-            $awb
-        ) ?? '';
-
-        return substr($awb, 0, 50);
+        return $this->response
+            ->setStatusCode(422)
+            ->setBody($html);
     }
 
     private function isAllowedPublicStatus(string $status): bool
