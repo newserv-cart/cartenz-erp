@@ -1,32 +1,58 @@
-<h2>
-📦 Scan Manifest
-</h2>
+<?= $this->extend('admin/layouts/app') ?>
 
-<?php if(session()->getFlashdata('error')): ?>
+<?= $this->section('content') ?>
 
-<div style="color:red">
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">📱 Scan / Search Manifest</h3>
 
-<?= session()->getFlashdata('error') ?>
+        <a
+            href="<?= site_url('manifests') ?>"
+            class="btn btn-outline-secondary">
+            Back
+        </a>
+    </div>
 
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="alert alert-danger">
+            <?= esc(session()->getFlashdata('error')) ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <form
+                method="post"
+                action="<?= site_url('manifests/scan') ?>">
+
+                <?= csrf_field() ?>
+
+                <label
+                    for="manifest_no"
+                    class="form-label">
+                    Manifest Number
+                </label>
+
+                <div class="input-group input-group-lg">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="manifest_no"
+                        name="manifest_no"
+                        maxlength="30"
+                        autocomplete="off"
+                        autofocus
+                        required>
+
+                    <button
+                        type="submit"
+                        class="btn btn-success">
+                        Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
-<?php endif; ?>
-
-<form method="post">
-
-<input
-    type="text"
-    name="manifest_no"
-    autofocus
-    style="
-        width:400px;
-        height:40px;
-        font-size:20px;
-    "
->
-
-<button>
-    Cari Manifest
-</button>
-
-</form>
+<?= $this->endSection() ?>

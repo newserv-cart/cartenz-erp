@@ -1,164 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<img
-src="<?= FCPATH.'uploads/company/logo.png' ?>"
-height="60">
-<style>
+    <meta charset="UTF-8">
 
+    <style>
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 11px;
+        }
 
+        h1 {
+            text-align: center;
+            margin-bottom: 4px;
+        }
 
-body{
-    font-family: Arial, sans-serif;
-    font-size:12px;
-}
+        .subtitle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
 
-.title{
-    text-align:center;
-    font-size:20px;
-    font-weight:bold;
-    margin-bottom:10px;
-}
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
-.subtitle{
-    text-align:center;
-    margin-bottom:20px;
-}
+        th,
+        td {
+            border: 1px solid #222;
+            padding: 6px;
+        }
 
-.info{
-    margin-bottom:20px;
-}
+        th {
+            background: #efefef;
+        }
 
-table{
-    width:100%;
-    border-collapse:collapse;
-}
+        .text-right {
+            text-align: right;
+        }
 
-table th,
-table td{
-    border:1px solid #000;
-    padding:6px;
-}
-
-table th{
-    background:#f0f0f0;
-}
-
-.footer{
-    margin-top:40px;
-}
-
-.sign{
-    width:45%;
-    float:left;
-    text-align:center;
-}
-
-</style>
-
+        .meta {
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
+
 <body>
+    <h1>CARTENZ GLOBAL EXPRESS</h1>
 
-<div class="title">
-    CARTENZ GLOBAL EXPRESS
-</div>
+    <div class="subtitle">
+        SHIPPING MANIFEST
+    </div>
 
-<div class="subtitle">
-    MANIFEST PENGIRIMAN
-</div>
+    <div class="meta">
+        <strong>Manifest:</strong>
+        <?= esc($manifest['manifest_no']) ?><br>
 
-<div class="info">
+        <strong>Date:</strong>
+        <?= esc($manifest['manifest_date']) ?><br>
 
-<b>Manifest No :</b>
-<?= $manifest['manifest_no'] ?>
+        <strong>Status:</strong>
+        <?= esc($manifest['status']) ?><br>
 
-<br>
+        <strong>Total Shipment:</strong>
+        <?= number_format(
+            (int) $liveTotals['total_shipment']
+        ) ?><br>
 
-<b>Tanggal :</b>
-<?= date('d-m-Y', strtotime($manifest['manifest_date'])) ?>
-<br>
+        <strong>Total Weight:</strong>
+        <?= number_format(
+            (float) $liveTotals['total_weight'],
+            2,
+            '.',
+            ','
+        ) ?> Kg
+    </div>
 
+    <table>
+        <thead>
+            <tr>
+                <th width="40">No</th>
+                <th>AWB</th>
+                <th>Internal Status</th>
+                <th width="100">Weight</th>
+            </tr>
+        </thead>
 
-<b>Status :</b>
-<?= $manifest['status'] ?>
+        <tbody>
+            <?php foreach ($details as $index => $detail): ?>
+                <?php
+                $weight =
+                    (float) ($detail['chargeable_weight'] ?? 0) > 0
+                    ? (float) $detail['chargeable_weight']
+                    : (float) (
+                        $detail['shipment_actual_weight']
+                        ?? $detail['actual_weight']
+                        ?? 0
+                    );
+                ?>
 
-<br>
-
-<b>Total Shipment :</b>
-<?= $manifest['total_shipment'] ?>
-
-<br>
-
-<b>Total Weight :</b>
-<?= number_format($manifest['total_weight'],2) ?> Kg
-
-</div>
-
-<table>
-
-<tr>
-    <th width="50">No</th>
-    <th>AWB</th>
-    <th width="120">Weight</th>
-</tr>
-
-<?php $no=1; ?>
-
-<?php foreach($details as $row): ?>
-
-<tr>
-
-<td align="center">
-<?= $no++ ?>
-</td>
-
-<td>
-<?= $row['awb_no'] ?>
-</td>
-
-<td align="right">
-<?= number_format($row['actual_weight'],2) ?>
-</td>
-
-</tr>
-
-<?php endforeach; ?>
-
-
-<tr>
-    <td colspan="2" align="right">
-        <b>Total Weight</b>
-    </td>
-
-    <td align="right">
-        <b>
-            <?= number_format($manifest['total_weight'],2) ?>
-        </b>
-    </td>
-</tr>
-
-</table>
-
-
-
-
-
-<div class="footer">
-
-<div class="sign">
-    Dibuat Oleh
-    <br><br><br><br>
-    __________________
-</div>
-
-<div class="sign" style="float:right;">
-    Diterima Oleh
-    <br><br><br><br>
-    __________________
-</div>
-
-</div>
-
+                <tr>
+                    <td><?= $index + 1 ?></td>
+                    <td><?= esc($detail['awb_no']) ?></td>
+                    <td><?= esc($detail['shipment_status']) ?></td>
+                    <td class="text-right">
+                        <?= number_format($weight, 2, '.', ',') ?> Kg
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
 </body>
 </html>

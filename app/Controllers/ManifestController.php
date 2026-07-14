@@ -4,22 +4,28 @@ namespace App\Controllers;
 
 use App\Controllers\BaseController;
 use App\Models\ManifestModel;
-use App\Models\ManifestDetailModel;
-use App\Models\ShipmentModel;
+use App\Services\ManifestWorkflowService;
+use CodeIgniter\Exceptions\PageNotFoundException;
 use Dompdf\Dompdf;
-use App\Models\ShipmentTrackingModel;
+
 class ManifestController extends BaseController
 {
+    protected ManifestWorkflowService $workflow;
+    protected ManifestModel $manifestModel;
+
+    public function __construct()
+    {
+        $this->workflow      = new ManifestWorkflowService();
+        $this->manifestModel = new ManifestModel();
+    }
+
     public function index()
     {
-        $data['manifests'] = (new ManifestModel())
-            ->orderBy('id', 'DESC')
-            ->findAll();
-
-        return view(
-            'manifests/index',
-            $data
-        );
+        return view('manifests/index', [
+            'manifests' => $this->manifestModel
+                ->orderBy('id', 'DESC')
+                ->findAll(),
+        ]);
     }
 
     public function create()
@@ -29,364 +35,264 @@ class ManifestController extends BaseController
 
     public function store()
     {
-        $manifestNo =
-            'MNF' .
-            date('ym') .
-            str_pad(
-                rand(1,99999),
-                5,
-                '0',
-                STR_PAD_LEFT
+        try {
+            $manifestId = $this->workflow->createManifest(
+                $this->request->getPost(),
+                $this->requireActorId()
             );
 
-        (new ManifestModel())->insert([
-            'manifest_no'    => $manifestNo,
-            'manifest_date'  => date('Y-m-d'),
-            'status'         => 'OPEN',
-            'total_shipment' => 0,
-            'total_weight'   => 0,
-        ]);
-
-        return redirect()
-            ->to('/manifests')
-            ->with(
-                'success',
-                'Manifest Created'
-            );
+            return redirect()
+                ->to(site_url('manifests/view/' . $manifestId))
+                ->with(
+                    'success',
+                    'Manifest berhasil dibuat.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
     }
 
     public function view($id)
     {
-        $manifestModel = new ManifestModel();
-        $detailModel   = new ManifestDetailModel();
-        $shipmentModel = new ShipmentModel();
+        $manifestId = (int) $id;
+        $manifest   = $this->manifestModel->find(
+            $manifestId
+        );
 
-        $manifest = $manifestModel->find($id);
-
-        $details = $detailModel
-            ->where('manifest_id', $id)
-            ->findAll();
-
-       
-
-$allManifestShipments = $detailModel
-->select('shipment_id')
-->findAll();
-
-$usedShipmentIds = array_column(
-$allManifestShipments,
-'shipment_id'
-);
-
-$shipments = $shipmentModel
-->orderBy('id', 'DESC');
-
-if (!empty($usedShipmentIds)) {
-$shipments->whereNotIn(
-'id',
-$usedShipmentIds
-);
-}
-
-$shipments = $shipments->findAll();
-
-
-        $shipments = $shipmentModel
-            ->orderBy('id','DESC');
-
-        if (!empty($usedShipmentIds))
-        {
-            $shipments->whereNotIn(
-                'id',
-                $usedShipmentIds
+        if (!$manifest) {
+            throw PageNotFoundException::forPageNotFound(
+                'Manifest tidak ditemukan.'
             );
         }
 
-        $shipments = $shipments->findAll();
+        $details = $this->workflow
+            ->getManifestDetails($manifestId);
 
+        $liveTotals = $this->workflow
+            ->calculateLiveTotals($details);
 
+        $eligibleShipments = [];
 
+        if (
+            strtoupper((string) $manifest['status'])
+            === 'OPEN'
+        ) {
+            $eligibleShipments = $this->workflow
+                ->getEligibleShipments($manifestId);
+        }
 
-
-        return view(
-            'manifests/view',
-            [
-                'manifest'  => $manifest,
-                'details'   => $details,
-                'shipments' => $shipments,
-            ]
-        );
+        return view('manifests/view', [
+            'manifest'          => $manifest,
+            'details'           => $details,
+            'liveTotals'        => $liveTotals,
+            'eligibleShipments' => $eligibleShipments,
+        ]);
     }
 
     public function addShipment($manifestId)
-{
-    $shipmentIds = $this->request->getPost('shipment_ids');
-
-
-    
-    if (empty($shipmentIds))
     {
-        return redirect()->back()
-            ->with('error', 'Pilih shipment terlebih dahulu');
-    }
+        try {
+            $shipmentIds = $this->request
+                ->getPost('shipment_ids');
 
+            $added = $this->workflow->addShipments(
+                (int) $manifestId,
+                is_array($shipmentIds) ? $shipmentIds : [],
+                $this->requireActorId()
+            );
 
-    
-
-    $shipmentModel = new ShipmentModel();
-    $detailModel   = new ManifestDetailModel();
-    $manifestModel = new ManifestModel();
-
-    $totalWeight = 0;
-    $added = 0;
-    foreach ($shipmentIds as $shipmentId)
-
-
-    {
-        $exists = $detailModel
-    ->where('shipment_id', $shipmentId)
-    ->first();
-
-if ($exists)
-{
-    continue;
-}
-
-        $shipment = $shipmentModel->find($shipmentId);
-
-        if (!$shipment)
-        {
-            continue;
+            return redirect()
+                ->back()
+                ->with(
+                    'success',
+                    $added .
+                    ' shipment berhasil ditambahkan.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
         }
-
-        $detailModel->insert([
-            'manifest_id'   => $manifestId,
-            'shipment_id'   => $shipment['id'],
-            'awb_no'        => $shipment['awb_no'],
-
-             
-            'actual_weight' =>
-(
-    $shipment['chargeable_weight'] > 0
-)
-? $shipment['chargeable_weight']
-: $shipment['actual_weight']
-        ]);
-        $added++;
-
-        $totalWeight +=
-(
-$shipment['chargeable_weight'] > 0
-)
-? $shipment['chargeable_weight']
-: $shipment['actual_weight'];
-
     }
 
-    $totalShipment = $detailModel
-        ->where('manifest_id', $manifestId)
-        ->countAllResults();
-
-    $sumWeight = $detailModel
-        ->selectSum('actual_weight')
-        ->where('manifest_id', $manifestId)
-        ->first();
-
-    $manifestModel->update(
+    public function removeShipment(
         $manifestId,
-        [
-            'total_shipment' => $totalShipment,
-            'total_weight'   => $sumWeight['actual_weight'] ?? 0
-        ]
-    );
+        $shipmentId
+    ) {
+        try {
+            $this->workflow->removeShipment(
+                (int) $manifestId,
+                (int) $shipmentId,
+                $this->requireActorId()
+            );
 
-   if ($added == 0)
-{
-return redirect()->back()
-->with(
-'error',
-'Semua shipment yang dipilih sudah ada dalam manifest'
-);
-}
-
-return redirect()->back()
-->with(
-'success',
-$added . ' shipment berhasil ditambahkan'
-);
-
-}
-
-   public function dispatch($manifestId)
-{
-    $manifestModel = new ManifestModel();
-    $detailModel   = new ManifestDetailModel();
-    $shipmentModel = new ShipmentModel();
-    $trackingModel = new ShipmentTrackingModel();
-    $manifest = $manifestModel->find($manifestId);
-
-    $manifestModel->update($manifestId, [
-        'status' => 'DISPATCHED'
-    ]);
-
-    $details = $detailModel
-        ->where('manifest_id', $manifestId)
-        ->findAll();
-
-    foreach ($details as $detail)
-    {
-        $shipmentModel->update(
-            $detail['shipment_id'],
-            [
-                'shipment_status' => 'IN_TRANSIT_HUB'
-            ]
-        );
-
-     $trackingModel->insert([
-            'shipment_id'       => $detail['shipment_id'],
-            'tracking_code'     => $detail['awb_no'],
-            'tracking_status'   => 'IN_TRANSIT_HUB',
-            'tracking_location' => 'Origin Hub',
-            'tracking_notes'    => 'Manifest Dispatched ' . $manifest['manifest_no'],
-            'event_time'        => date('Y-m-d H:i:s')
-        ]);
-
+            return redirect()
+                ->back()
+                ->with(
+                    'success',
+                    'Shipment berhasil dilepas dari manifest.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
     }
 
-    return redirect()->back()
-        ->with('success', 'Manifest Dispatched');
-}
-
-   public function receive($manifestId)
-{
-    $manifestModel = new ManifestModel();
-    $detailModel   = new ManifestDetailModel();
-    $shipmentModel = new ShipmentModel();
-    $trackingModel = new ShipmentTrackingModel();
-    $manifest = $manifestModel->find($manifestId);
-    
-
-    $manifestModel->update($manifestId, [
-        'status' => 'RECEIVED'
-    ]);
-
-    $details = $detailModel
-        ->where('manifest_id', $manifestId)
-        ->findAll();
-
-    foreach ($details as $detail)
+    public function dispatch($manifestId)
     {
-        $shipmentModel->update(
-            $detail['shipment_id'],
-            [
-                'shipment_status' => 'ARRIVED_HUB'
-            ]
-        );
+        try {
+            $this->workflow->dispatch(
+                (int) $manifestId,
+                $this->requireActorId()
+            );
 
-         $trackingModel->insert([
-            'shipment_id'       => $detail['shipment_id'],
-            'tracking_code'     => $detail['awb_no'],
-            'tracking_status'   => 'ARRIVED_HUB',
-            'tracking_location' => 'Destination Hub',
-            'tracking_notes'    => 'Manifest Received ' . $manifest['manifest_no'],
-            'event_time'        => date('Y-m-d H:i:s')
-        ]);
+            return redirect()
+                ->back()
+                ->with(
+                    'success',
+                    'Manifest berhasil didispatch.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
     }
 
-    return redirect()->back()
-        ->with('success', 'Manifest Received');
-}
+    public function receive($manifestId)
+    {
+        try {
+            $this->workflow->receive(
+                (int) $manifestId,
+                $this->requireActorId()
+            );
+
+            return redirect()
+                ->back()
+                ->with(
+                    'success',
+                    'Manifest berhasil diterima.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+    }
 
     public function close($manifestId)
     {
-        (new ManifestModel())
-            ->update(
-                $manifestId,
-                [
-                    'status' => 'CLOSED'
-                ]
+        try {
+            $this->workflow->close(
+                (int) $manifestId,
+                $this->requireActorId()
             );
 
-        return redirect()
-            ->back()
-            ->with(
-                'success',
-                'Manifest Closed'
-            );
+            return redirect()
+                ->back()
+                ->with(
+                    'success',
+                    'Manifest berhasil ditutup dan dikunci.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
     }
 
     public function printManifest($id)
     {
+        $manifestId = (int) $id;
+        $manifest   = $this->manifestModel->find(
+            $manifestId
+        );
+
+        if (!$manifest) {
+            throw PageNotFoundException::forPageNotFound(
+                'Manifest tidak ditemukan.'
+            );
+        }
+
+        $details = $this->workflow
+            ->getManifestDetails($manifestId);
+
+        $html = view('manifests/pdf', [
+            'manifest'   => $manifest,
+            'details'    => $details,
+            'liveTotals' => $this->workflow
+                ->calculateLiveTotals($details),
+        ]);
+
+        $dompdf = new Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+        $dompdf->stream(
+            $manifest['manifest_no'] . '.pdf',
+            ['Attachment' => false]
+        );
+
+        return null;
+    }
+
+    public function scan()
+    {
+        return view('manifests/scan');
+    }
+
+    public function scanSearch()
+    {
+        $manifestNo = strtoupper(
+            trim(
+                (string) $this->request
+                    ->getPost('manifest_no')
+            )
+        );
+
+        if ($manifestNo === '') {
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'Masukkan nomor manifest.'
+                );
+        }
+
+        $manifest = $this->manifestModel
+            ->where('manifest_no', $manifestNo)
+            ->first();
+
+        if (!$manifest) {
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'Manifest tidak ditemukan.'
+                );
+        }
+
         return redirect()->to(
-            '/manifest/print/' . $id
+            site_url(
+                'manifests/view/' . $manifest['id']
+            )
         );
     }
 
-    public function print($id)
-{
-    $manifestModel = new ManifestModel();
-    $detailModel   = new ManifestDetailModel();
-
-    $manifest = $manifestModel->find($id);
-
-    $details = $detailModel
-        ->where('manifest_id', $id)
-        ->findAll();
-
-    $html = view(
-        'manifests/pdf',
-        [
-            'manifest' => $manifest,
-            'details'  => $details
-        ]
-    );
-
-    $dompdf = new Dompdf();
-
-    $dompdf->loadHtml($html);
-
-    $dompdf->setPaper('A4', 'portrait');
-
-    $dompdf->render();
-
-    $dompdf->stream(
-        $manifest['manifest_no'] . '.pdf',
-        ['Attachment' => false]
-    );
-}
-
-public function scan()
-{
-    return view('manifests/scan');
-}
-
-public function scanSearch()
-{
-    $manifestNo = trim(
-        $this->request->getPost('manifest_no')
-    );
-
-    $manifest = (new ManifestModel())
-        ->where(
-            'manifest_no',
-            $manifestNo
-        )
-        ->first();
-
-    if (!$manifest)
+    private function requireActorId(): int
     {
-        return redirect()
-            ->back()
-            ->with(
-                'error',
-                'Manifest tidak ditemukan'
+        $actorId = auth()->id();
+
+        if (!$actorId) {
+            throw new \RuntimeException(
+                'Sesi admin tidak ditemukan. Silakan login ulang.'
             );
+        }
+
+        return (int) $actorId;
     }
-
-    return redirect()->to(
-        '/manifests/view/' .
-        $manifest['id']
-    );
-}
-
 }

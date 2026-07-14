@@ -69,54 +69,70 @@ $routes->post(
     'ShipmentController::quickStatus/$1/$2'
 );
 
-$routes->get(
+$routes->group(
     'manifests',
-    'ManifestController::index'
-);
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->get(
+            '',
+            'ManifestController::index'
+        );
 
-$routes->get(
-    'manifests/create',
-    'ManifestController::create'
-);
+        $routes->get(
+            'create',
+            'ManifestController::create'
+        );
 
-$routes->post(
-    'manifests/store',
-    'ManifestController::store'
-);
+        $routes->post(
+            'store',
+            'ManifestController::store'
+        );
 
+        $routes->get(
+            'view/(:num)',
+            'ManifestController::view/$1'
+        );
 
-$routes->get(
-    'manifests/view/(:num)',
-    'ManifestController::view/$1'
-);
+        $routes->post(
+            'add-shipment/(:num)',
+            'ManifestController::addShipment/$1'
+        );
 
-$routes->post(
-    'manifests/add-shipment/(:num)',
-    'ManifestController::addShipment/$1'
-);
+        $routes->post(
+            'remove-shipment/(:num)/(:num)',
+            'ManifestController::removeShipment/$1/$2'
+        );
 
-$routes->get(
-    'manifests/dispatch/(:num)',
-    'ManifestController::dispatch/$1'
-);
+        $routes->post(
+            'dispatch/(:num)',
+            'ManifestController::dispatch/$1'
+        );
 
-$routes->get(
-    'manifests/dispatch/(:num)',
-    'ManifestController::dispatch/$1'
-);
-$routes->get(
-    'manifests/receive/(:num)',
-    'ManifestController::receive/$1'
-);
+        $routes->post(
+            'receive/(:num)',
+            'ManifestController::receive/$1'
+        );
 
-$routes->get(
-    'manifests/close/(:num)',
-    'ManifestController::close/$1'
-);
+        $routes->post(
+            'close/(:num)',
+            'ManifestController::close/$1'
+        );
 
-$routes->get(
-    'manifests/print/(:num)',
-    'ManifestController::printManifest/$1'
+        $routes->get(
+            'print/(:num)',
+            'ManifestController::printManifest/$1'
+        );
+
+        $routes->get(
+            'scan',
+            'ManifestController::scan'
+        );
+
+        $routes->post(
+            'scan',
+            'ManifestController::scanSearch'
+        );
+    }
 );
 
 

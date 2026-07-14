@@ -1,32 +1,80 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Create Manifest</title>
+<?= $this->extend('admin/layouts/app') ?>
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-</head>
-<body>
+<?= $this->section('content') ?>
 
-<div class="container mt-4">
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-1">📦 Create Manifest</h3>
+            <div class="text-muted">
+                Manifest baru dibuat dengan status OPEN.
+            </div>
+        </div>
 
-    <h2>📦 Create Manifest</h2>
+        <a
+            href="<?= site_url('manifests') ?>"
+            class="btn btn-outline-secondary">
+            Back
+        </a>
+    </div>
 
-    <form
-        method="post"
-        action="<?= base_url('manifests/store') ?>">
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="alert alert-danger">
+            <?= esc(session()->getFlashdata('error')) ?>
+        </div>
+    <?php endif; ?>
 
-        <button
-            class="btn btn-success">
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <form
+                method="post"
+                action="<?= site_url('manifests/store') ?>">
 
-            Create Manifest
+                <?= csrf_field() ?>
 
-        </button>
+                <div class="mb-3">
+                    <label
+                        for="manifest_date"
+                        class="form-label">
+                        Manifest Date
+                    </label>
 
-    </form>
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="manifest_date"
+                        name="manifest_date"
+                        value="<?= esc(
+                            old('manifest_date') ?? date('Y-m-d')
+                        ) ?>"
+                        required>
+                </div>
 
+                <div class="mb-3">
+                    <label
+                        for="remarks"
+                        class="form-label">
+                        Remarks
+                    </label>
+
+                    <textarea
+                        class="form-control"
+                        id="remarks"
+                        name="remarks"
+                        rows="3"
+                        maxlength="1000"><?= esc(
+                            old('remarks') ?? ''
+                        ) ?></textarea>
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn btn-success">
+                    Create Manifest
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 
-</body>
-</html>
+<?= $this->endSection() ?>

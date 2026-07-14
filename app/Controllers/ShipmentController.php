@@ -1059,6 +1059,39 @@ class ShipmentController extends BaseController
                 'Shipment yang sudah dikirim ke vendor tidak dapat diedit.'
             );
         }
+
+        $lockedManifest = $db
+            ->table('manifest_details md')
+            ->select([
+                'm.manifest_no',
+                'm.status',
+            ])
+            ->join(
+                'manifests m',
+                'm.id = md.manifest_id',
+                'inner'
+            )
+            ->where(
+                'md.shipment_id',
+                (int) $shipment['id']
+            )
+            ->whereIn(
+                'm.status',
+                ['DISPATCHED', 'RECEIVED']
+            )
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if ($lockedManifest) {
+            throw new \RuntimeException(
+                'Shipment berada dalam manifest ' .
+                $lockedManifest['manifest_no'] .
+                ' dengan status ' .
+                $lockedManifest['status'] .
+                ' dan tidak dapat diedit.'
+            );
+        }
     }
 
     private function findCostAmount(
