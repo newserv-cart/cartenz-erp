@@ -705,53 +705,130 @@ $routes->group('master', function($routes){
 
 });
 
-$routes->group('master',function($routes){
+$routes->group(
+    'master/vendors',
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->get(
+            '',
+            'Master\VendorController::index'
+        );
 
-    $routes->get('vendors','Master\VendorController::index');
+        $routes->get(
+            'create',
+            'Master\VendorController::create'
+        );
 
-    $routes->get('vendors/create','Master\VendorController::create');
+        $routes->post(
+            'store',
+            'Master\VendorController::store'
+        );
 
-    $routes->post('vendors/store','Master\VendorController::store');
+        $routes->get(
+            '(:num)',
+            'Master\VendorController::show/$1'
+        );
 
-    $routes->get('vendors/edit/(:num)','Master\VendorController::edit/$1');
+        $routes->get(
+            'edit/(:num)',
+            'Master\VendorController::edit/$1'
+        );
 
-    $routes->post('vendors/update/(:num)','Master\VendorController::update/$1');
+        $routes->post(
+            'update/(:num)',
+            'Master\VendorController::update/$1'
+        );
 
-    $routes->get('vendors/delete/(:num)','Master\VendorController::delete/$1');
+        $routes->post(
+            'toggle-status/(:num)',
+            'Master\VendorController::toggleStatus/$1'
+        );
 
-});
+        $routes->get(
+            '(:num)/regular-rates/create',
+            'Master\VendorRateController::createRegular/$1'
+        );
+
+        $routes->post(
+            '(:num)/regular-rates/store',
+            'Master\VendorRateController::storeRegular/$1'
+        );
+
+        $routes->get(
+            '(:num)/regular-rates/edit/(:num)',
+            'Master\VendorRateController::editRegular/$1/$2'
+        );
+
+        $routes->post(
+            '(:num)/regular-rates/update/(:num)',
+            'Master\VendorRateController::updateRegular/$1/$2'
+        );
+
+        $routes->post(
+            '(:num)/regular-rates/delete/(:num)',
+            'Master\VendorRateController::deleteRegular/$1/$2'
+        );
+
+        $routes->get(
+            '(:num)/express-rates/create',
+            'Master\VendorRateController::createExpressHeader/$1'
+        );
+
+        $routes->post(
+            '(:num)/express-rates/store',
+            'Master\VendorRateController::storeExpressHeader/$1'
+        );
+
+        $routes->get(
+            '(:num)/express-rates/(:num)',
+            'Master\VendorRateController::showExpressHeader/$1/$2'
+        );
+
+        $routes->post(
+            '(:num)/express-rates/delete/(:num)',
+            'Master\VendorRateController::deleteExpressHeader/$1/$2'
+        );
+
+        $routes->post(
+            '(:num)/express-rates/(:num)/details/store',
+            'Master\VendorRateController::storeExpressDetail/$1/$2'
+        );
+
+        $routes->post(
+            '(:num)/express-rates/(:num)/details/delete/(:num)',
+            'Master\VendorRateController::deleteExpressDetail/$1/$2/$3'
+        );
+
+
+        $routes->get(
+            'express-import/template',
+            'Master\ExpressRateImportController::downloadTemplate'
+        );
+
+        $routes->get(
+            '(:num)/express-import',
+            'Master\ExpressRateImportController::form/$1'
+        );
+
+        $routes->post(
+            '(:num)/express-import/preview',
+            'Master\ExpressRateImportController::preview/$1'
+        );
+
+        $routes->get(
+            '(:num)/express-import/preview/(:segment)',
+            'Master\ExpressRateImportController::showPreview/$1/$2'
+        );
+
+        $routes->post(
+            '(:num)/express-import/commit',
+            'Master\ExpressRateImportController::commit/$1'
+        );
+    }
+);
 
 $routes->get('shipments/detail/(:num)', 'ShipmentController::detail/$1');
 
-$routes->group('master',function($routes){
-
-    $routes->get(
-        'express-rates',
-        'Master\ExpressRateController::index'
-    );
-
-    $routes->get(
-        'express-rates/upload',
-        'Master\ExpressRateController::upload'
-    );
-
-    $routes->post(
-        'express-rates/import',
-        'Master\ExpressRateController::import'
-    );
-
-});
-
-
-$routes->get(
-'master/express-rates/view/(:num)',
-'Master\ExpressRateController::view/$1'
-);
-
-$routes->get(
-'master/express-rates/delete/(:num)',
-'Master\ExpressRateController::delete/$1'
-);
 
 $routes->post(
     'api/shipment/calculate',
