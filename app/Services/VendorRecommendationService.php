@@ -6,78 +6,88 @@ use App\Models\VendorModel;
 
 class VendorRecommendationService
 {
-    protected $vendorModel;
-    protected $expressService;
+    protected VendorModel $vendorModel;
+    protected VendorCostService $costService;
 
     public function __construct()
     {
         $this->vendorModel = new VendorModel();
-        $this->expressService = new ExpressRateService();
+        $this->costService = new VendorCostService();
     }
 
-    public function compare(
-        int $serviceId,
-        string $shipmentType,
-        int $zone,
-        float $weight,
-        float $customerSelling
-    )
+    public function compare(array $shipment): array
     {
+        $customerCharge = round(
+            (float) (
+                $shipment['total_charge']
+                ?? $shipment['selling_amount']
+                ?? 0
+            ),
+            2
+        );
+
         $vendors = $this->vendorModel
-
-            ->where('status',1)
-
+            ->where('status', 1)
+            ->orderBy('vendor_priority', 'ASC')
+            ->orderBy('vendor_name', 'ASC')
             ->findAll();
 
-        $result=[];
+        $result = [];
 
-        foreach($vendors as $vendor){
-
-            $rate = $this->expressService->getRate(
-
-                $vendor['id'],
-
-                $serviceId,
-
-                $shipmentType,
-
-                $zone,
-
-                $weight
-
+        foreach ($vendors as $vendor) {
+            $cost = $this->costService->calculateForVendor(
+                $shipment,
+                (int) $vendor['id']
             );
 
-            $vendorCost = $rate['price'];
+            if ($cost === null) {
+                continue;
+            }
 
-            $profit =
+            $vendorCost = round((float) $cost['vendor_cost'], 2);
+            $profit     = round($customerCharge - $vendorCost, 2);
 
-                $customerSelling
-
-                -
-
-                $vendorCost;
-
-            $result[]=[
-
-                'vendor'=>$vendor,
-
-                'cost'=>$vendorCost,
-
-                'profit'=>$profit,
-
-                'rate'=>$rate
-
+            $result[] = [
+                'vendor'          => $vendor,
+                'vendor_cost'     => $vendorCost,
+                'customer_charge' => $customerCharge,
+                'profit'          => $profit,
+                'score'           => $profit,
+                'cost_result'     => $cost,
             ];
-
         }
 
-        usort($result,function($a,$b){
+        usort(
+            $result,
+            static function (array $a, array $b): int {
+                $costCompare = $a['vendor_cost'] <=> $b['vendor_cost'];
 
-            return $b['profit'] <=> $a['profit'];
+                if ($costCompare !== 0) {
+                    return $costCompare;
+                }
 
-        });
+                $priorityCompare =
+                    (int) ($a['vendor']['vendor_priority'] ?? 0)
+                    <=>
+                    (int) ($b['vendor']['vendor_priority'] ?? 0);
+
+                if ($priorityCompare !== 0) {
+                    return $priorityCompare;
+                }
+
+                return strcmp(
+                    (string) $a['vendor']['vendor_name'],
+                    (string) $b['vendor']['vendor_name']
+                );
+            }
+        );
+
+        foreach ($result as $index => &$row) {
+            $row['rank_no']     = $index + 1;
+            $row['recommended'] = $index === 0 ? 1 : 0;
+        }
+        unset($row);
 
         return $result;
     }
-
 }

@@ -27,6 +27,12 @@ use App\Services\ShipmentCalculationService;
 use App\Services\CommodityRuleService;
 use App\Services\PricingEngine;
 use App\Services\ShipmentLifecycleService;
+use App\Services\ShipmentVendorWorkflowService;
+use App\Models\InboundIntakeModel;
+use App\Models\InboundIntakePackageModel;
+use App\Models\AgentModel;
+use App\Services\ShipmentAcceptanceService;
+use App\Services\BranchOperationalContextService;
 
 class ShipmentController extends BaseController
 {
@@ -49,13 +55,61 @@ class ShipmentController extends BaseController
             'shipments' => $shipments,
         ]);
     }
+public function testAwb()
+{
+    return AwbGenerator::generate();
+}
 
-    public function testAwb()
-    {
-        return AwbGenerator::generate();
+public function create()
+{
+    if (!$this->isOperationalUser()) {
+        return redirect()->to(
+            site_url('customer/dashboard')
+        );
     }
-    public function create()
-    {
+
+    $db = db_connect();
+    $acceptanceService = new ShipmentAcceptanceService();
+
+    $inboundIntake  = null;
+    $intakePackages = [];
+    $intakeId       = (int) $this->request->getGet('intake_id');
+
+    if ($intakeId > 0) {
+        $inboundIntake = (new InboundIntakeModel())
+            ->find($intakeId);
+
+        if (
+            !$inboundIntake
+            || strtoupper(
+                (string) (
+                    $inboundIntake['intake_status'] ?? ''
+                )
+            ) !== 'READY_TO_CONVERT'
+            || !empty(
+                $inboundIntake['converted_shipment_id']
+            )
+        ) {
+            return redirect()
+                ->to(site_url('inbound-intakes'))
+                ->with(
+                    'error',
+                    'Inbound Intake tidak tersedia untuk dikonversi.'
+                );
+        }
+
+        $intakePackages =
+            (new InboundIntakePackageModel())
+                ->where(
+                    'inbound_intake_id',
+                    $intakeId
+                )
+                ->orderBy('package_no', 'ASC')
+                ->findAll();
+    }
+
+    // Kode create lama berikutnya tetap lanjut di sini.
+
         $senderAddressModel   = new CustomerAddressModel();
         $receiverAddressModel = new CustomerAddressModel();
 
@@ -103,6 +157,12 @@ class ShipmentController extends BaseController
             ->orderBy('customer_addresses.contact_name', 'ASC')
             ->findAll();
 
+        $automaticReceiving = $acceptanceService
+            ->automaticContext(
+                (int) (auth()->id() ?? 0),
+                $inboundIntake
+            );
+
         return view('shipments/create', [
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
@@ -122,6 +182,21 @@ class ShipmentController extends BaseController
                 ->where('status', 1)
                 ->orderBy('commodity_name', 'ASC')
                 ->findAll(),
+            'transportModes'    => $db->table('transport_modes')
+                ->where('status', 1)
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getResultArray(),
+            'deliveryTypes'     => $db->table('delivery_types')
+                ->where('status', 1)
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getResultArray(),
+            'branches'          => $acceptanceService->branchOptions(),
+            'acceptanceMethods' => ShipmentAcceptanceService::methodLabels(),
+            'automaticReceiving'=> $automaticReceiving,
+            'inboundIntake'     => $inboundIntake,
+            'intakePackages'    => $intakePackages,
         ]);
     }
 
@@ -372,6 +447,20 @@ class ShipmentController extends BaseController
                 ->where('status', 1)
                 ->orderBy('commodity_name', 'ASC')
                 ->findAll(),
+            'transportModes'    => $db->table('transport_modes')
+                ->where('status', 1)
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getResultArray(),
+            'deliveryTypes'     => $db->table('delivery_types')
+                ->where('status', 1)
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getResultArray(),
+            'branches'          => (new ShipmentAcceptanceService())->branchOptions(),
+            'acceptanceMethods' => ShipmentAcceptanceService::methodLabels(),
+            'operationalProfile'=> (new BranchOperationalContextService())
+                ->profileForUser((int) (auth()->id() ?? 0)),
             'editCharges'       => $editCharges,
         ]);
     }
@@ -403,6 +492,13 @@ class ShipmentController extends BaseController
             );
 
             $post = $this->request->getPost();
+            $actorId = (int) (auth()->id() ?? 0);
+
+            if ($actorId <= 0) {
+                throw new \RuntimeException(
+                    'Sesi user tidak ditemukan.'
+                );
+            }
 
             $rules = [
                 'customer_id'       =>
@@ -421,6 +517,10 @@ class ShipmentController extends BaseController
                     'required|in_list[CASH,DEPOSIT,INVOICE]',
                 'shipment_date'     =>
                     'required|valid_date[Y-m-d]',
+                'transport_mode_id' =>
+                    'required|is_natural_no_zero',
+                'delivery_type_id' =>
+                    'required|is_natural_no_zero',
             ];
 
             if (!$this->validate($rules)) {
@@ -467,6 +567,35 @@ class ShipmentController extends BaseController
                     ?? $shipment['transport_mode_id']
                     ?? 1
                 )
+            );
+
+            $deliveryTypeId = (int) ($post['delivery_type_id'] ?? 0);
+
+            // Acceptance is an operational audit snapshot.
+            // Editing commercial shipment data must not silently
+            // move the shipment to another branch.
+            $acceptanceMethod = (string) (
+                $shipment['acceptance_method']
+                ?? ShipmentAcceptanceService::DATA_ENTRY_ONLY
+            );
+
+            $receivingBranchId = !empty(
+                $shipment['receiving_branch_id']
+            )
+                ? (int) $shipment['receiving_branch_id']
+                : null;
+
+            $receivingLocation = trim(
+                (string) (
+                    $shipment['receiving_location']
+                    ?? 'Cartenz System'
+                )
+            );
+
+            $sourceAgentId = (int) (
+                $post['source_agent_id']
+                ?? $shipment['agent_id']
+                ?? 0
             );
 
             $customer = (new CustomerModel())
@@ -571,6 +700,17 @@ class ShipmentController extends BaseController
                 );
             }
 
+            $deliveryType = $db
+                ->table('delivery_types')
+                ->where('id', $deliveryTypeId)
+                ->where('status', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!$deliveryType) {
+                throw new \RuntimeException('Delivery type tidak valid.');
+            }
+
             $packageSummary = $this->normalizePackages(
                 $post['packages'],
                 $db
@@ -636,6 +776,7 @@ class ShipmentController extends BaseController
 
             $pricingInput = [
                 'customer_id'       => $customerId,
+                'shipment_date'     => (string) $post['shipment_date'],
                 'country_id'        => $countryId,
                 'service_id'        => $serviceId,
                 'commodity_type_id' => $commodityId,
@@ -738,16 +879,18 @@ class ShipmentController extends BaseController
                     $sender['country_id'] ?? null,
                 'receiver_address_id'  => $receiverId,
                 'agent_id'             =>
-                    $customer['agent_id'] ?? null,
+                    $sourceAgentId > 0
+                        ? $sourceAgentId
+                        : ($customer['agent_id'] ?? null),
                 'vendor_id'            =>
                     $service['vendor_id'] ?? null,
                 'country_id'           => $countryId,
                 'service_id'           => $serviceId,
                 'transport_mode_id'    => $transportModeId,
-                'delivery_type_id'     =>
-                    !empty($post['delivery_type_id'])
-                        ? (int) $post['delivery_type_id']
-                        : ($shipment['delivery_type_id'] ?? null),
+                'delivery_type_id'     => $deliveryTypeId,
+                'acceptance_method'   => $acceptanceMethod,
+                'receiving_branch_id' => $receivingBranchId,
+                'receiving_location'  => $receivingLocation,
                 'package_type_id'      => $packageTypeId,
                 'payment_type'         => strtoupper(
                     (string) $post['payment_type']
@@ -1057,6 +1200,19 @@ class ShipmentController extends BaseController
         if ($submittedPackage) {
             throw new \RuntimeException(
                 'Shipment yang sudah dikirim ke vendor tidak dapat diedit.'
+            );
+        }
+
+        if (
+            !empty($shipment['vendor_cost_locked_at'])
+            || in_array(
+                strtoupper((string) ($shipment['vendor_assignment_status'] ?? '')),
+                ['ASSIGNED', 'LOCKED'],
+                true
+            )
+        ) {
+            throw new \RuntimeException(
+                'Shipment sudah memiliki vendor assignment dan vendor cost terkunci. Ubah vendor melalui tab Vendor, bukan Edit Shipment.'
             );
         }
 
@@ -1604,6 +1760,13 @@ class ShipmentController extends BaseController
 
         try {
             $post = $this->request->getPost();
+            $actorId = (int) (auth()->id() ?? 0);
+
+            if ($actorId <= 0) {
+                throw new \RuntimeException(
+                    'Sesi user tidak ditemukan.'
+                );
+            }
 
             $rules = [
                 'customer_id'       => 'required|is_natural_no_zero',
@@ -1614,6 +1777,8 @@ class ShipmentController extends BaseController
                 'commodity_type_id' => 'required|is_natural_no_zero',
                 'payment_type'      => 'required|in_list[CASH,DEPOSIT,INVOICE]',
                 'shipment_date'     => 'required|valid_date[Y-m-d]',
+                'transport_mode_id' => 'required|is_natural_no_zero',
+                'delivery_type_id'  => 'required|is_natural_no_zero',
             ];
 
             if (!$this->validate($rules)) {
@@ -1634,6 +1799,121 @@ class ShipmentController extends BaseController
             $packageTypeId  = (int) $post['package_type_id'];
             $commodityId    = (int) $post['commodity_type_id'];
             $transportModeId = max(1, (int) ($post['transport_mode_id'] ?? 1));
+            $deliveryTypeId = (int) ($post['delivery_type_id'] ?? 0);
+            $acceptanceService = new ShipmentAcceptanceService();
+            $acceptanceMethod = null;
+            $receivingBranchId = null;
+            $receivingLocation = '';
+            $initialState = null;
+            $automaticReceiving = null;
+            $inboundIntakeId = (int) ($post['inbound_intake_id'] ?? 0);
+            $sourceAgentId = (int) ($post['source_agent_id'] ?? 0);
+
+            $lockedIntake = null;
+
+            if ($inboundIntakeId > 0) {
+                $lockedIntake = $db->query(
+                    'SELECT * FROM inbound_intakes WHERE id = ? FOR UPDATE',
+                    [$inboundIntakeId]
+                )->getRowArray();
+
+                if (
+                    !$lockedIntake
+                    || strtoupper((string) ($lockedIntake['intake_status'] ?? '')) !== 'READY_TO_CONVERT'
+                    || !empty($lockedIntake['converted_shipment_id'])
+                ) {
+                    throw new \RuntimeException('Inbound Intake sudah tidak dapat dikonversi.');
+                }
+
+                $sourceAgentId = (int) ($lockedIntake['agent_id'] ?? 0);
+            }
+
+            $automaticReceiving = $acceptanceService
+                ->automaticContext(
+                    $actorId,
+                    $lockedIntake
+                );
+
+            if ($automaticReceiving) {
+                $acceptanceMethod =
+                    $automaticReceiving['acceptance_method'];
+
+                if (
+                    !$lockedIntake
+                    && $sourceAgentId <= 0
+                    && !empty(
+                        $automaticReceiving[
+                            'profile'
+                        ]['agent_id']
+                    )
+                ) {
+                    $sourceAgentId = (int) (
+                        $automaticReceiving[
+                            'profile'
+                        ]['agent_id']
+                    );
+                }
+
+                $receivingBranchId = (int) (
+                    $automaticReceiving[
+                        'receiving_branch_id'
+                    ]
+                    ?? 0
+                );
+
+                $receivingLocation = (string) (
+                    $automaticReceiving[
+                        'receiving_location'
+                    ]
+                    ?? ''
+                );
+
+                $initialState =
+                    $automaticReceiving['initial_state'];
+            } else {
+                $acceptanceMethod =
+                    $acceptanceService->normalizeMethod(
+                        (string) (
+                            $post['acceptance_method']
+                            ?? ShipmentAcceptanceService::
+                                DATA_ENTRY_ONLY
+                        )
+                    );
+
+                $receivingBranchId =
+                    !empty($post['receiving_branch_id'])
+                        ? (int) $post['receiving_branch_id']
+                        : null;
+
+                $receivingLocation = trim(
+                    (string) (
+                        $post['receiving_location']
+                        ?? ''
+                    )
+                );
+
+                if ($receivingLocation === '') {
+                    throw new \RuntimeException(
+                        'Receiving Location wajib diisi.'
+                    );
+                }
+
+                if (
+                    $acceptanceMethod ===
+                        ShipmentAcceptanceService::
+                            AGENT_HANDOVER_NO_AWB
+                    && !$lockedIntake
+                ) {
+                    throw new \RuntimeException(
+                        'Agent Handover Without AWB wajib dibuat melalui Inbound Intake.'
+                    );
+                }
+
+                $initialState =
+                    $acceptanceService->initialState(
+                        $acceptanceMethod
+                    );
+            }
 
             $customer = (new CustomerModel())
                 ->where('id', $customerId)
@@ -1723,6 +2003,27 @@ class ShipmentController extends BaseController
                 throw new \RuntimeException('Transport mode tidak valid.');
             }
 
+            $deliveryType = $db->table('delivery_types')
+                ->where('id', $deliveryTypeId)
+                ->where('status', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!$deliveryType) {
+                throw new \RuntimeException('Delivery type tidak valid.');
+            }
+
+            if ($sourceAgentId > 0) {
+                $sourceAgent = (new AgentModel())
+                    ->where('id', $sourceAgentId)
+                    ->where('status', 1)
+                    ->first();
+
+                if (!$sourceAgent) {
+                    throw new \RuntimeException('Source Agent tidak ditemukan atau tidak aktif.');
+                }
+            }
+
             $packageSummary = $this->normalizePackages(
                 $post['packages'],
                 $db
@@ -1754,6 +2055,7 @@ class ShipmentController extends BaseController
 
             $pricingInput = [
                 'customer_id'        => $customerId,
+                'shipment_date'      => (string) $post['shipment_date'],
                 'country_id'         => $countryId,
                 'service_id'         => $serviceId,
                 'commodity_type_id'  => $commodityId,
@@ -1824,14 +2126,43 @@ class ShipmentController extends BaseController
                 'sender_address_id'    => $senderAddressId,
                 'sender_country_id'    => $sender['country_id'] ?? null,
                 'receiver_address_id'  => $receiverId,
-                'agent_id'             => $customer['agent_id'] ?? null,
+                'agent_id'             => $sourceAgentId > 0
+                    ? $sourceAgentId
+                    : ($customer['agent_id'] ?? null),
+                'inbound_intake_id'    => $inboundIntakeId > 0
+                    ? $inboundIntakeId
+                    : null,
+                'acceptance_method'    => $acceptanceMethod,
+                'acceptance_branch_id' => $receivingBranchId,
+                'current_branch_id'    => in_array(
+                    $initialState['internal_status'],
+                    [
+                        'RECEIVED_AT_ORIGIN_BRANCH',
+                        'RECEIVED_AT_MAIN_WAREHOUSE',
+                    ],
+                    true
+                )
+                    ? $receivingBranchId
+                    : null,
+                'receiving_branch_id'  => $receivingBranchId,
+                'receiving_location'   => $receivingLocation,
+                'received_at'          => str_starts_with(
+                    $initialState['internal_status'],
+                    'RECEIVED_AT_'
+                )
+                    ? date('Y-m-d H:i:s')
+                    : null,
+                'received_by'          => str_starts_with(
+                    $initialState['internal_status'],
+                    'RECEIVED_AT_'
+                )
+                    ? $actorId
+                    : null,
                 'vendor_id'            => $service['vendor_id'] ?? null,
                 'country_id'           => $countryId,
                 'service_id'           => $serviceId,
                 'transport_mode_id'    => $transportModeId,
-                'delivery_type_id'     => !empty($post['delivery_type_id'])
-                    ? (int) $post['delivery_type_id']
-                    : null,
+                'delivery_type_id'     => $deliveryTypeId,
                 'package_type_id'      => $packageTypeId,
                 'payment_type'         => strtoupper((string) $post['payment_type']),
                 'commodity_type_id'    => $commodityId,
@@ -1870,8 +2201,8 @@ class ShipmentController extends BaseController
                 'profit_amount'        => $profit,
                 'margin_percent'       => $margin,
                 'markup_percent'       => $markup,
-                'shipment_status'      => 'DRAFT',
-                'public_tracking_status'=> 'CREATED',
+                'shipment_status'      => $initialState['internal_status'],
+                'public_tracking_status'=> $initialState['public_status'],
                 'remarks'              => $this->clean($post['remarks'] ?? ''),
 
                 // Snapshot sender agar histori tidak berubah saat address book diedit.
@@ -1939,7 +2270,31 @@ class ShipmentController extends BaseController
                 ]
             );
 
-            $this->createTracking((int) $shipmentId, $awbNo);
+            $acceptanceService->recordInitialEvents(
+                (int) $shipmentId,
+                $awbNo,
+                $acceptanceMethod,
+                $receivingLocation,
+                $actorId,
+                $receivingBranchId,
+                $initialState
+            );
+
+            if ($lockedIntake) {
+                $updated = $db->table('inbound_intakes')
+                    ->where('id', $inboundIntakeId)
+                    ->where('intake_status', 'READY_TO_CONVERT')
+                    ->where('converted_shipment_id', null)
+                    ->update([
+                        'intake_status'         => 'CONVERTED_TO_SHIPMENT',
+                        'converted_shipment_id' => (int) $shipmentId,
+                        'updated_at'            => date('Y-m-d H:i:s'),
+                    ]);
+
+                if (!$updated) {
+                    throw new \RuntimeException('Inbound Intake gagal ditautkan ke shipment.');
+                }
+            }
 
             if ($db->transStatus() === false) {
                 throw new \RuntimeException('Transaksi database gagal.');
@@ -1965,6 +2320,28 @@ class ShipmentController extends BaseController
                 ->with('error', 'Gagal membuat shipment: ' . $e->getMessage());
         }
     }
+    public function directReceive($id)
+    {
+        try {
+            (new ShipmentAcceptanceService())->receiveDirect(
+                (int) $id,
+                (string) $this->request->getPost('receiving_location'),
+                (string) $this->request->getPost('receive_method'),
+                trim((string) $this->request->getPost('reference_no')),
+                (string) $this->request->getPost('notes'),
+                $this->requireLifecycleActorId()
+            );
+
+            return redirect()
+                ->back()
+                ->with('success', 'Shipment berhasil diterima langsung di main warehouse.');
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+    }
+
     private function requireLifecycleActorId(): int
     {
         $userId = auth()->id();
@@ -2444,6 +2821,7 @@ class ShipmentController extends BaseController
             'CREATED',
             'MANIFESTED',
             'PICKED_UP',
+            'RECEIVED_AT_ORIGIN_BRANCH',
             'SENT_TO_MAIN_WAREHOUSE',
             'RECEIVED_AT_MAIN_WAREHOUSE',
             'ARRIVED_HUB',
@@ -2683,6 +3061,12 @@ public function detail($id)
         ->orderBy('id', 'DESC')
         ->findAll();
 
+    $vendorWorkflow = new ShipmentVendorWorkflowService();
+    $vendorRecommendations = $vendorWorkflow
+        ->getRecommendations($shipmentId);
+    $vendorActionState = $vendorWorkflow
+        ->getActionState($shipment, $vendorRecommendations);
+
     $customerCosts = [];
     $vendorCosts   = [];
     $customerCostTotal = 0.0;
@@ -2744,7 +3128,9 @@ public function detail($id)
         'vendorTotal'       => round($vendorTotal, 2),
         'profit'            => round($profit, 2),
         'margin'            => round($margin, 2),
-        'actionState'       => $actionState,
+        'actionState'          => $actionState,
+        'vendorRecommendations'=> $vendorRecommendations,
+        'vendorActionState'    => $vendorActionState,
     ]);
 }
 // Taruh ini di dalam isi class-nya
@@ -2838,4 +3224,17 @@ public function calculateRate()
         $pricing->calculate($shipment)
     );
 }
+
+private function isOperationalUser(): bool
+{
+    $user = auth()->user();
+
+    if ($user === null) {
+        return false;
+    }
+
+    return $user->inGroup('superadmin')
+        || $user->inGroup('admin');
+}
+
 }

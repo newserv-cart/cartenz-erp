@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use App\Models\ManifestModel;
 use App\Services\ManifestWorkflowService;
+use App\Services\BranchOperationalContextService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use Dompdf\Dompdf;
 
@@ -21,16 +22,55 @@ class ManifestController extends BaseController
 
     public function index()
     {
+        $manifests = db_connect()
+            ->table('manifests m')
+            ->select([
+                'm.*',
+                'ob.branch_name AS origin_branch_name',
+                'db.branch_name AS destination_branch_name',
+            ])
+            ->join(
+                'branches ob',
+                'ob.id = m.origin_branch_id',
+                'left'
+            )
+            ->join(
+                'branches db',
+                'db.id = m.destination_branch_id',
+                'left'
+            )
+            ->orderBy('m.id', 'DESC')
+            ->get()
+            ->getResultArray();
+
         return view('manifests/index', [
-            'manifests' => $this->manifestModel
-                ->orderBy('id', 'DESC')
-                ->findAll(),
+            'manifests' => $manifests,
         ]);
     }
 
     public function create()
     {
-        return view('manifests/create');
+        try {
+            $actorId = $this->requireActorId();
+            $context = new BranchOperationalContextService();
+            $profile = $context->requireProfile($actorId);
+
+            return view('manifests/create', [
+                'operationalProfile' => $profile,
+                'originBranch' => $context->branchById(
+                    (int) $profile['branch_id']
+                ),
+                'destinationBranches' =>
+                    $context->destinationOptions(
+                        (int) $profile['branch_id']
+                    ),
+                'mainBranch' => $context->mainBranch(),
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()
+                ->to(site_url('manifests'))
+                ->with('error', $e->getMessage());
+        }
     }
 
     public function store()
@@ -84,11 +124,32 @@ class ManifestController extends BaseController
                 ->getEligibleShipments($manifestId);
         }
 
+        $context = new BranchOperationalContextService();
+
         return view('manifests/view', [
             'manifest'          => $manifest,
             'details'           => $details,
             'liveTotals'        => $liveTotals,
             'eligibleShipments' => $eligibleShipments,
+            'originBranch'      => !empty(
+                $manifest['origin_branch_id']
+            )
+                ? $context->branchById(
+                    (int) $manifest['origin_branch_id']
+                )
+                : null,
+            'destinationBranch' => !empty(
+                $manifest['destination_branch_id']
+            )
+                ? $context->branchById(
+                    (int) $manifest[
+                        'destination_branch_id'
+                    ]
+                )
+                : null,
+            'operationalProfile'=> $context->profileForUser(
+                $this->requireActorId()
+            ),
         ]);
     }
 

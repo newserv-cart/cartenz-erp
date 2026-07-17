@@ -3,7 +3,7 @@
 <?= $this->section('content') ?>
 
 <div class="container-fluid py-3">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1">📦 Manifest List</h3>
             <div class="text-muted">
@@ -13,9 +13,9 @@
 
         <div class="d-flex gap-2">
             <a
-                href="<?= site_url('manifests/scan') ?>"
-                class="btn btn-outline-success">
-                📱 Scan Manifest
+                href="<?= site_url('operations/scan') ?>"
+                class="btn btn-outline-primary">
+                📱 Shipment Scan
             </a>
 
             <a
@@ -47,10 +47,12 @@
                             <th>ID</th>
                             <th>Manifest No</th>
                             <th>Date</th>
+                            <th>Origin</th>
+                            <th>Destination</th>
                             <th>Status</th>
                             <th class="text-end">Shipment</th>
                             <th class="text-end">Weight</th>
-                            <th width="110">Action</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
 
@@ -58,28 +60,17 @@
                         <?php if (empty($manifests)): ?>
                             <tr>
                                 <td
-                                    colspan="7"
+                                    colspan="9"
                                     class="text-center text-muted py-4">
                                     Belum ada manifest.
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($manifests as $manifest): ?>
-                                <?php
-                                $status = strtoupper(
-                                    (string) ($manifest['status'] ?? 'OPEN')
-                                );
-
-                                $badge = match ($status) {
-                                    'DISPATCHED' => 'warning',
-                                    'RECEIVED'   => 'success',
-                                    'CLOSED'     => 'dark',
-                                    default      => 'primary',
-                                };
-                                ?>
-
                                 <tr>
-                                    <td><?= (int) $manifest['id'] ?></td>
+                                    <td>
+                                        <?= (int) $manifest['id'] ?>
+                                    </td>
                                     <td class="fw-semibold">
                                         <?= esc($manifest['manifest_no']) ?>
                                     </td>
@@ -87,18 +78,52 @@
                                         <?= esc($manifest['manifest_date']) ?>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?= esc($badge) ?>">
-                                            <?= esc($status) ?>
+                                        <?= esc(
+                                            $manifest['origin_branch_name']
+                                            ?? (
+                                                !empty(
+                                                    $manifest[
+                                                        'origin_branch_id'
+                                                    ]
+                                                )
+                                                    ? '#' .
+                                                        $manifest[
+                                                            'origin_branch_id'
+                                                        ]
+                                                    : 'LEGACY'
+                                            )
+                                        ) ?>
+                                    </td>
+                                    <td>
+                                        <?= esc(
+                                            $manifest[
+                                                'destination_branch_name'
+                                            ]
+                                            ?? (
+                                                !empty(
+                                                    $manifest[
+                                                        'destination_branch_id'
+                                                    ]
+                                                )
+                                                    ? '#' .
+                                                        $manifest[
+                                                            'destination_branch_id'
+                                                        ]
+                                                    : 'LEGACY'
+                                            )
+                                        ) ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            <?= esc($manifest['status']) ?>
                                         </span>
                                     </td>
                                     <td class="text-end">
-                                        <?= number_format(
-                                            (int) ($manifest['total_shipment'] ?? 0)
-                                        ) ?>
+                                        <?= (int) $manifest['total_shipment'] ?>
                                     </td>
                                     <td class="text-end">
                                         <?= number_format(
-                                            (float) ($manifest['total_weight'] ?? 0),
+                                            (float) $manifest['total_weight'],
                                             2,
                                             ',',
                                             '.'

@@ -24,10 +24,13 @@ class ManifestModel extends Model
         'created_by',
         'dispatched_at',
         'dispatched_by',
+        'dispatched_branch_id',
         'received_at',
         'received_by',
+        'received_branch_id',
         'closed_at',
         'closed_by',
+        'closed_branch_id',
     ];
 
     protected $useTimestamps = true;

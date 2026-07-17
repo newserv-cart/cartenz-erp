@@ -3,144 +3,170 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
+use App\Models\PickupRequestModel;
+use App\Services\BranchScanService;
 
 class PickupController extends BaseController
 {
     public function index()
-{
-    $pickups =
-        (new \App\Models\PickupRequestModel())
-        ->orderBy('id', 'DESC')
-        ->findAll();
-
-    return view(
-        'pickup/index',
-        [
-            'pickups' => $pickups
-        ]
-    );
-}
-
-
-public function request($shipmentId)
-{
-    return view(
-        'pickup/request',
-        [
-            'shipmentId' => $shipmentId
-        ]
-    );
-}
-
-public function store()
-{
- 
-    $model = new \App\Models\PickupRequestModel();
-
-   $id = $model->insert([
-
-    'shipment_id' =>
-        $this->request->getPost('shipment_id'),
-
-    'pickup_date' =>
-        $this->request->getPost('pickup_date'),
-
-    'pickup_time' =>
-        $this->request->getPost('pickup_time'),
-
-    'pickup_address' =>
-        $this->request->getPost('pickup_address'),
-
-    'contact_name' =>
-        $this->request->getPost('contact_name'),
-
-    'contact_phone' =>
-        $this->request->getPost('contact_phone'),
-
-    'pickup_status' => 'REQUESTED'
-
-]);
-
-
-    return redirect()
-        ->to(
-            '/shipments/view/' .
-            $this->request->getPost('shipment_id')
-        )
-        ->with(
-            'success',
-            'Pickup Request Submitted'
+    {
+        return view(
+            'pickup/index',
+            [
+                'pickups' =>
+                    (new PickupRequestModel())
+                        ->orderBy('id', 'DESC')
+                        ->findAll(),
+            ]
         );
-}
-
-public function assign($id)
-{
-    $pickupModel = new \App\Models\PickupRequestModel();
-
-    $pickupModel->update(
-        $id,
-        [
-            'pickup_status' => 'ASSIGNED',
-            'driver_name'   => 'BUDI DRIVER'
-        ]
-    );
-
-    return redirect()->back()
-        ->with(
-            'success',
-            'Driver Assigned'
-        );
-}
-
-public function done($id)
-{
-    $pickupModel = new \App\Models\PickupRequestModel();
-
-    $pickup = $pickupModel->find($id);
-
-    if (!$pickup) {
-        return redirect()->back()
-            ->with('error', 'Pickup tidak ditemukan');
     }
 
-    // Update Pickup
-    $pickupModel->update(
-        $id,
-        [
-            'pickup_status' => 'COMPLETED'
-        ]
-    );
-
-    // Update Shipment
-    $shipmentModel =
-        new \App\Models\ShipmentModel();
-
-    $shipmentModel->update(
-        $pickup['shipment_id'],
-        [
-            'shipment_status' => 'PICKED_UP'
-        ]
-    );
-
-    // Tracking Otomatis
-    $trackingModel =
-        new \App\Models\ShipmentTrackingModel();
-
-    $trackingModel->insert([
-        'shipment_id'       => $pickup['shipment_id'],
-        'tracking_status'   => 'PICKED_UP',
-        'tracking_location' => 'Customer Location',
-        'tracking_notes'    => 'Shipment Picked Up By Driver',
-        'event_time'        => date('Y-m-d H:i:s')
-    ]);
-
-    return redirect()
-        ->back()
-        ->with(
-            'success',
-            'Pickup Completed'
+    public function request($shipmentId)
+    {
+        return view(
+            'pickup/request',
+            ['shipmentId' => (int) $shipmentId]
         );
-}
+    }
 
+    public function store()
+    {
+        try {
+            $shipmentId = (int) $this->request
+                ->getPost('shipment_id');
+
+            if ($shipmentId <= 0) {
+                throw new \RuntimeException(
+                    'Shipment tidak valid.'
+                );
+            }
+
+            $id = (new PickupRequestModel())
+                ->insert([
+                    'shipment_id' => $shipmentId,
+                    'pickup_date' => $this->request
+                        ->getPost('pickup_date'),
+                    'pickup_time' => $this->request
+                        ->getPost('pickup_time'),
+                    'pickup_address' => $this->request
+                        ->getPost('pickup_address'),
+                    'contact_name' => $this->request
+                        ->getPost('contact_name'),
+                    'contact_phone' => $this->request
+                        ->getPost('contact_phone'),
+                    'pickup_status' => 'REQUESTED',
+                ], true);
+
+            if (!$id) {
+                throw new \RuntimeException(
+                    'Pickup Request gagal disimpan.'
+                );
+            }
+
+            return redirect()
+                ->to(
+                    site_url(
+                        'shipments/view/' .
+                        $shipmentId
+                    )
+                )
+                ->with(
+                    'success',
+                    'Pickup Request Submitted'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function assign($id)
+    {
+        try {
+            $actorId = $this->requireActorId();
+
+            $updated = (new PickupRequestModel())
+                ->update(
+                    (int) $id,
+                    [
+                        'pickup_status' => 'ASSIGNED',
+                        'driver_name' =>
+                            auth()->user()->username
+                            ?? 'Assigned Courier',
+                        'assigned_user_id' => $actorId,
+                    ]
+                );
+
+            if (!$updated) {
+                throw new \RuntimeException(
+                    'Pickup gagal di-assign.'
+                );
+            }
+
+            return redirect()
+                ->back()
+                ->with(
+                    'success',
+                    'Driver Assigned'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function done($id)
+    {
+        try {
+            $pickup = (new PickupRequestModel())
+                ->find((int) $id);
+
+            if (!$pickup) {
+                throw new \RuntimeException(
+                    'Pickup tidak ditemukan.'
+                );
+            }
+
+            $result = (new BranchScanService())
+                ->scanPickup(
+                    (int) $pickup['shipment_id'],
+                    $this->requireActorId(),
+                    'Pickup Request #' .
+                    (int) $pickup['id'] .
+                    ' completed.'
+                );
+
+            return redirect()
+                ->to(
+                    site_url(
+                        'shipments/detail/' .
+                        $result['shipment_id']
+                    )
+                )
+                ->with(
+                    'success',
+                    'Pickup scan berhasil. Status shipment menjadi PICKED_UP.'
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    private function requireActorId(): int
+    {
+        $actorId = (int) (auth()->id() ?? 0);
+
+        if ($actorId <= 0) {
+            throw new \RuntimeException(
+                'Sesi user tidak ditemukan.'
+            );
+        }
+
+        return $actorId;
+    }
 }

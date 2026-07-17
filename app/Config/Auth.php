@@ -443,17 +443,22 @@ public function loginRedirect(): string
 {
     $user = auth()->user();
 
+    if ($user === null) {
+        return $this->getUrl('/login');
+    }
+
     if (
-        $user !== null
-        && (
-            $user->inGroup('superadmin')
-            || $user->inGroup('admin')
-        )
+        $user->inGroup('superadmin')
+        || $user->inGroup('admin')
     ) {
         return $this->getUrl('/shipments');
     }
 
-    return $this->getUrl('/customer/dashboard');
+    if ($user->inGroup('user')) {
+        return $this->getUrl('/customer/dashboard');
+    }
+
+    return $this->getUrl('/login');
 }
 
     /**

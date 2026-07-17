@@ -74,6 +74,27 @@ $selectedPaymentType = strtoupper(
     )
 );
 
+$selectedTransportMode = (int) $getValue(
+    'transport_mode_id',
+    $shipment['transport_mode_id'] ?? 1
+);
+
+$selectedDeliveryType = (int) $getValue(
+    'delivery_type_id',
+    $shipment['delivery_type_id'] ?? 1
+);
+
+$selectedAcceptanceMethod = (string) $getValue(
+    'acceptance_method',
+    $shipment['acceptance_method']
+        ?? \App\Services\ShipmentAcceptanceService::DATA_ENTRY_ONLY
+);
+
+$selectedReceivingBranch = (int) $getValue(
+    'receiving_branch_id',
+    $shipment['receiving_branch_id'] ?? 0
+);
+
 $customerInsurance = (float) $getValue(
     'insurance_customer',
     $editCharges['insurance_customer'] ?? 0
@@ -617,18 +638,6 @@ $customerOtherCharges =
                             ) ?>">
 
                         <input
-                            type="hidden"
-                            id="transport_mode_id"
-                            name="transport_mode_id"
-                            value="<?= esc(
-                                (string) (
-                                    $shipment[
-                                        'transport_mode_id'
-                                    ] ?? 1
-                                )
-                            ) ?>">
-
-                        <input
                             id="receiver_country"
                             class="form-control"
                             readonly>
@@ -644,6 +653,92 @@ $customerOtherCharges =
                         $shipment['receiver_address']
                         ?? ''
                     ) ?></textarea>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                🏢 Acceptance & Receiving
+            </div>
+
+            <div class="card-body">
+                <input
+                    type="hidden"
+                    name="acceptance_method"
+                    value="<?= esc(
+                        $shipment['acceptance_method']
+                        ?? \App\Services\ShipmentAcceptanceService::
+                            DATA_ENTRY_ONLY
+                    ) ?>">
+
+                <input
+                    type="hidden"
+                    name="receiving_branch_id"
+                    value="<?= (int) (
+                        $shipment['receiving_branch_id']
+                        ?? 0
+                    ) ?>">
+
+                <input
+                    type="hidden"
+                    name="receiving_location"
+                    value="<?= esc(
+                        $shipment['receiving_location']
+                        ?? 'Cartenz System'
+                    ) ?>">
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            Acceptance Method
+                        </div>
+
+                        <div class="fw-bold">
+                            <?= esc(
+                                $shipment['acceptance_method']
+                                ?? '-'
+                            ) ?>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            Receiving Branch ID
+                        </div>
+
+                        <div class="fw-bold">
+                            <?= esc(
+                                (string) (
+                                    $shipment[
+                                        'receiving_branch_id'
+                                    ]
+                                    ?? '-'
+                                )
+                            ) ?>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            Receiving Location
+                        </div>
+
+                        <div class="fw-bold">
+                            <?= esc(
+                                $shipment[
+                                    'receiving_location'
+                                ]
+                                ?? '-'
+                            ) ?>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-secondary mt-3 mb-0">
+                    Acceptance merupakan snapshot operasional.
+                    Edit shipment tidak boleh memindahkan branch
+                    atau mengubah status penerimaan.
+                </div>
             </div>
         </div>
 
@@ -799,6 +894,39 @@ $customerOtherCharges =
                         </select>
                     </div>
 
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Transport Mode *</label>
+                        <select name="transport_mode_id" id="transport_mode_id" class="form-select" required>
+                            <?php foreach ($transportModes as $mode): ?>
+                                <option value="<?= (int) $mode['id'] ?>" <?= $selectedTransportMode === (int) $mode['id'] ? 'selected' : '' ?>>
+                                    <?= esc($mode['mode_name'] ?? $mode['mode_code'] ?? ('Mode #' . $mode['id'])) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Delivery Type *</label>
+                        <select name="delivery_type_id" id="delivery_type_id" class="form-select" required>
+                            <?php foreach ($deliveryTypes as $delivery): ?>
+                                <?php
+                                $deliveryLabel = $delivery['delivery_type_name']
+                                    ?? $delivery['delivery_name']
+                                    ?? $delivery['type_name']
+                                    ?? $delivery['name']
+                                    ?? $delivery['delivery_code']
+                                    ?? ('Delivery #' . $delivery['id']);
+                                ?>
+                                <option value="<?= (int) $delivery['id'] ?>" <?= $selectedDeliveryType === (int) $delivery['id'] ? 'selected' : '' ?>><?= esc($deliveryLabel) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label fw-bold">
                             Reference Number

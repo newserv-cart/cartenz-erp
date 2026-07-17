@@ -8,15 +8,14 @@ class RegularTariffModel extends Model
 {
     protected $table            = 'regular_tariffs';
     protected $primaryKey       = 'id';
-    protected $returnType       = 'array'; // Sesuai yang kamu pakai
+    protected $returnType       = 'array';
     protected $useTimestamps    = true;
     protected $createdField     = 'created_at';
     protected $updatedField     = 'updated_at';
 
-    protected $allowedFields    = [
+    protected $allowedFields = [
         'country_id',
         'service_id',
-        
         'weight_from',
         'weight_to',
         'agent_a_price',
@@ -27,32 +26,39 @@ class RegularTariffModel extends Model
         'effective_from',
         'effective_until',
         'remarks',
-        'status'
+        'status',
     ];
 
     /**
-     * Ambil tarif yang sesuai berdasarkan negara, layanan, mode angkut dan berat
-     * Otomatis cek status aktif dan masa berlaku
+     * Return one active customer tariff row for a shipment.
+     *
+     * regular_tariffs does not contain transport_mode_id or
+     * delivery_type_id in the current CARTENZ schema. Those dimensions
+     * belong to vendor_rates and must not be queried here.
      */
-    public function getApplicableRate(int $countryId, int $serviceId, int $transportModeId, float $chargeableWeight): ?array
-    {
-        $today = date('Y-m-d');
-
+    public function findApplicableRate(
+        int $countryId,
+        int $serviceId,
+        float $chargeableWeight,
+        string $pricingDate
+    ): ?array {
         return $this
             ->where('country_id', $countryId)
             ->where('service_id', $serviceId)
-            ->where('transport_mode_id', $transportModeId)
             ->where('weight_from <=', $chargeableWeight)
             ->where('weight_to >=', $chargeableWeight)
             ->where('status', 1)
             ->groupStart()
-                ->where('effective_from <=', $today)
-                ->orWhere('effective_from IS NULL')
+                ->where('effective_from IS NULL', null, false)
+                ->orWhere('effective_from <=', $pricingDate)
             ->groupEnd()
             ->groupStart()
-                ->where('effective_until >=', $today)
-                ->orWhere('effective_until IS NULL')
+                ->where('effective_until IS NULL', null, false)
+                ->orWhere('effective_until >=', $pricingDate)
             ->groupEnd()
+            ->orderBy('weight_from', 'DESC')
+            ->orderBy('effective_from', 'DESC')
+            ->orderBy('id', 'DESC')
             ->first();
     }
 }

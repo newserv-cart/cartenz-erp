@@ -57,6 +57,36 @@ $statusBadge = match ($status) {
         </div>
     <?php endif; ?>
 
+    <div class="alert alert-primary">
+        <div class="row g-2">
+            <div class="col-md-5">
+                <div class="small text-muted">Origin Branch</div>
+                <strong>
+                    <?= esc(
+                        ($originBranch['branch_code'] ?? 'LEGACY') .
+                        ' · ' .
+                        ($originBranch['branch_name'] ?? '-')
+                    ) ?>
+                </strong>
+            </div>
+
+            <div class="col-md-2 text-center d-none d-md-block">
+                <div class="pt-3">→</div>
+            </div>
+
+            <div class="col-md-5">
+                <div class="small text-muted">Destination Branch</div>
+                <strong>
+                    <?= esc(
+                        ($destinationBranch['branch_code'] ?? 'LEGACY') .
+                        ' · ' .
+                        ($destinationBranch['branch_name'] ?? '-')
+                    ) ?>
+                </strong>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="card shadow-sm border-0 h-100">
@@ -134,7 +164,7 @@ $statusBadge = match ($status) {
                             $manifest['id']
                         ) ?>"
                         onsubmit="return confirm(
-                            'Konfirmasi manifest sudah diterima di main warehouse?'
+                            'Konfirmasi manifest sudah diterima di destination branch?'
                         );">
 
                         <?= csrf_field() ?>
@@ -201,6 +231,7 @@ $statusBadge = match ($status) {
                                         <th width="60">Select</th>
                                         <th>AWB</th>
                                         <th>Status</th>
+                                        <th>Current Branch</th>
                                         <th>Destination ID</th>
                                         <th class="text-end">Chargeable</th>
                                     </tr>
@@ -220,6 +251,16 @@ $statusBadge = match ($status) {
                                             </td>
                                             <td>
                                                 <?= esc($shipment['shipment_status']) ?>
+                                            </td>
+                                            <td>
+                                                <?= esc(
+                                                    (string) (
+                                                        $shipment[
+                                                            'current_branch_id'
+                                                        ]
+                                                        ?? '-'
+                                                    )
+                                                ) ?>
                                             </td>
                                             <td>
                                                 <?= esc((string) ($shipment['country_id'] ?? '-')) ?>

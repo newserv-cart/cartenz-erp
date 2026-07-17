@@ -21,6 +21,7 @@ class ManifestWorkflowService
         'DRAFT',
         'CREATED',
         'PICKED_UP',
+        'RECEIVED_AT_ORIGIN_BRANCH',
         'ARRIVED_HUB',
     ];
 
@@ -37,6 +38,7 @@ class ManifestWorkflowService
     protected ShipmentModel $shipmentModel;
     protected ShipmentTrackingModel $trackingModel;
     protected ShipmentHistoryModel $historyModel;
+    protected BranchOperationalContextService $branchContext;
 
     public function __construct()
     {
@@ -46,12 +48,19 @@ class ManifestWorkflowService
         $this->shipmentModel = new ShipmentModel();
         $this->trackingModel = new ShipmentTrackingModel();
         $this->historyModel  = new ShipmentHistoryModel();
+        $this->branchContext =
+            new BranchOperationalContextService();
     }
 
-    public function createManifest(array $input, int $actorId): int
-    {
+    public function createManifest(
+        array $input,
+        int $actorId
+    ): int {
         $manifestDate = trim(
-            (string) ($input['manifest_date'] ?? date('Y-m-d'))
+            (string) (
+                $input['manifest_date']
+                ?? date('Y-m-d')
+            )
         );
 
         $date = \DateTimeImmutable::createFromFormat(
@@ -61,27 +70,81 @@ class ManifestWorkflowService
 
         if (
             !$date
-            || $date->format('Y-m-d') !== $manifestDate
+            || $date->format('Y-m-d')
+                !== $manifestDate
         ) {
             throw new \RuntimeException(
                 'Tanggal manifest tidak valid.'
             );
         }
 
+        $profile = $this->branchContext
+            ->requireProfile($actorId);
+
+        $originBranchId = (int) $profile['branch_id'];
+
+        $destinationBranchId = (int) (
+            $input['destination_branch_id']
+            ?? 0
+        );
+
+        if ($destinationBranchId <= 0) {
+            $mainBranch = $this->branchContext
+                ->mainBranch();
+
+            $destinationBranchId = (int) (
+                $mainBranch['id']
+                ?? 0
+            );
+        }
+
+        if ($destinationBranchId <= 0) {
+            throw new \RuntimeException(
+                'Destination Branch wajib dipilih.'
+            );
+        }
+
+        if ($originBranchId === $destinationBranchId) {
+            throw new \RuntimeException(
+                'Origin Branch dan Destination Branch tidak boleh sama.'
+            );
+        }
+
+        $originBranch = $this->branchContext
+            ->branchById($originBranchId);
+
+        $destinationBranch = $this->branchContext
+            ->branchById($destinationBranchId);
+
+        if (!$originBranch || !$destinationBranch) {
+            throw new \RuntimeException(
+                'Origin atau Destination Branch tidak valid.'
+            );
+        }
+
         $this->db->transBegin();
 
         try {
-            $manifestId = $this->manifestModel->insert([
-                'manifest_no'    => $this->generateManifestNumber(),
-                'manifest_date'  => $manifestDate,
-                'status'         => 'OPEN',
-                'total_shipment' => 0,
-                'total_weight'   => 0,
-                'remarks'        => $this->nullableText(
-                    $input['remarks'] ?? null
-                ),
-                'created_by'     => $actorId,
-            ], true);
+            $manifestId = $this->manifestModel
+                ->insert([
+                    'manifest_no' =>
+                        $this->generateManifestNumber(
+                            $originBranch
+                        ),
+                    'origin_branch_id' =>
+                        $originBranchId,
+                    'destination_branch_id' =>
+                        $destinationBranchId,
+                    'manifest_date' =>
+                        $manifestDate,
+                    'status' => 'OPEN',
+                    'total_shipment' => 0,
+                    'total_weight' => 0,
+                    'remarks' => $this->nullableText(
+                        $input['remarks'] ?? null
+                    ),
+                    'created_by' => $actorId,
+                ], true);
 
             if (!$manifestId) {
                 throw new \RuntimeException(
@@ -129,6 +192,10 @@ class ManifestWorkflowService
             foreach ($shipmentIds as $shipmentId) {
                 $shipment = $this->lockShipment($shipmentId);
                 $this->assertShipmentEligible($shipment);
+                $this->assertShipmentAtManifestOrigin(
+                    $shipment,
+                    $manifest
+                );
                 $this->assertNotInAnotherActiveManifest(
                     $shipmentId,
                     $manifestId
@@ -202,7 +269,11 @@ class ManifestWorkflowService
                     'Cartenz Manifest',
                     'Shipment ditambahkan ke manifest ' .
                     $manifest['manifest_no'] . '.',
-                    $actorId
+                    $actorId,
+                    !empty($manifest['origin_branch_id'])
+                        ? (int) $manifest['origin_branch_id']
+                        : null,
+                    'MANIFEST_ADDED'
                 );
 
                 $this->recordHistory(
@@ -342,13 +413,42 @@ class ManifestWorkflowService
         }
     }
 
-    public function dispatch(int $manifestId, int $actorId): void
-    {
+    public function dispatch(
+        int $manifestId,
+        int $actorId
+    ): void {
         $this->db->transBegin();
 
         try {
             $manifest = $this->lockManifest($manifestId);
             $this->assertManifestStatus($manifest, 'OPEN');
+
+            $originBranchId = (int) (
+                $manifest['origin_branch_id']
+                ?? 0
+            );
+
+            if ($originBranchId > 0) {
+                $profile = $this->branchContext
+                    ->assertActorAtBranch(
+                        $actorId,
+                        $originBranchId,
+                        'Dispatch Manifest'
+                    );
+            } else {
+                $profile = $this->branchContext
+                    ->profileForUser($actorId);
+            }
+
+            $originBranch = $originBranchId > 0
+                ? $this->branchContext
+                    ->branchById($originBranchId)
+                : null;
+
+            $originLocation = $originBranch
+                ? $this->branchContext
+                    ->locationLabel($originBranch)
+                : 'Origin Hub';
 
             $details = $this->lockManifestDetails(
                 $manifestId
@@ -368,7 +468,10 @@ class ManifestWorkflowService
                 );
 
                 $status = strtoupper(
-                    (string) ($shipment['shipment_status'] ?? '')
+                    (string) (
+                        $shipment['shipment_status']
+                        ?? ''
+                    )
                 );
 
                 if ($status !== 'MANIFESTED') {
@@ -382,18 +485,36 @@ class ManifestWorkflowService
                 $this->updateShipmentStatus(
                     (int) $shipment['id'],
                     'SENT_TO_MAIN_WAREHOUSE',
-                    'IN_TRANSIT'
+                    'IN_TRANSIT',
+                    [
+                        'current_branch_id' => null,
+                        'last_scan_branch_id' =>
+                            $originBranchId > 0
+                                ? $originBranchId
+                                : null,
+                        'last_scan_type' =>
+                            'MANIFEST_DISPATCH',
+                        'last_scan_at' =>
+                            date('Y-m-d H:i:s'),
+                        'last_scan_by' => $actorId,
+                    ]
                 );
 
                 $this->recordTracking(
                     $shipment,
                     'SENT_TO_MAIN_WAREHOUSE',
                     'IN_TRANSIT',
-                    'Origin Hub',
+                    $originLocation,
                     'Manifest ' .
                     $manifest['manifest_no'] .
-                    ' didispatch ke main warehouse.',
-                    $actorId
+                    ' didispatch dari ' .
+                    $originLocation .
+                    ' menuju destination branch.',
+                    $actorId,
+                    $originBranchId > 0
+                        ? $originBranchId
+                        : null,
+                    'MANIFEST_DISPATCHED'
                 );
 
                 $this->recordHistory(
@@ -402,21 +523,45 @@ class ManifestWorkflowService
                     'Manifest Dispatched',
                     'Manifest ' .
                     $manifest['manifest_no'] .
-                    ' didispatch.',
+                    ' didispatch dari ' .
+                    $originLocation . '.',
                     [
                         'manifest_id' => $manifestId,
-                        'manifest_no' => $manifest['manifest_no'],
-                        'new_status'  => 'SENT_TO_MAIN_WAREHOUSE',
+                        'manifest_no' =>
+                            $manifest['manifest_no'],
+                        'origin_branch_id' =>
+                            $originBranchId > 0
+                                ? $originBranchId
+                                : null,
+                        'destination_branch_id' =>
+                            $manifest[
+                                'destination_branch_id'
+                            ] ?? null,
+                        'new_status' =>
+                            'SENT_TO_MAIN_WAREHOUSE',
                     ],
                     $actorId
                 );
             }
 
-            if (!$this->manifestModel->update($manifestId, [
-                'status'        => 'DISPATCHED',
-                'dispatched_at' => date('Y-m-d H:i:s'),
-                'dispatched_by' => $actorId,
-            ])) {
+            if (
+                !$this->manifestModel->update(
+                    $manifestId,
+                    [
+                        'status' => 'DISPATCHED',
+                        'dispatched_at' =>
+                            date('Y-m-d H:i:s'),
+                        'dispatched_by' => $actorId,
+                        'dispatched_branch_id' =>
+                            $originBranchId > 0
+                                ? $originBranchId
+                                : (
+                                    $profile['branch_id']
+                                    ?? null
+                                ),
+                    ]
+                )
+            ) {
                 throw new \RuntimeException(
                     'Manifest gagal didispatch.'
                 );
@@ -429,8 +574,10 @@ class ManifestWorkflowService
         }
     }
 
-    public function receive(int $manifestId, int $actorId): void
-    {
+    public function receive(
+        int $manifestId,
+        int $actorId
+    ): void {
         $this->db->transBegin();
 
         try {
@@ -439,6 +586,55 @@ class ManifestWorkflowService
                 $manifest,
                 'DISPATCHED'
             );
+
+            $destinationBranchId = (int) (
+                $manifest['destination_branch_id']
+                ?? 0
+            );
+
+            if ($destinationBranchId > 0) {
+                $profile = $this->branchContext
+                    ->assertActorAtBranch(
+                        $actorId,
+                        $destinationBranchId,
+                        'Receive Manifest'
+                    );
+            } else {
+                $profile = $this->branchContext
+                    ->profileForUser($actorId);
+            }
+
+            $destinationBranch =
+                $destinationBranchId > 0
+                    ? $this->branchContext
+                        ->branchById(
+                            $destinationBranchId
+                        )
+                    : null;
+
+            $destinationLocation =
+                $destinationBranch
+                    ? $this->branchContext
+                        ->locationLabel(
+                            $destinationBranch
+                        )
+                    : 'Main Warehouse';
+
+            $isMainDestination =
+                $destinationBranch
+                    ? $this->branchContext
+                        ->isMainBranch(
+                            $destinationBranch
+                        )
+                    : true;
+
+            $newInternal = $isMainDestination
+                ? 'RECEIVED_AT_MAIN_WAREHOUSE'
+                : 'RECEIVED_AT_ORIGIN_BRANCH';
+
+            $newPublic = $isMainDestination
+                ? 'IN_TRANSIT'
+                : 'PICKED_UP';
 
             $details = $this->lockManifestDetails(
                 $manifestId
@@ -450,16 +646,24 @@ class ManifestWorkflowService
                 );
             }
 
+            $now = date('Y-m-d H:i:s');
+
             foreach ($details as $detail) {
                 $shipment = $this->lockShipment(
                     (int) $detail['shipment_id']
                 );
 
                 $status = strtoupper(
-                    (string) ($shipment['shipment_status'] ?? '')
+                    (string) (
+                        $shipment['shipment_status']
+                        ?? ''
+                    )
                 );
 
-                if ($status !== 'SENT_TO_MAIN_WAREHOUSE') {
+                if (
+                    $status !==
+                    'SENT_TO_MAIN_WAREHOUSE'
+                ) {
                     throw new \RuntimeException(
                         'Shipment ' .
                         $shipment['awb_no'] .
@@ -469,19 +673,51 @@ class ManifestWorkflowService
 
                 $this->updateShipmentStatus(
                     (int) $shipment['id'],
-                    'RECEIVED_AT_MAIN_WAREHOUSE',
-                    'IN_TRANSIT'
+                    $newInternal,
+                    $newPublic,
+                    [
+                        'current_branch_id' =>
+                            $destinationBranchId > 0
+                                ? $destinationBranchId
+                                : null,
+                        'receiving_branch_id' =>
+                            $destinationBranchId > 0
+                                ? $destinationBranchId
+                                : (
+                                    $shipment[
+                                        'receiving_branch_id'
+                                    ]
+                                    ?? null
+                                ),
+                        'receiving_location' =>
+                            $destinationLocation,
+                        'received_at' => $now,
+                        'received_by' => $actorId,
+                        'last_scan_branch_id' =>
+                            $destinationBranchId > 0
+                                ? $destinationBranchId
+                                : null,
+                        'last_scan_type' =>
+                            'MANIFEST_RECEIVE',
+                        'last_scan_at' => $now,
+                        'last_scan_by' => $actorId,
+                    ]
                 );
 
                 $this->recordTracking(
                     $shipment,
-                    'RECEIVED_AT_MAIN_WAREHOUSE',
-                    'IN_TRANSIT',
-                    'Main Warehouse',
+                    $newInternal,
+                    $newPublic,
+                    $destinationLocation,
                     'Manifest ' .
                     $manifest['manifest_no'] .
-                    ' diterima di main warehouse.',
-                    $actorId
+                    ' diterima di ' .
+                    $destinationLocation . '.',
+                    $actorId,
+                    $destinationBranchId > 0
+                        ? $destinationBranchId
+                        : null,
+                    'MANIFEST_RECEIVED'
                 );
 
                 $this->recordHistory(
@@ -490,22 +726,40 @@ class ManifestWorkflowService
                     'Manifest Received',
                     'Manifest ' .
                     $manifest['manifest_no'] .
-                    ' diterima di main warehouse.',
+                    ' diterima di ' .
+                    $destinationLocation . '.',
                     [
-                        'manifest_id' => $manifestId,
-                        'manifest_no' => $manifest['manifest_no'],
-                        'new_status'  =>
-                            'RECEIVED_AT_MAIN_WAREHOUSE',
+                        'manifest_id' =>
+                            $manifestId,
+                        'manifest_no' =>
+                            $manifest['manifest_no'],
+                        'destination_branch_id' =>
+                            $destinationBranchId > 0
+                                ? $destinationBranchId
+                                : null,
+                        'new_status' => $newInternal,
                     ],
                     $actorId
                 );
             }
 
-            if (!$this->manifestModel->update($manifestId, [
-                'status'      => 'RECEIVED',
-                'received_at' => date('Y-m-d H:i:s'),
-                'received_by' => $actorId,
-            ])) {
+            if (
+                !$this->manifestModel->update(
+                    $manifestId,
+                    [
+                        'status' => 'RECEIVED',
+                        'received_at' => $now,
+                        'received_by' => $actorId,
+                        'received_branch_id' =>
+                            $destinationBranchId > 0
+                                ? $destinationBranchId
+                                : (
+                                    $profile['branch_id']
+                                    ?? null
+                                ),
+                    ]
+                )
+            ) {
                 throw new \RuntimeException(
                     'Manifest gagal diterima.'
                 );
@@ -518,8 +772,10 @@ class ManifestWorkflowService
         }
     }
 
-    public function close(int $manifestId, int $actorId): void
-    {
+    public function close(
+        int $manifestId,
+        int $actorId
+    ): void {
         $this->db->transBegin();
 
         try {
@@ -528,6 +784,23 @@ class ManifestWorkflowService
                 $manifest,
                 'RECEIVED'
             );
+
+            $destinationBranchId = (int) (
+                $manifest['destination_branch_id']
+                ?? 0
+            );
+
+            if ($destinationBranchId > 0) {
+                $profile = $this->branchContext
+                    ->assertActorAtBranch(
+                        $actorId,
+                        $destinationBranchId,
+                        'Close Manifest'
+                    );
+            } else {
+                $profile = $this->branchContext
+                    ->profileForUser($actorId);
+            }
 
             $details = $this->lockManifestDetails(
                 $manifestId
@@ -553,17 +826,39 @@ class ManifestWorkflowService
                     ' ditutup dan dikunci.',
                     [
                         'manifest_id' => $manifestId,
-                        'manifest_no' => $manifest['manifest_no'],
+                        'manifest_no' =>
+                            $manifest['manifest_no'],
+                        'origin_branch_id' =>
+                            $manifest[
+                                'origin_branch_id'
+                            ] ?? null,
+                        'destination_branch_id' =>
+                            $manifest[
+                                'destination_branch_id'
+                            ] ?? null,
                     ],
                     $actorId
                 );
             }
 
-            if (!$this->manifestModel->update($manifestId, [
-                'status'    => 'CLOSED',
-                'closed_at' => date('Y-m-d H:i:s'),
-                'closed_by' => $actorId,
-            ])) {
+            if (
+                !$this->manifestModel->update(
+                    $manifestId,
+                    [
+                        'status' => 'CLOSED',
+                        'closed_at' =>
+                            date('Y-m-d H:i:s'),
+                        'closed_by' => $actorId,
+                        'closed_branch_id' =>
+                            $destinationBranchId > 0
+                                ? $destinationBranchId
+                                : (
+                                    $profile['branch_id']
+                                    ?? null
+                                ),
+                    ]
+                )
+            ) {
                 throw new \RuntimeException(
                     'Manifest gagal ditutup.'
                 );
@@ -579,6 +874,20 @@ class ManifestWorkflowService
     public function getEligibleShipments(
         int $manifestId
     ): array {
+        $manifest = $this->manifestModel
+            ->find($manifestId);
+
+        if (!$manifest) {
+            throw new \RuntimeException(
+                'Manifest tidak ditemukan.'
+            );
+        }
+
+        $originBranchId = (int) (
+            $manifest['origin_branch_id']
+            ?? 0
+        );
+
         $usedRows = $this->db
             ->table('manifest_details md')
             ->select('md.shipment_id')
@@ -591,22 +900,38 @@ class ManifestWorkflowService
                 'm.status',
                 self::ACTIVE_MANIFEST_STATUSES
             )
-            ->where('md.manifest_id !=', $manifestId)
+            ->where(
+                'md.manifest_id !=',
+                $manifestId
+            )
             ->get()
             ->getResultArray();
 
         $usedIds = array_map(
             'intval',
-            array_column($usedRows, 'shipment_id')
+            array_column(
+                $usedRows,
+                'shipment_id'
+            )
         );
 
         $builder = $this->shipmentModel
             ->whereIn(
                 'shipment_status',
-                self::ELIGIBLE_SHIPMENT_STATUSES
+                [
+                    'RECEIVED_AT_ORIGIN_BRANCH',
+                    'ARRIVED_HUB',
+                ]
             )
             ->where('chargeable_weight >', 0)
             ->orderBy('id', 'DESC');
+
+        if ($originBranchId > 0) {
+            $builder->where(
+                'current_branch_id',
+                $originBranchId
+            );
+        }
 
         if ($usedIds !== []) {
             $builder->whereNotIn('id', $usedIds);
@@ -629,6 +954,8 @@ class ManifestWorkflowService
                 's.actual_weight AS shipment_actual_weight',
                 's.chargeable_weight',
                 's.total_colly',
+                's.current_branch_id',
+                's.acceptance_branch_id',
             ])
             ->join(
                 'shipments s',
@@ -744,6 +1071,67 @@ class ManifestWorkflowService
         }
     }
 
+    private function assertShipmentAtManifestOrigin(
+        array $shipment,
+        array $manifest
+    ): void {
+        $originBranchId = (int) (
+            $manifest['origin_branch_id']
+            ?? 0
+        );
+
+        if ($originBranchId <= 0) {
+            return;
+        }
+
+        $shipmentStatus = strtoupper(
+            (string) (
+                $shipment['shipment_status']
+                ?? ''
+            )
+        );
+
+        if (
+            !in_array(
+                $shipmentStatus,
+                [
+                    'RECEIVED_AT_ORIGIN_BRANCH',
+                    'ARRIVED_HUB',
+                ],
+                true
+            )
+        ) {
+            throw new \RuntimeException(
+                'Shipment ' .
+                $shipment['awb_no'] .
+                ' belum diterima di origin branch. Status: ' .
+                ($shipmentStatus !== ''
+                    ? $shipmentStatus
+                    : '-') .
+                '.'
+            );
+        }
+
+        $shipmentBranchId = (int) (
+            $shipment['current_branch_id']
+            ?? 0
+        );
+
+        if ($shipmentBranchId !== $originBranchId) {
+            throw new \RuntimeException(
+                'Shipment ' .
+                $shipment['awb_no'] .
+                ' berada pada branch ' .
+                ($shipmentBranchId > 0
+                    ? $shipmentBranchId
+                    : '-') .
+                ', bukan origin branch manifest ' .
+                $originBranchId .
+                '.'
+            );
+        }
+    }
+
     private function assertNotInAnotherActiveManifest(
         int $shipmentId,
         int $manifestId
@@ -837,12 +1225,25 @@ class ManifestWorkflowService
     private function updateShipmentStatus(
         int $shipmentId,
         string $internalStatus,
-        string $publicStatus
+        string $publicStatus,
+        array $extra = []
     ): void {
-        if (!$this->shipmentModel->update($shipmentId, [
-            'shipment_status'        => $internalStatus,
-            'public_tracking_status' => $publicStatus,
-        ])) {
+        $data = array_merge(
+            [
+                'shipment_status' =>
+                    $internalStatus,
+                'public_tracking_status' =>
+                    $publicStatus,
+            ],
+            $extra
+        );
+
+        if (
+            !$this->shipmentModel->update(
+                $shipmentId,
+                $data
+            )
+        ) {
             throw new \RuntimeException(
                 'Status shipment gagal diperbarui.'
             );
@@ -855,15 +1256,20 @@ class ManifestWorkflowService
         string $publicStatus,
         string $location,
         string $notes,
-        int $actorId
+        int $actorId,
+        ?int $branchId = null,
+        ?string $eventType = null
     ): void {
         $now = date('Y-m-d H:i:s');
 
         if (!$this->trackingModel->insert([
             'shipment_id'       => (int) $shipment['id'],
+            'branch_id'         => $branchId,
             'tracking_code'     => $shipment['awb_no'],
             'tracking_status'   => $internalStatus,
             'public_status'     => $publicStatus,
+            'event_type'        => $eventType,
+            'source_reference'  => $shipment['awb_no'],
             'tracking_location' => $location,
             'tracking_notes'    => $notes,
             'event_time'        => $now,
@@ -970,17 +1376,39 @@ class ManifestWorkflowService
         }
     }
 
-    private function generateManifestNumber(): string
-    {
-        for ($attempt = 0; $attempt < 20; $attempt++) {
+    private function generateManifestNumber(
+        array $originBranch
+    ): string {
+        $code = strtoupper(
+            preg_replace(
+                '/[^A-Z0-9]/',
+                '',
+                (string) (
+                    $originBranch['branch_code']
+                    ?? 'BR'
+                )
+            )
+        );
+
+        $code = substr(
+            $code !== '' ? $code : 'BR',
+            0,
+            10
+        );
+
+        for ($attempt = 1; $attempt <= 999; $attempt++) {
             $manifestNo = sprintf(
-                'MNF%s%03d',
+                'MNF-%s-%s-%03d',
+                $code,
                 date('ymd'),
-                random_int(1, 999)
+                $attempt
             );
 
             $exists = $this->manifestModel
-                ->where('manifest_no', $manifestNo)
+                ->where(
+                    'manifest_no',
+                    $manifestNo
+                )
                 ->first();
 
             if (!$exists) {
@@ -989,7 +1417,7 @@ class ManifestWorkflowService
         }
 
         throw new \RuntimeException(
-            'Nomor manifest unik gagal dibuat. Coba lagi.'
+            'Nomor manifest branch harian sudah penuh.'
         );
     }
 
@@ -997,7 +1425,8 @@ class ManifestWorkflowService
         string $internalStatus
     ): string {
         return match (strtoupper($internalStatus)) {
-            'PICKED_UP' =>
+            'PICKED_UP',
+            'RECEIVED_AT_ORIGIN_BRANCH' =>
                 'PICKED_UP',
 
             'SENT_TO_MAIN_WAREHOUSE',

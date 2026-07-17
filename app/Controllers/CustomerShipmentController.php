@@ -4,94 +4,131 @@ namespace App\Controllers;
 
 use App\Controllers\BaseController;
 use App\Models\CustomerModel;
-use App\Models\CustomerAddressModel;
-use App\Models\ShipmentModel;
+use App\Services\CustomerShipmentService;
 
 class CustomerShipmentController extends BaseController
 {
     public function create()
     {
-        $customerModel = new CustomerModel();
+        try {
+            $customer = $this->requireCustomer();
+            $this->assertCustomerCanCreate($customer);
 
-        // Get customer linked to logged-in user
-        $customer = $customerModel
-            ->where('user_id', auth()->id())
-            ->first();
-
-        // If no customer record found
-        if (!$customer) {
+            return view(
+                'customer/create_shipment',
+                (new CustomerShipmentService())
+                    ->formData($customer)
+            );
+        } catch (\Throwable $e) {
             return redirect()
-                ->to('/customer/dashboard')
-                ->with('error', 'Customer profile not found.');
+                ->to(site_url('customer/dashboard'))
+                ->with('error', $e->getMessage());
         }
-
-        // Block if account is locked
-        if ($customer['account_status'] === 'LOCKED') {
-            return redirect()
-                ->to('/customer/dashboard')
-                ->with('error', 'Account Locked. Please settle overdue invoices.');
-        }
-
-        // Get saved sender addresses
-        $senderModel = new CustomerAddressModel();
-        $data['senderAddresses'] = $senderModel
-            ->where('customer_id', $customer['id'])
-            ->where('address_type', 'SENDER')
-            ->where('status', 1)
-            ->orderBy('contact_name', 'ASC')
-            ->findAll();
-
-        $data['customer'] = $customer;
-
-        return view('customer/create_shipment', $data);
     }
 
     public function store()
     {
-        $userId = auth()->id();
-        $customerModel = new CustomerModel();
-        $shipmentModel = new ShipmentModel();
+        try {
+            $customer = $this->requireCustomer();
+            $this->assertCustomerCanCreate($customer);
 
-        // Get customer data
-        $customer = $customerModel
+            $actorId = (int) (auth()->id() ?? 0);
+
+            if ($actorId <= 0) {
+                throw new \RuntimeException(
+                    'Sesi user tidak ditemukan.'
+                );
+            }
+
+            $result = (new CustomerShipmentService())->create(
+                $customer,
+                $this->request->getPost(),
+                $actorId
+            );
+
+            return redirect()
+                ->to(
+                    site_url(
+                        'customer/shipment/' .
+                        (int) $result['shipment_id']
+                    )
+                )
+                ->with(
+                    'success',
+                    'Shipment ' . $result['awb_no'] .
+                    ' berhasil dibuat. Status masih CREATED sampai barang dipindai oleh petugas CARTENZ.'
+                );
+        } catch (\Throwable $e) {
+            log_message(
+                'error',
+                'Customer self-service shipment failed: {message}',
+                ['message' => $e->getMessage()]
+            );
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    private function requireCustomer(): array
+    {
+        $user = auth()->user();
+        $userId = (int) (auth()->id() ?? 0);
+
+        if (
+            $user === null
+            || $userId <= 0
+            || !$user->inGroup('user')
+        ) {
+            throw new \RuntimeException(
+                'Halaman ini hanya tersedia untuk akun customer.'
+            );
+        }
+
+        $customer = (new CustomerModel())
             ->where('user_id', $userId)
             ->first();
 
         if (!$customer) {
-            return redirect()
-                ->back()
-                ->with('error', 'Customer not found.');
+            throw new \RuntimeException(
+                'Akun belum terhubung ke profil customer.'
+            );
         }
 
-        // Basic validation
-        $rules = [
-            'actual_weight' => 'required|numeric|greater_than[0]',
-            'remarks'       => 'permit_empty|string'
-        ];
+        return $customer;
+    }
 
-        if (!$this->validate($rules)) {
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
+    private function assertCustomerCanCreate(array $customer): void
+    {
+        if ((int) ($customer['status'] ?? 1) !== 1) {
+            throw new \RuntimeException(
+                'Profil customer tidak aktif.'
+            );
         }
 
-        // Generate AWB number
-        $awbNo = 'CTZ' . date('ymd') . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
+        if (
+            strtoupper((string) (
+                $customer['account_status'] ?? 'ACTIVE'
+            )) !== 'ACTIVE'
+        ) {
+            throw new \RuntimeException(
+                'Account tidak aktif atau sedang dikunci. Hubungi admin CARTENZ.'
+            );
+        }
 
-        // Save shipment
-        $shipmentModel->insert([
-            'awb_no'           => $awbNo,
-            'customer_id'      => $customer['id'],
-            'actual_weight'    => $this->request->getPost('actual_weight'),
-            'chargeable_weight'=> $this->request->getPost('chargeable_weight') ?? 0,
-            'shipment_status'  => 'DRAFT',
-            'remarks'          => $this->request->getPost('remarks'),
-            'created_at'       => date('Y-m-d H:i:s')
-        ]);
+        $approvalStatus = strtoupper((string) (
+            $customer['approval_status'] ?? 'APPROVED'
+        ));
 
-        return redirect()
-            ->to('/customer/my-shipments')
-            ->with('success', 'Shipment created successfully.');
+        if (
+            $approvalStatus !== ''
+            && $approvalStatus !== 'APPROVED'
+        ) {
+            throw new \RuntimeException(
+                'Customer belum disetujui untuk membuat shipment.'
+            );
+        }
     }
 }

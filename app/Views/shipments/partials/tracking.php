@@ -9,7 +9,82 @@ $currentInternalStatus = strtoupper(
 $currentPublicStatus = strtoupper(
     (string) ($shipment['public_tracking_status'] ?? 'CREATED')
 );
+
+/*
+ * Direct Receive hanya boleh terlihat untuk user operasional
+ * yang benar-benar terhubung ke JKT-HO / Head Office.
+ *
+ * Ini hanya proteksi tampilan. Backend tetap memvalidasi ulang.
+ */
+$canDirectReceive = false;
+$directReceiveProfile = null;
+
+try {
+    $actorId = (int) (auth()->id() ?? 0);
+
+    if ($actorId > 0) {
+        $branchContext = new \App\Services\BranchOperationalContextService();
+        $directReceiveProfile = $branchContext->profileForUser($actorId);
+
+        $canDirectReceive = is_array($directReceiveProfile)
+            && $branchContext->profileIsMain($directReceiveProfile);
+    }
+} catch (\Throwable $e) {
+    $canDirectReceive = false;
+}
 ?>
+
+<?php
+$directReceiveBlocked = in_array(
+    $currentInternalStatus,
+    ['RECEIVED_AT_MAIN_WAREHOUSE', 'DELIVERED', 'RETURN_TO_SENDER', 'CANCELLED'],
+    true
+) || strtoupper((string) ($shipment['vendor_submission_status'] ?? 'NOT_SUBMITTED')) === 'SUBMITTED';
+?>
+
+<?php if ($canDirectReceive && !$directReceiveBlocked): ?>
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-header bg-success text-white">
+        🏢 Direct Receive at Main Warehouse — Without Manifest
+    </div>
+    <div class="card-body">
+        <div class="alert alert-light border mb-3">
+            Aksi ini hanya tersedia untuk
+            <strong><?= esc((string) ($directReceiveProfile['branch_code'] ?? 'JKT-HO')) ?></strong>
+            · <?= esc((string) ($directReceiveProfile['branch_name'] ?? 'JAKARTA HEAD OFFICE')) ?>.
+            Lokasi penerimaan ditentukan otomatis dari Operational Profile.
+        </div>
+
+        <form method="post" action="<?= site_url('shipments/direct-receive/' . (int) $shipment['id']) ?>" onsubmit="return confirm('Konfirmasi shipment sudah diterima fisik di main warehouse?');">
+            <?= csrf_field() ?>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Receive Method *</label>
+                    <select name="receive_method" class="form-select" required>
+                        <option value="CUSTOMER_WALK_IN">Customer Walk-in</option>
+                        <option value="AGENT_HANDOVER">Agent Handover</option>
+                        <option value="DIRECT_DELIVERY">Direct Delivery</option>
+                        <option value="INTERNAL_TRANSFER">Internal Transfer</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Location *</label>
+                    <input type="text" name="receiving_location" class="form-control" value="Cartenz Main Warehouse Jakarta" readonly required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Reference No</label>
+                    <input type="text" name="reference_no" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Notes *</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Barang diterima fisik dan diverifikasi." required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success mt-3">Receive Direct at Main Warehouse</button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="row g-3">
     <div class="col-xl-4">

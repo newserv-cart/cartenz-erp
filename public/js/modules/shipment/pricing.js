@@ -27,6 +27,7 @@ Sprint 49.7A
         bindEvents() {
             const selectors = [
                 "#customer_id",
+                "#shipment_date",
                 "#receiver_id",
                 "#country_id",
                 "#service_id",
@@ -115,6 +116,7 @@ if (customerId) {
 
             return {
                 customer_id: customerId,
+                shipment_date: $("#shipment_date").val() || "",
                 receiver_id: $("#receiver_id").val() || "",
                 country_id: $("#country_id").val() || "",
                 service_id: $("#service_id").val() || "",

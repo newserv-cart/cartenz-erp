@@ -22,6 +22,7 @@ class VendorRateModel extends Model
         'weight_to',
         'cost_per_kg',
         'minimum_charge',
+        'currency_id',
         'effective_from',
         'effective_until',
         'status',

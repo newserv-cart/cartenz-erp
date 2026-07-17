@@ -7,6 +7,46 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
+<?php
+$inboundIntake = $inboundIntake ?? null;
+$intakePackages = $intakePackages ?? [];
+$automaticReceiving = $automaticReceiving ?? null;
+
+$selectedAcceptanceMethod = old(
+    'acceptance_method',
+    $automaticReceiving['acceptance_method']
+        ?? (
+            $inboundIntake
+                ? \App\Services\ShipmentAcceptanceService::
+                    AGENT_HANDOVER_NO_AWB
+                : ''
+        )
+);
+
+$selectedTransportMode = (int) old(
+    'transport_mode_id',
+    1
+);
+
+$selectedDeliveryType = (int) old(
+    'delivery_type_id',
+    1
+);
+
+$selectedReceivingBranch = (int) old(
+    'receiving_branch_id',
+    $automaticReceiving['receiving_branch_id']
+        ?? $inboundIntake['receiving_branch_id']
+        ?? 0
+);
+
+$receivingLocationValue = old(
+    'receiving_location',
+    $automaticReceiving['receiving_location']
+        ?? $inboundIntake['receiving_location']
+        ?? 'Cartenz Main Warehouse Jakarta'
+);
+?>
 
 <form
     id="shipmentForm"
@@ -15,6 +55,8 @@
     data-base-url="<?= esc(rtrim(base_url(), '/')) ?>"
     data-user-role="admin">
     <?= csrf_field() ?>
+    <input type="hidden" name="inbound_intake_id" value="<?= (int) ($inboundIntake['id'] ?? 0) ?>">
+    <input type="hidden" name="source_agent_id" value="<?= (int) ($inboundIntake['agent_id'] ?? 0) ?>">
 
 <div class="container mt-4 mb-5">
     <h2 class="mb-4">Create Shipment</h2>
@@ -28,6 +70,21 @@
     <?php if (session()->getFlashdata('success')): ?>
         <div class="alert alert-success">
             <?= esc(session()->getFlashdata('success')) ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="d-flex justify-content-end mb-3">
+        <a href="<?= site_url('inbound-intakes') ?>" class="btn btn-outline-primary">
+            📥 Inbound Intake
+        </a>
+    </div>
+
+    <?php if ($inboundIntake): ?>
+        <div class="alert alert-info">
+            <strong>Convert Intake <?= esc($inboundIntake['intake_no']) ?></strong><br>
+            Agent packages arrived without AWB. Complete customer, sender, receiver,
+            item, pricing, then save. Shipment will start at
+            <strong>RECEIVED_AT_MAIN_WAREHOUSE</strong>.
         </div>
     <?php endif; ?>
 
@@ -209,7 +266,6 @@
                 <div class="col-md-6 mb-3">
                     <label>Destination Country</label>
                     <input type="hidden" id="country_id" name="country_id">
-                    <input type="hidden" id="transport_mode_id" name="transport_mode_id" value="1">
                     <input id="receiver_country" name="receiver_country" class="form-control" readonly>
                 </div>
                 <div class="col-md-6 mb-3">
@@ -222,6 +278,175 @@
                 <label>Complete Address</label>
                 <textarea id="receiver_address" class="form-control" rows="3" readonly></textarea>
             </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header bg-success text-white">
+            🏢 Acceptance & Receiving
+        </div>
+
+        <div class="card-body">
+            <?php if ($automaticReceiving): ?>
+                <input
+                    type="hidden"
+                    name="acceptance_method"
+                    value="<?= esc(
+                        $automaticReceiving[
+                            'acceptance_method'
+                        ]
+                    ) ?>">
+
+                <input
+                    type="hidden"
+                    name="receiving_branch_id"
+                    value="<?= (int) (
+                        $automaticReceiving[
+                            'receiving_branch_id'
+                        ]
+                        ?? 0
+                    ) ?>">
+
+                <input
+                    type="hidden"
+                    name="receiving_location"
+                    value="<?= esc(
+                        $automaticReceiving[
+                            'receiving_location'
+                        ]
+                        ?? ''
+                    ) ?>">
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            Receiving Point
+                        </div>
+
+                        <div class="fw-bold">
+                            <?= esc(
+                                $automaticReceiving[
+                                    'branch_label'
+                                ]
+                                ?? '-'
+                            ) ?>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            Initial Status
+                        </div>
+
+                        <div class="fw-bold text-success">
+                            <?= esc(
+                                $automaticReceiving[
+                                    'initial_state'
+                                ]['internal_status']
+                                ?? '-'
+                            ) ?>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-muted small">
+                            Workflow
+                        </div>
+
+                        <div class="fw-bold">
+                            Automatically determined
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0">
+                    Lokasi dan status awal ditentukan dari
+                    Operational Profile user atau Inbound Intake.
+                    Operator tidak perlu memilih manual.
+                </div>
+            <?php else: ?>
+                <div class="alert alert-warning">
+                    User belum mempunyai Operational Profile.
+                    Gunakan pilihan manual sementara atau hubungkan
+                    user ke branch pada menu Operational Profiles.
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            Acceptance Method *
+                        </label>
+
+                        <select
+                            name="acceptance_method"
+                            id="acceptance_method"
+                            class="form-select"
+                            required>
+
+                            <option value="">
+                                -- Select Acceptance Method --
+                            </option>
+
+                            <?php foreach (
+                                $acceptanceMethods
+                                as $value => $label
+                            ): ?>
+                                <option
+                                    value="<?= esc($value) ?>"
+                                    <?= $selectedAcceptanceMethod
+                                        === $value
+                                        ? 'selected'
+                                        : '' ?>>
+
+                                    <?= esc($label) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            Receiving Branch
+                        </label>
+
+                        <select
+                            name="receiving_branch_id"
+                            class="form-select">
+
+                            <option value="">
+                                -- Optional --
+                            </option>
+
+                            <?php foreach ($branches as $branch): ?>
+                                <option
+                                    value="<?= (int) $branch['id'] ?>"
+                                    <?= $selectedReceivingBranch
+                                        === (int) $branch['id']
+                                        ? 'selected'
+                                        : '' ?>>
+
+                                    <?= esc($branch['_label']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            Receiving Location *
+                        </label>
+
+                        <input
+                            type="text"
+                            name="receiving_location"
+                            class="form-control"
+                            value="<?= esc(
+                                $receivingLocationValue
+                            ) ?>"
+                            required>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -280,18 +505,55 @@
             </div>
 
             <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Transport Mode *</label>
+                    <select name="transport_mode_id" id="transport_mode_id" class="form-select" required>
+                        <?php foreach ($transportModes as $mode): ?>
+                            <option value="<?= (int) $mode['id'] ?>" <?= $selectedTransportMode === (int) $mode['id'] ? 'selected' : '' ?>>
+                                <?= esc($mode['mode_name'] ?? $mode['mode_code'] ?? ('Mode #' . $mode['id'])) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Delivery Type *</label>
+                    <select name="delivery_type_id" id="delivery_type_id" class="form-select" required>
+                        <?php foreach ($deliveryTypes as $delivery): ?>
+                            <?php
+                            $deliveryLabel = $delivery['delivery_type_name']
+                                ?? $delivery['delivery_name']
+                                ?? $delivery['type_name']
+                                ?? $delivery['name']
+                                ?? $delivery['delivery_code']
+                                ?? ('Delivery #' . $delivery['id']);
+                            ?>
+                            <option value="<?= (int) $delivery['id'] ?>" <?= $selectedDeliveryType === (int) $delivery['id'] ? 'selected' : '' ?>>
+                                <?= esc($deliveryLabel) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label fw-bold">Reference Number</label>
-                    <input type="text" name="customer_reference_no" id="customer_reference_no" class="form-control" placeholder="Customer Reference Number">
+                    <input type="text" name="customer_reference_no" id="customer_reference_no" class="form-control" placeholder="Customer Reference Number" value="<?= esc(old('customer_reference_no') ?? $inboundIntake['agent_reference_no'] ?? '') ?>">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label fw-bold">Shipment Date</label>
-                    <input type="date" name="shipment_date" value="<?= date('Y-m-d') ?>" class="form-control">
+                    <input type="date" name="shipment_date" value="<?= esc(old('shipment_date') ?? $inboundIntake['arrival_date'] ?? date('Y-m-d')) ?>" class="form-control">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label fw-bold">Expected Delivery</label>
                     <input type="text" id="expected_delivery" class="form-control" placeholder="Auto Calculate" readonly>
                 </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Remarks</label>
+                <textarea name="remarks" class="form-control" rows="2"><?= esc(old('remarks') ?? ($inboundIntake ? ('Converted from ' . $inboundIntake['intake_no'] . '. ' . ($inboundIntake['notes'] ?? '')) : '')) ?></textarea>
             </div>
         </div>
     </div>
@@ -320,19 +582,19 @@
                         <div class="row">
                             <div class="col-md-3 mb-3">
                                 <label>Weight (Kg)</label>
-                                <input type="number" class="form-control berat" name="packages[0][actual_weight]" step="0.01" min="0" value="0">
+                                <input type="number" class="form-control berat" name="packages[0][actual_weight]" step="0.01" min="0" value="<?= esc(old('packages.0.actual_weight') ?? $intakePackages[0]['actual_weight'] ?? 0) ?>">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Length (Cm)</label>
-                                <input type="number" class="form-control panjang" name="packages[0][length_cm]" min="0" value="0">
+                                <input type="number" class="form-control panjang" name="packages[0][length_cm]" min="0" value="<?= esc(old('packages.0.length_cm') ?? $intakePackages[0]['length_cm'] ?? 0) ?>">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Width (Cm)</label>
-                                <input type="number" class="form-control lebar" name="packages[0][width_cm]" min="0" value="0">
+                                <input type="number" class="form-control lebar" name="packages[0][width_cm]" min="0" value="<?= esc(old('packages.0.width_cm') ?? $intakePackages[0]['width_cm'] ?? 0) ?>">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Height (Cm)</label>
-                                <input type="number" class="form-control tinggi" name="packages[0][height_cm]" min="0" value="0">
+                                <input type="number" class="form-control tinggi" name="packages[0][height_cm]" min="0" value="<?= esc(old('packages.0.height_cm') ?? $intakePackages[0]['height_cm'] ?? 0) ?>">
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label>Volume Weight</label>
@@ -731,6 +993,30 @@
 <script src="<?= base_url('js/modules/shipment/sender.js?v=49.7.2') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js?v=49.7.4') ?>"></script>
+
+<?php if (!empty($intakePackages)): ?>
+<script>
+window.addEventListener('load', function () {
+    const packages = <?= json_encode($intakePackages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const addButton = document.getElementById('add-colly');
+
+    for (let index = 1; index < packages.length; index++) {
+        addButton?.click();
+    }
+
+    packages.forEach((pkg, index) => {
+        const fields = ['actual_weight', 'length_cm', 'width_cm', 'height_cm'];
+        fields.forEach((field) => {
+            const input = document.querySelector(`[name="packages[${index}][${field}]"]`);
+            if (!input) return;
+            input.value = pkg[field] ?? 0;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+});
+</script>
+<?php endif; ?>
 
 
 </body>

@@ -14,9 +14,13 @@ class ShipmentTrackingModel extends Model
 
     protected $allowedFields = [
         'shipment_id',
+        'branch_id',
         'tracking_code',
         'tracking_status',
         'public_status',
+        'event_type',
+        'scan_type',
+        'source_reference',
         'tracking_location',
         'tracking_notes',
         'event_time',
@@ -106,7 +110,8 @@ class ShipmentTrackingModel extends Model
             'MANIFESTED'
                 => 'CREATED',
 
-            'PICKED_UP'
+            'PICKED_UP',
+            'RECEIVED_AT_ORIGIN_BRANCH'
                 => 'PICKED_UP',
 
             'SENT_TO_MAIN_WAREHOUSE',

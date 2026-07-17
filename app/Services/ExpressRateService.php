@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\ExpressRateHeaderModel;
 use App\Models\ExpressRateDetailModel;
+use App\Models\ExpressRateHeaderModel;
 
 class ExpressRateService
 {
-    protected $headerModel;
-    protected $detailModel;
+    protected ExpressRateHeaderModel $headerModel;
+    protected ExpressRateDetailModel $detailModel;
 
     public function __construct()
     {
@@ -16,85 +16,101 @@ class ExpressRateService
         $this->detailModel = new ExpressRateDetailModel();
     }
 
-    /**
-     * Ambil tarif lengkap beserta informasi sumbernya
-     */
     public function getRate(
         int $vendorId,
         int $serviceId,
         string $shipmentType,
         int $zone,
-        float $weight
+        float $weight,
+        ?string $effectiveDate = null,
+        ?int $currencyId = null
     ): array {
-        // 1. Normalisasi berat sesuai aturan vendor
-        $chargeWeight = $this->normalizeWeight($weight);
+        $chargeWeight  = $this->normalizeWeight($weight);
+        $effectiveDate = $effectiveDate ?: date('Y-m-d');
+        $shipmentType  = strtoupper(trim($shipmentType));
 
-        // 2. Ambil header tarif yang berlaku dan paling baru
-        $header = $this->headerModel
+        $builder = $this->headerModel
             ->where('vendor_id', $vendorId)
             ->where('service_id', $serviceId)
-            ->where('effective_date <=', date('Y-m-d')) // Pastikan tarif sudah berlaku
+            ->where('effective_date <=', $effectiveDate)
             ->orderBy('effective_date', 'DESC')
-            ->first();
+            ->orderBy('id', 'DESC');
 
-        if (!$header) {
-            return [
-                'price'          => 0,
-                'weight'         => $chargeWeight,
-                'zone'           => $zone,
-                'header_id'      => null,
-                'rate_version'   => null,
-                'remarks'        => 'Tarif tidak ditemukan',
-                'found'          => false
-            ];
+        if ($currencyId !== null && $currencyId > 0) {
+            $builder->where('currency_id', $currencyId);
         }
 
-        // 3. Cari tarif yang sesuai (ambil berat terdekat jika tidak ada persis)
+        $header = $builder->first();
+
+        if (!$header) {
+            return $this->notFound(
+                $chargeWeight,
+                $zone,
+                'Express Rate Header tidak ditemukan.'
+            );
+        }
+
+        // Billing must never round the rate breakpoint downward.
         $rate = $this->detailModel
-            ->where('header_id', $header['id'])
-            ->where('shipment_type', strtoupper($shipmentType))
+            ->where('header_id', (int) $header['id'])
+            ->where('shipment_type', $shipmentType)
             ->where('zone', $zone)
-            ->where('weight <=', $chargeWeight) // Cari yang mendekati atau sama
-            ->orderBy('weight', 'DESC') // Ambil yang paling besar di bawah berat muatan
+            ->where('weight >=', $chargeWeight)
+            ->orderBy('weight', 'ASC')
+            ->orderBy('id', 'ASC')
             ->first();
 
         if (!$rate) {
-            return [
-                'price'          => 0,
-                'weight'         => $chargeWeight,
-                'zone'           => $zone,
-                'header_id'      => $header['id'],
-                'rate_version'   => date('F Y', strtotime($header['effective_date'])),
-                'remarks'        => 'Tarif untuk berat ini tidak tersedia',
-                'found'          => false
-            ];
+            return $this->notFound(
+                $chargeWeight,
+                $zone,
+                'Tarif Express untuk berat tersebut tidak tersedia.',
+                (int) $header['id']
+            );
         }
 
-        // 4. Kembalikan SEMUA data untuk kebutuhan perhitungan & audit
         return [
-            'price'          => (float)$rate['price'],
+            'found'          => true,
+            'price'          => round((float) $rate['price'], 2),
             'charge_weight'  => $chargeWeight,
-            'base_weight'    => (float)$rate['weight'],
+            'rate_weight'    => (float) $rate['weight'],
             'zone'           => $zone,
-            'header_id'      => (int)$header['id'],
-            'shipment_type'  => strtoupper($shipmentType),
+            'header_id'      => (int) $header['id'],
+            'detail_id'      => (int) $rate['id'],
+            'currency_id'    => isset($header['currency_id'])
+                ? (int) $header['currency_id']
+                : null,
+            'shipment_type'  => $shipmentType,
             'effective_date' => $header['effective_date'],
-            'rate_version'   => date('F Y', strtotime($header['effective_date'])),
-            'remarks'        => $header['remarks'] ?? '',
-            'found'          => true
+            'remarks'        => $header['remarks'] ?? null,
         ];
     }
 
-    /**
-     * Pembulatan berat sesuai standar DHL
-     * ≤ 30 kg → dibulatkan ke kelipatan 0.5 kg
-     * > 30 kg → dibulatkan ke bilangan bulat ke atas
-     */
-    protected function normalizeWeight(float $weight): float
+    public function normalizeWeight(float $weight): float
     {
-        if ($weight <= 30) {
-            return ceil($weight * 2) / 2;
-        }
-        return ceil($weight);
+        $weight = max(0, $weight);
+
+        return $weight <= 30
+            ? ceil($weight * 2) / 2
+            : ceil($weight);
+    }
+
+    private function notFound(
+        float $chargeWeight,
+        int $zone,
+        string $message,
+        ?int $headerId = null
+    ): array {
+        return [
+            'found'         => false,
+            'price'         => 0.0,
+            'charge_weight' => $chargeWeight,
+            'rate_weight'   => null,
+            'zone'          => $zone,
+            'header_id'     => $headerId,
+            'detail_id'     => null,
+            'currency_id'   => null,
+            'remarks'       => $message,
+        ];
     }
 }

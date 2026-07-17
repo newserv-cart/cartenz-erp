@@ -4,7 +4,36 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 
-$routes->get('/', 'Home::index');
+////$routes->get('/', 'Home::index');
+
+$routes->get('/', static function () {
+    if (! auth()->loggedIn()) {
+        return redirect()->to(site_url('login'));
+    }
+
+    $user = auth()->user();
+
+    if (
+        $user !== null
+        && (
+            $user->inGroup('superadmin')
+            || $user->inGroup('admin')
+        )
+    ) {
+        return redirect()->to(site_url('shipments'));
+    }
+
+    if (
+        $user !== null
+        && $user->inGroup('user')
+    ) {
+        return redirect()->to(
+            site_url('customer/dashboard')
+        );
+    }
+
+    return redirect()->to(site_url('login'));
+});
 
 service('auth')->routes($routes);
 
@@ -153,29 +182,76 @@ $routes->get(
     'CustomerController::reject/$1'
 );
 
-$routes->get(
-    'customer/dashboard',
-    'CustomerDashboardController::index'
+$routes->group(
+    'customer',
+    ['filter' => 'group:user'],
+    static function ($routes) {
+        $routes->get(
+            'dashboard',
+            'CustomerDashboardController::index'
+        );
+
+        $routes->get(
+            'my-shipments',
+            'CustomerDashboardController::myShipments'
+        );
+
+        $routes->get(
+            'shipment/(:num)',
+            'CustomerDashboardController::shipmentDetail/$1'
+        );
+
+        $routes->get(
+            'create-shipment',
+            'CustomerShipmentController::create'
+        );
+
+        $routes->post(
+            'create-shipment',
+            'CustomerShipmentController::store'
+        );
+
+        $routes->get(
+            'addresses',
+            'CustomerAddressController::index'
+        );
+
+        $routes->get(
+            'addresses/create',
+            'CustomerAddressController::create'
+        );
+
+        $routes->post(
+            'addresses/store',
+            'CustomerAddressController::store'
+        );
+
+        $routes->get(
+            'addresses/edit/(:num)',
+            'CustomerAddressController::edit/$1'
+        );
+
+        $routes->post(
+            'addresses/update/(:num)',
+            'CustomerAddressController::update/$1'
+        );
+
+        $routes->post(
+            'addresses/delete/(:num)',
+            'CustomerAddressController::delete/$1'
+        );
+
+        $routes->post(
+            'addresses/default/(:num)',
+            'CustomerAddressController::setDefault/$1'
+        );
+
+        $routes->post(
+            'addresses/ajax-save',
+            'CustomerAddressController::saveAddress'
+        );
+    }
 );
-
-$routes->get(
-    'customer/my-shipments',
-    'CustomerDashboardController::myShipments'
-);
-
-$routes->group('', ['filter' => 'auth'], function($routes){
-
-    $routes->get(
-        'customer/create-shipment',
-        'CustomerShipmentController::create'
-    );
-
-    $routes->post(
-        'customer/create-shipment',
-        'CustomerShipmentController::store'
-    );
-
-});
 
 $routes->get(
     'shipments/pending',
@@ -202,52 +278,6 @@ $routes->get(
 
 
 
-
-$routes->get(
-    'customer/addresses',
-    'CustomerAddressController::index'
-);
-
-$routes->get(
-    'customer/addresses/create',
-    'CustomerAddressController::create'
-);
-
-$routes->post(
-    'customer/addresses/store',
-    'CustomerAddressController::store'
-);
-
-
-$routes->get(
-    'customer/addresses/create',
-    'CustomerAddressController::create'
-);
-
-$routes->post(
-    'customer/addresses/store',
-    'CustomerAddressController::store'
-);
-
-$routes->get(
-    'customer/addresses/edit/(:num)',
-    'CustomerAddressController::edit/$1'
-);
-
-$routes->post(
-    'customer/addresses/update/(:num)',
-    'CustomerAddressController::update/$1'
-);
-
-$routes->get(
-    'customer/addresses/delete/(:num)',
-    'CustomerAddressController::delete/$1'
-);
-
-$routes->get(
-    'customer/addresses/default/(:num)',
-    'CustomerAddressController::setDefault/$1'
-);
 
 $routes->get(
     'pickup/request/(:num)',
@@ -433,11 +463,6 @@ $routes->get(
 $routes->post(
     'manifests/scan',
     'ManifestController::scanSearch'
-);
-
-$routes->get(
-    'customer/shipment/(:num)',
-    'CustomerDashboardController::shipmentDetail/$1'
 );
 
 $routes->get(
@@ -827,6 +852,27 @@ $routes->group(
     }
 );
 
+$routes->group(
+    'shipments/vendor',
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->post(
+            '(:num)/recommendations/generate',
+            'ShipmentVendorController::generate/$1'
+        );
+
+        $routes->post(
+            '(:num)/assign',
+            'ShipmentVendorController::assign/$1'
+        );
+
+        $routes->post(
+            '(:num)/submit',
+            'ShipmentVendorController::submit/$1'
+        );
+    }
+);
+
 $routes->get('shipments/detail/(:num)', 'ShipmentController::detail/$1');
 
 
@@ -858,4 +904,62 @@ $routes->get('test/pricing', 'PricingTestController::index');
 $routes->post(
     'shipments/calculate-pricing',
     'ShipmentController::calculatePricing'
+);
+
+// Sprint 49.15B.2 — Shipment Acceptance & Inbound Intake
+$routes->post(
+    'shipments/direct-receive/(:num)',
+    'ShipmentController::directReceive/$1',
+    ['filter' => 'group:superadmin,admin']
+);
+
+$routes->group(
+    'inbound-intakes',
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->get('', 'InboundIntakeController::index');
+        $routes->get('create', 'InboundIntakeController::create');
+        $routes->post('store', 'InboundIntakeController::store');
+        $routes->get('(:num)', 'InboundIntakeController::show/$1');
+        $routes->get('(:num)/start-shipment', 'InboundIntakeController::startShipment/$1');
+        $routes->post('(:num)/cancel', 'InboundIntakeController::cancel/$1');
+    }
+);
+
+// Sprint 49.15B.3 — Branch-aware acceptance, scan, and manifest origin
+$routes->group(
+    'admin/operational-profiles',
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->get(
+            '',
+            'Admin\UserOperationalProfileController::index'
+        );
+
+        $routes->post(
+            'save',
+            'Admin\UserOperationalProfileController::save'
+        );
+
+        $routes->post(
+            'toggle/(:num)',
+            'Admin\UserOperationalProfileController::toggle/$1'
+        );
+    }
+);
+
+$routes->group(
+    'operations',
+    ['filter' => 'auth'],
+    static function ($routes) {
+        $routes->get(
+            'scan',
+            'Operations\BranchScanController::index'
+        );
+
+        $routes->post(
+            'scan',
+            'Operations\BranchScanController::submit'
+        );
+    }
 );
