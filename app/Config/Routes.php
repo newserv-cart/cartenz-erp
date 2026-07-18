@@ -320,15 +320,15 @@ $routes->post(
 $routes->get(
     'invoices',
     'InvoiceController::index'
-);    
+);
 
 $routes->get(
-'invoices/create', 
+'invoices/create',
 'InvoiceController::create'
 );
 
 
-$routes->post('invoices/store', 
+$routes->post('invoices/store',
 'InvoiceController::store'
 );
 
@@ -667,12 +667,12 @@ $routes->group('master',function($routes){
     $routes->post('gogreen-zones/store',
         'Master\GoGreenZoneController::store');
 
-    
+
     $routes->get('gogreen-zones/edit/(:num)', 'Master\GoGreenZoneController::edit/$1');
     $routes->post('gogreen-zones/update/(:num)', 'Master\GoGreenZoneController::update/$1');
 
     $routes->get('gogreen-zones/delete/(:num)', 'Master\GoGreenZoneController::delete/$1');
-    
+
 
 });
 
@@ -870,6 +870,11 @@ $routes->group(
             '(:num)/submit',
             'ShipmentVendorController::submit/$1'
         );
+
+        $routes->post(
+            '(:num)/tracking-events',
+            'ShipmentVendorController::addTrackingEvent/$1'
+        );
     }
 );
 
@@ -961,5 +966,27 @@ $routes->group(
             'scan',
             'Operations\BranchScanController::submit'
         );
+    }
+);
+
+// Sprint 49.17 — Agent Charges & Self Billing
+$routes->group(
+    'agent/self-billing',
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->get('', 'AgentSelfBillingController::index');
+        $routes->post('create', 'AgentSelfBillingController::createInvoice');
+        $routes->get('invoice/(:num)', 'AgentSelfBillingController::show/$1');
+        $routes->get('invoice/(:num)/print', 'AgentSelfBillingController::print/$1');
+    }
+);
+
+$routes->group(
+    'finance/agent-self-billing',
+    ['filter' => 'group:superadmin,admin'],
+    static function ($routes) {
+        $routes->get('', 'Finance\\AgentSelfBillingApprovalController::index');
+        $routes->post('approve/(:num)', 'Finance\\AgentSelfBillingApprovalController::approve/$1');
+        $routes->post('reject/(:num)', 'Finance\\AgentSelfBillingApprovalController::reject/$1');
     }
 );

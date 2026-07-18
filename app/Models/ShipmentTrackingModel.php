@@ -14,6 +14,7 @@ class ShipmentTrackingModel extends Model
 
     protected $allowedFields = [
         'shipment_id',
+        'vendor_event_id',
         'branch_id',
         'tracking_code',
         'tracking_status',
@@ -21,9 +22,19 @@ class ShipmentTrackingModel extends Model
         'event_type',
         'scan_type',
         'source_reference',
+        'source_system',
+        'source_event_id',
+        'vendor_status_code',
         'tracking_location',
+        'country_code',
+        'country_name',
+        'city',
+        'hub_code',
+        'timezone_name',
         'tracking_notes',
         'event_time',
+        'event_sequence',
+        'is_public',
         'created_by',
         'created_at',
     ];
@@ -66,6 +77,7 @@ class ShipmentTrackingModel extends Model
 
         $result = [];
         $lastPublicStatus = null;
+        $lastWasVendorTracking = false;
 
         foreach ($rows as $row) {
             $publicStatus = strtoupper(
@@ -84,19 +96,30 @@ class ShipmentTrackingModel extends Model
 
             $row['public_status'] = $publicStatus;
 
+            $eventType = strtoupper(
+                trim((string) ($row['event_type'] ?? ''))
+            );
+
+            $isVendorTracking = $eventType === 'VENDOR_TRACKING'
+                || !empty($row['vendor_event_id']);
+
             if (
-                $publicStatus === $lastPublicStatus
+                !$isVendorTracking
+                && !$lastWasVendorTracking
+                && $publicStatus === $lastPublicStatus
                 && $result !== []
             ) {
                 $lastIndex = array_key_last($result);
 
-                // Tampilkan event terbaru dari status publik yang sama.
+                // Event operasional biasa dengan status publik sama digabung.
                 $result[$lastIndex] = $row;
+                $lastWasVendorTracking = false;
                 continue;
             }
 
             $result[] = $row;
             $lastPublicStatus = $publicStatus;
+            $lastWasVendorTracking = $isVendorTracking;
         }
 
         return $result;
@@ -118,8 +141,20 @@ class ShipmentTrackingModel extends Model
             'RECEIVED_AT_MAIN_WAREHOUSE',
             'ARRIVED_HUB',
             'IN_TRANSIT_HUB',
-            'IN_TRANSIT'
+            'IN_TRANSIT',
+            'SUBMITTED_TO_VENDOR',
+            'VENDOR_PICKED_UP',
+            'DEPARTED_ORIGIN',
+            'ARRIVED_AT_TRANSIT_HUB',
+            'DEPARTED_TRANSIT_HUB',
+            'ARRIVED_DESTINATION_COUNTRY',
+            'CUSTOMS_CLEARANCE_STARTED',
+            'CUSTOMS_CLEARANCE_COMPLETED',
+            'HANDED_TO_LAST_MILE'
                 => 'IN_TRANSIT',
+
+            'CUSTOMS_EXCEPTION'
+                => 'ON_HOLD',
 
             'OUT_FOR_DELIVERY'
                 => 'OUT_FOR_DELIVERY',

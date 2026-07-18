@@ -2,9 +2,39 @@
 $vendorName = $shipment['vendor_name'] ?? '-';
 $vendorRecommendations = $vendorRecommendations ?? [];
 $vendorActionState = $vendorActionState ?? [];
+$vendorTrackingEvents = $vendorTrackingEvents ?? [];
+$vendorTrackingStatusOptions = $vendorTrackingStatusOptions ?? [];
 $shipmentId = (int) ($shipment['id'] ?? 0);
 $submitted = !empty($vendorActionState['submitted']);
 $assigned = !empty($vendorActionState['assigned']);
+$currentShipmentStatus = strtoupper(
+    (string) ($shipment['shipment_status'] ?? '')
+);
+$vendorTrackingTerminal = in_array(
+    $currentShipmentStatus,
+    ['DELIVERED', 'RETURN_TO_SENDER', 'CANCELLED'],
+    true
+);
+
+$canManageVendorWorkflow = false;
+
+try {
+    $actorId = (int) (auth()->id() ?? 0);
+
+    if ($actorId > 0) {
+        $branchContext =
+            new \App\Services\BranchOperationalContextService();
+
+        $profile =
+            $branchContext->profileForUser($actorId);
+
+        $canManageVendorWorkflow =
+            is_array($profile)
+            && $branchContext->profileIsMain($profile);
+    }
+} catch (\Throwable $e) {
+    $canManageVendorWorkflow = false;
+}
 ?>
 
 <?php if (session()->getFlashdata('success')): ?>
@@ -110,7 +140,7 @@ $assigned = !empty($vendorActionState['assigned']);
                                 <td class="text-end">Rp <?= number_format((float) $recommendation['vendor_cost'], 0, ',', '.') ?></td>
                                 <td class="text-end <?= (float) $recommendation['profit'] < 0 ? 'text-danger' : 'text-success' ?>">Rp <?= number_format((float) $recommendation['profit'], 0, ',', '.') ?></td>
                                 <td style="min-width:260px">
-                                    <?php if (!empty($vendorActionState['can_assign'])): ?>
+                                    <?php if (!empty($vendorActionState['can_assign']) && $canManageVendorWorkflow): ?>
                                         <form method="post" action="<?= site_url('shipments/vendor/' . $shipmentId . '/assign') ?>">
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="recommendation_id" value="<?= (int) $recommendation['id'] ?>">
@@ -135,7 +165,7 @@ $assigned = !empty($vendorActionState['assigned']);
 <div class="card shadow-sm border-0 mt-3">
     <div class="card-header bg-dark text-white fw-bold">Submit to Vendor</div>
     <div class="card-body">
-        <?php if (!empty($vendorActionState['can_submit'])): ?>
+        <?php if (!empty($vendorActionState['can_submit']) && $canManageVendorWorkflow): ?>
             <form method="post" action="<?= site_url('shipments/vendor/' . $shipmentId . '/submit') ?>" onsubmit="return confirm('Submit shipment ke vendor dan kunci assignment?');">
                 <?= csrf_field() ?>
                 <div class="row g-3">
@@ -147,8 +177,299 @@ $assigned = !empty($vendorActionState['assigned']);
             </form>
         <?php elseif ($submitted): ?>
             <div class="alert alert-success mb-0">Shipment sudah disubmit ke vendor. Assignment, vendor cost, dan package vendor terkunci.</div>
+        <?php elseif (!$canManageVendorWorkflow): ?>
+            <div class="alert alert-secondary mb-0">
+                Submit ke vendor hanya dapat dilakukan oleh
+                JKT-HO / Head Office.
+            </div>
         <?php else: ?>
             <div class="alert alert-info mb-0"><?= esc($vendorActionState['submit_block_reason'] ?? 'Assign vendor terlebih dahulu.') ?></div>
+        <?php endif; ?>
+    </div>
+</div>
+<div
+    id="add-vendor-tracking"
+    class="card shadow-sm border-0 mt-3"
+    style="scroll-margin-top: 100px;"
+>
+    <div class="card-header bg-primary text-white d-flex flex-column flex-md-row justify-content-between gap-2">
+        <div>
+            <div class="fw-bold">🌍 Vendor & Multi-Country Transit Tracking</div>
+            <div class="small">
+                Transit hub dapat dicatat berkali-kali berdasarkan event time dan lokasi.
+            </div>
+        </div>
+        <span class="badge bg-light text-primary align-self-md-center">
+            <?= count($vendorTrackingEvents) ?> Event
+        </span>
+    </div>
+
+    <div class="card-body">
+        <?php if (!$submitted): ?>
+            <div class="alert alert-info mb-0">
+                Submit shipment ke vendor terlebih dahulu agar vendor tracking aktif.
+            </div>
+        <?php elseif ($vendorTrackingTerminal): ?>
+            <div class="alert alert-success">
+                Shipment sudah berada pada status terminal
+                <strong><?= esc($currentShipmentStatus) ?></strong>.
+                Event baru tidak dapat memundurkan status.
+            </div>
+        <?php elseif ($canManageVendorWorkflow): ?>
+            <form
+                method="post"
+                action="<?= site_url('shipments/vendor/' . $shipmentId . '/tracking-events') ?>">
+                <?= csrf_field() ?>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Vendor Event Status *</label>
+                        <select
+                            name="internal_status"
+                            class="form-select"
+                            required>
+                            <option value="">-- Select Vendor Event --</option>
+                            <?php foreach ($vendorTrackingStatusOptions as $code => $meta): ?>
+                                <option
+                                    value="<?= esc($code) ?>"
+                                    <?= old('internal_status') === $code
+                                        ? 'selected'
+                                        : '' ?>>
+                                    <?= esc($meta['label'] ?? $code) ?>
+                                    → <?= esc($meta['public_status'] ?? 'IN_TRANSIT') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Event Time *</label>
+                        <input
+    type="datetime-local"
+    name="event_time"
+    class="form-control"
+    step="1"
+    value="<?= esc(
+        old('event_time')
+        ?? date('Y-m-d\TH:i:s')
+    ) ?>"
+    required>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Time Zone</label>
+                        <input
+                            type="text"
+                            name="timezone_name"
+                            class="form-control"
+                            value="<?= esc(old('timezone_name') ?? '') ?>"
+                            placeholder="Asia/Jakarta, Asia/Singapore">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Country Code</label>
+                        <input
+                            type="text"
+                            name="country_code"
+                            class="form-control text-uppercase"
+                            maxlength="3"
+                            value="<?= esc(old('country_code') ?? '') ?>"
+                            placeholder="ID / SG / TW">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Country Name</label>
+                        <input
+                            type="text"
+                            name="country_name"
+                            class="form-control"
+                            maxlength="100"
+                            value="<?= esc(old('country_name') ?? '') ?>"
+                            placeholder="Singapore">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">City</label>
+                        <input
+                            type="text"
+                            name="city"
+                            class="form-control"
+                            maxlength="100"
+                            value="<?= esc(old('city') ?? '') ?>"
+                            placeholder="Singapore">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Hub / Airport</label>
+                        <input
+                            type="text"
+                            name="hub_code"
+                            class="form-control text-uppercase"
+                            maxlength="20"
+                            value="<?= esc(old('hub_code') ?? '') ?>"
+                            placeholder="SIN / HKG / TPE">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Vendor Code</label>
+                        <input
+                            type="text"
+                            name="vendor_status_code"
+                            class="form-control text-uppercase"
+                            maxlength="100"
+                            value="<?= esc(old('vendor_status_code') ?? '') ?>"
+                            placeholder="AF / PU">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Location Name</label>
+                        <input
+                            type="text"
+                            name="location_name"
+                            class="form-control"
+                            maxlength="200"
+                            value="<?= esc(old('location_name') ?? '') ?>"
+                            placeholder="Singapore Transit Gateway">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Source Event ID</label>
+                        <input
+                            type="text"
+                            name="source_event_id"
+                            class="form-control"
+                            maxlength="150"
+                            value="<?= esc(old('source_event_id') ?? '') ?>"
+                            placeholder="Optional vendor event ID">
+                    </div>
+
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="is_public"
+                                value="1"
+                                id="vendorTrackingPublic"
+                                <?= old('is_public', '1') ? 'checked' : '' ?>>
+                            <label
+                                class="form-check-label"
+                                for="vendorTrackingPublic">
+                                Tampilkan ke customer
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <textarea
+                            name="tracking_notes"
+                            class="form-control"
+                            rows="3"
+                            placeholder="Contoh: Shipment arrived at Singapore transit hub."><?= esc(old('tracking_notes') ?? '') ?></textarea>
+                    </div>
+                </div>
+
+                <div class="alert alert-light border mt-3 mb-0">
+                    <strong>Aturan:</strong>
+                    ARRIVED/DEPARTED TRANSIT HUB dapat digunakan berulang kali.
+                    Event lama tetap disimpan, tetapi tidak boleh memundurkan
+                    status shipment yang lebih baru.
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-3">
+                    ➕ Add Vendor Tracking Event
+                </button>
+            </form>
+        <?php else: ?>
+            <div class="alert alert-secondary mt-3">
+                Vendor tracking hanya dapat diperbarui oleh
+                JKT-HO / Head Office. Data tracking tetap dapat dilihat.
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <div class="card-body border-top p-0">
+        <?php if (empty($vendorTrackingEvents)): ?>
+            <div class="text-center text-muted py-4">
+                Belum ada vendor tracking event.
+            </div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Location</th>
+                            <th>Source</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($vendorTrackingEvents as $event): ?>
+                            <tr>
+                                <td style="min-width:165px">
+                                    <?= esc($event['event_time'] ?? '-') ?>
+                                    <?php if (!empty($event['timezone_name'])): ?>
+                                        <div class="small text-muted">
+                                            <?= esc($event['timezone_name']) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="min-width:230px">
+                                    <span class="badge bg-primary">
+                                        <?= esc($event['internal_status'] ?? '-') ?>
+                                    </span>
+                                    <div class="small text-muted mt-1">
+                                        Public:
+                                        <?= esc($event['public_status'] ?? '-') ?>
+                                    </div>
+                                    <?php if (!empty($event['vendor_status_code'])): ?>
+                                        <div class="small">
+                                            Vendor code:
+                                            <?= esc($event['vendor_status_code']) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="min-width:220px">
+                                    <div class="fw-semibold">
+                                        <?= esc($event['location_name'] ?? '-') ?>
+                                    </div>
+                                    <div class="small text-muted">
+                                        <?= esc(
+                                            implode(
+                                                ' · ',
+                                                array_filter([
+                                                    $event['hub_code'] ?? null,
+                                                    $event['city'] ?? null,
+                                                    $event['country_name']
+                                                        ?? $event['country_code']
+                                                        ?? null,
+                                                ])
+                                            )
+                                        ) ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <?= esc($event['event_source'] ?? '-') ?>
+                                    <?php if (!empty($event['source_event_id'])): ?>
+                                        <div class="small text-muted">
+                                            <?= esc($event['source_event_id']) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="min-width:260px">
+                                    <?= nl2br(esc($event['tracking_notes'] ?? '-')) ?>
+                                    <div class="small text-muted mt-1">
+                                        Sequence #<?= (int) ($event['event_sequence'] ?? 0) ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
     </div>
 </div>

@@ -8,6 +8,7 @@ use App\Libraries\AwbGenerator;
 use App\Models\ShipmentPackageModel;
 use App\Models\ShipmentPackageItemModel;
 use App\Models\ShipmentTrackingModel;
+use App\Models\ShipmentVendorTrackingEventModel;
 use App\Models\TrackingStatusModel;
 use App\Models\CustomerModel;
 use App\Models\CustomerAddressModel;
@@ -28,6 +29,7 @@ use App\Services\CommodityRuleService;
 use App\Services\PricingEngine;
 use App\Services\ShipmentLifecycleService;
 use App\Services\ShipmentVendorWorkflowService;
+use App\Services\VendorTransitTrackingService;
 use App\Models\InboundIntakeModel;
 use App\Models\InboundIntakePackageModel;
 use App\Models\AgentModel;
@@ -38,8 +40,24 @@ class ShipmentController extends BaseController
 {
     public function index()
     {
+        if (!$this->isOperationalUser()) {
+            return redirect()->to(site_url('customer/dashboard'));
+        }
+
         $shipmentModel = new ShipmentModel();
         $lifecycle     = new ShipmentLifecycleService();
+        $access        = $this->shipmentAccessContext();
+
+        if (!$access['is_head_office']) {
+            $agentId = (int) ($access['agent_id'] ?? 0);
+
+            if ($agentId <= 0) {
+                return redirect()->to(site_url('agent/dashboard'))
+                    ->with('error', 'User belum terhubung ke agent aktif.');
+            }
+
+            $shipmentModel->where('agent_id', $agentId);
+        }
 
         $shipments = $shipmentModel
             ->orderBy('id', 'DESC')
@@ -221,6 +239,8 @@ public function create()
         if (!$shipment) {
             return redirect()->to(site_url('shipments'))->with('error', 'Shipment tidak ditemukan atau sudah dihapus');
         }
+
+        $this->assertShipmentReadable($shipment);
 
         $packages = $packageModel->where('shipment_id', $id)->findAll();
         foreach ($packages as &$package) {
@@ -1588,10 +1608,26 @@ public function create()
                 continue;
             }
 
+            $isPublicVendorEvent = (int) ($row['is_public'] ?? 0) === 1
+                && (
+                    strtoupper((string) ($row['event_type'] ?? ''))
+                        === 'VENDOR_TRACKING'
+                    || !empty($row['vendor_event_id'])
+                );
+
+            $customMessage = $isPublicVendorEvent
+                ? trim((string) ($row['tracking_notes'] ?? ''))
+                : '';
+
             $publicEvents[] = [
                 'status_code' => $statusCode,
                 'status_name' => $this->publicStatusName($statusCode),
-                'message'     => $this->publicStatusMessage($statusCode),
+                'message'     => $customMessage !== ''
+                    ? $customMessage
+                    : $this->publicStatusMessage($statusCode),
+                'location'    => $isPublicVendorEvent
+                    ? trim((string) ($row['tracking_location'] ?? ''))
+                    : '',
                 'event_time'  => $row['event_time']
                     ?? $row['created_at']
                     ?? null,
@@ -2924,8 +2960,8 @@ public function create()
         return $this->response->setJSON(['success' => true, 'price_per_kg' => 55000, 'total' => 660000]);
     }
 
-  
-    
+
+
 
 public function getCommodityRule()
 {
@@ -2961,6 +2997,7 @@ public function detail($id)
     $packageModel  = new ShipmentPackageModel();
     $itemModel     = new ShipmentPackageItemModel();
     $trackingModel = new ShipmentTrackingModel();
+    $vendorTrackingEventModel = new ShipmentVendorTrackingEventModel();
     $costModel     = new ShipmentCostDetailModel();
     $statusModel   = new TrackingStatusModel();
     $historyModel  = new ShipmentHistoryModel();
@@ -3024,6 +3061,10 @@ public function detail($id)
         );
     }
 
+    $this->assertShipmentReadable($shipment);
+    $detailAccess = $this->shipmentAccessContext();
+    $canViewInternalCommercials = (bool) ($detailAccess['is_head_office'] ?? false);
+
     $packages = $packageModel
         ->where('shipment_id', $shipmentId)
         ->orderBy('package_no', 'ASC')
@@ -3043,6 +3084,16 @@ public function detail($id)
         ->orderBy('event_time', 'DESC')
         ->orderBy('id', 'DESC')
         ->findAll();
+
+$vendorTrackingEvents = $vendorTrackingEventModel
+    ->where('shipment_id', $shipmentId)
+    ->orderBy('event_sequence', 'DESC')
+    ->orderBy('event_time', 'DESC')
+    ->orderBy('id', 'DESC')
+    ->findAll();
+
+    $vendorTrackingStatusOptions =
+        VendorTransitTrackingService::manualStatusOptions();
 
     $statuses = $statusModel
         ->where('is_active', 1)
@@ -3113,6 +3164,22 @@ public function detail($id)
 
     $actionState = $lifecycle->getActionState($shipment);
 
+    if (!$canViewInternalCommercials) {
+        $shipment['vendor_name'] = '-';
+        $shipment['vendor_cost'] = 0;
+        $shipment['vendor_freight'] = 0;
+        $shipment['vendor_total'] = 0;
+        $shipment['profit_amount'] = 0;
+        $shipment['margin_percent'] = 0;
+        $vendorCosts = [];
+        $vendorCostTotal = 0.0;
+        $vendorTotal = 0.0;
+        $profit = 0.0;
+        $margin = 0.0;
+        $vendorRecommendations = [];
+        $vendorTrackingEvents = [];
+    }
+
     return view('shipments/detail', [
         'shipment'          => $shipment,
         'packages'          => $packages,
@@ -3129,8 +3196,10 @@ public function detail($id)
         'profit'            => round($profit, 2),
         'margin'            => round($margin, 2),
         'actionState'          => $actionState,
-        'vendorRecommendations'=> $vendorRecommendations,
-        'vendorActionState'    => $vendorActionState,
+        'vendorRecommendations'       => $vendorRecommendations,
+        'vendorActionState'           => $vendorActionState,
+        'vendorTrackingEvents'        => $vendorTrackingEvents,
+        'vendorTrackingStatusOptions' => $vendorTrackingStatusOptions,
     ]);
 }
 // Taruh ini di dalam isi class-nya
@@ -3223,6 +3292,58 @@ public function calculateRate()
     return $this->response->setJSON(
         $pricing->calculate($shipment)
     );
+}
+
+private function shipmentAccessContext(): array
+{
+    $actorId = (int) (auth()->id() ?? 0);
+    $user    = auth()->user();
+
+    if ($actorId <= 0 || $user === null) {
+        throw new \RuntimeException('Sesi user tidak ditemukan.');
+    }
+
+    if ($user->inGroup('superadmin')) {
+        return [
+            'is_head_office' => true,
+            'agent_id'       => null,
+            'profile'        => null,
+        ];
+    }
+
+    if (!$user->inGroup('admin')) {
+        return [
+            'is_head_office' => false,
+            'agent_id'       => 0,
+            'profile'        => null,
+        ];
+    }
+
+    $context = new BranchOperationalContextService();
+    $profile = $context->requireProfile($actorId);
+
+    return [
+        'is_head_office' => $context->profileIsMain($profile),
+        'agent_id'       => (int) ($profile['agent_id'] ?? 0),
+        'profile'        => $profile,
+    ];
+}
+
+private function assertShipmentReadable(array $shipment): void
+{
+    $access = $this->shipmentAccessContext();
+
+    if ($access['is_head_office']) {
+        return;
+    }
+
+    $agentId = (int) ($access['agent_id'] ?? 0);
+
+    if ($agentId <= 0 || (int) ($shipment['agent_id'] ?? 0) !== $agentId) {
+        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+            'Shipment tidak ditemukan untuk agent yang sedang login.'
+        );
+    }
 }
 
 private function isOperationalUser(): bool

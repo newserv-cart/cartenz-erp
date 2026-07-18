@@ -1,76 +1,151 @@
-<ul class="nav nav-tabs flex-nowrap overflow-auto" role="tablist">
-    <li class="nav-item">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#shipment" type="button">
-            📦 Shipment
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pricing" type="button">
-            💰 Pricing
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#vendor" type="button">
-            🏢 Vendor
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tracking" type="button">
-            📍 Tracking
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button">
-            💳 Billing
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#history" type="button">
-            📝 History
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#attachment" type="button">
-            📎 Attachment
-        </button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#api" type="button">
-            🔗 API Log
-        </button>
-    </li>
+<?php
+
+$request = service('request');
+$user    = auth()->user();
+$actorId = (int) (auth()->id() ?? 0);
+
+$isSuperAdmin = $user && $user->inGroup('superadmin');
+$isCustomerUser = $user
+    && $user->inGroup('user')
+    && !$user->inGroup('admin')
+    && !$user->inGroup('superadmin');
+
+$operationalProfile = null;
+$isHeadOffice        = $isSuperAdmin;
+$isAgentBranch       = false;
+
+try {
+    if ($actorId > 0) {
+        $context = new \App\Services\BranchOperationalContextService();
+        $operationalProfile = $context->profileForUser($actorId);
+
+        if (is_array($operationalProfile)) {
+            $isHeadOffice = $isHeadOffice || $context->profileIsMain($operationalProfile);
+            $isAgentBranch = !$isHeadOffice
+                && (int) ($operationalProfile['agent_id'] ?? 0) > 0;
+        }
+    }
+} catch (\Throwable $e) {
+    $operationalProfile = null;
+}
+
+if ($isHeadOffice) {
+    $tabs = [
+        'shipment'   => ['📦 Shipment', 'shipments/partials/shipment'],
+        'pricing'    => ['💰 Pricing', 'shipments/partials/pricing'],
+        'vendor'     => ['🏢 Vendor', 'shipments/partials/vendor'],
+        'tracking'   => ['📍 Tracking', 'shipments/partials/tracking'],
+        'billing'    => ['💳 Billing', 'shipments/partials/billing'],
+        'history'    => ['📝 History', 'shipments/partials/history'],
+        'attachment' => ['📎 Attachment', 'shipments/partials/attachment'],
+        'api'        => ['🔗 API Log', 'shipments/partials/api_log'],
+    ];
+} else {
+    $tabs = [
+        'shipment' => ['📦 Shipment', 'shipments/partials/shipment'],
+        'tracking' => ['📍 Tracking', 'shipments/partials/tracking'],
+        'charges'  => [
+            $isAgentBranch ? '💳 Tagihan Agen' : '💳 Biaya Pengiriman',
+            'shipments/partials/party_charges',
+        ],
+    ];
+}
+
+$allowedTabs = array_keys($tabs);
+$requestedTab = strtolower(trim((string) ($request->getGet('tab') ?? '')));
+$activeTab = in_array($requestedTab, $allowedTabs, true)
+    ? $requestedTab
+    : 'shipment';
+?>
+
+<ul class="nav nav-tabs" role="tablist">
+    <?php foreach ($tabs as $tabId => [$label, $partial]): ?>
+        <li class="nav-item" role="presentation">
+            <a
+                class="nav-link <?= $activeTab === $tabId ? 'active' : '' ?>"
+                data-bs-toggle="tab"
+                href="#<?= esc($tabId) ?>"
+                role="tab"
+                aria-selected="<?= $activeTab === $tabId ? 'true' : 'false' ?>"
+            >
+                <?= esc($label) ?>
+            </a>
+        </li>
+    <?php endforeach; ?>
 </ul>
 
-<div class="tab-content border border-top-0 bg-white p-3 p-lg-4">
-    <div class="tab-pane fade show active" id="shipment" role="tabpanel">
-        <?= $this->include('shipments/partials/shipment') ?>
-    </div>
-
-    <div class="tab-pane fade" id="pricing" role="tabpanel">
-        <?= $this->include('shipments/partials/pricing') ?>
-    </div>
-
-    <div class="tab-pane fade" id="vendor" role="tabpanel">
-        <?= $this->include('shipments/partials/vendor') ?>
-    </div>
-
-    <div class="tab-pane fade" id="tracking" role="tabpanel">
-        <?= $this->include('shipments/partials/tracking') ?>
-    </div>
-
-    <div class="tab-pane fade" id="billing" role="tabpanel">
-        <?= $this->include('shipments/partials/billing') ?>
-    </div>
-
-    <div class="tab-pane fade" id="history" role="tabpanel">
-        <?= $this->include('shipments/partials/history') ?>
-    </div>
-
-    <div class="tab-pane fade" id="attachment" role="tabpanel">
-        <?= $this->include('shipments/partials/attachment') ?>
-    </div>
-
-    <div class="tab-pane fade" id="api" role="tabpanel">
-        <?= $this->include('shipments/partials/api_log') ?>
-    </div>
+<div class="tab-content border border-top-0 p-4 bg-white">
+    <?php foreach ($tabs as $tabId => [$label, $partial]): ?>
+        <div
+            class="tab-pane fade <?= $activeTab === $tabId ? 'show active' : '' ?>"
+            id="<?= esc($tabId) ?>"
+            role="tabpanel"
+        >
+            <?= $this->include($partial) ?>
+        </div>
+    <?php endforeach; ?>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const allowedTabs = <?= json_encode($allowedTabs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.replace('#', '').trim();
+    let requestedTab = params.get('tab');
+
+    if (!requestedTab && hash === 'add-vendor-tracking' && allowedTabs.includes('vendor')) {
+        requestedTab = 'vendor';
+    }
+
+    if (!allowedTabs.includes(requestedTab)) {
+        return;
+    }
+
+    const navContainer = document.querySelector('.nav-tabs');
+    const contentContainer = document.querySelector('.tab-content');
+
+    if (!navContainer || !contentContainer) {
+        return;
+    }
+
+    const tabButton = navContainer.querySelector(
+        '[href="#' + requestedTab + '"], [data-bs-target="#' + requestedTab + '"]'
+    );
+    const tabPane = document.getElementById(requestedTab);
+
+    if (!tabButton || !tabPane) {
+        return;
+    }
+
+    navContainer.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (button) {
+        button.classList.remove('active');
+        button.setAttribute('aria-selected', 'false');
+    });
+
+    contentContainer.querySelectorAll('.tab-pane').forEach(function (pane) {
+        pane.classList.remove('show', 'active');
+    });
+
+    tabButton.classList.add('active');
+    tabButton.setAttribute('aria-selected', 'true');
+    tabPane.classList.add('show', 'active');
+
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+        bootstrap.Tab.getOrCreateInstance(tabButton).show();
+    }
+
+    const anchorName = params.get('anchor') || hash;
+
+    if (!anchorName) {
+        return;
+    }
+
+    window.setTimeout(function () {
+        const target = document.getElementById(anchorName);
+
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 350);
+});
+</script>

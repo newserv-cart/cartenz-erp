@@ -530,6 +530,12 @@ if ($currentStepIndex === false) {
                                 </div>
                             </div>
 
+                            <?php if (!empty($event['location'])): ?>
+                                <div class="fw-semibold mt-2">
+                                    📍 <?= esc($event['location']) ?>
+                                </div>
+                            <?php endif; ?>
+
                             <div class="mt-2">
                                 <?= esc($event['message']) ?>
                             </div>

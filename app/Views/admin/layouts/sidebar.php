@@ -1,6 +1,26 @@
 <?php
 $uri = service('uri');
 $current = $uri->getPath();
+
+$canManageFinance = false;
+
+try {
+    $actorId = (int) (auth()->id() ?? 0);
+
+    if ($actorId > 0) {
+        $branchContext =
+            new \App\Services\BranchOperationalContextService();
+
+        $profile =
+            $branchContext->profileForUser($actorId);
+
+        $canManageFinance =
+            is_array($profile)
+            && $branchContext->profileIsMain($profile);
+    }
+} catch (\Throwable $e) {
+    $canManageFinance = false;
+}
 ?>
 
 <div class="sidebar">
@@ -84,9 +104,11 @@ Express Rate
             <i class="bi bi-credit-card"></i> Customer Payment
         </a>
 
+        <?php if ($canManageFinance): ?>
         <a href="<?= site_url('finance/agent-payments') ?>">
             <i class="bi bi-wallet2"></i> Agent Payment
         </a>
+        <?php endif; ?>
 
         <div class="menu-title">SYSTEM</div>
 

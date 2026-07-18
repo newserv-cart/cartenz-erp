@@ -1,111 +1,34 @@
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<?= $this->extend('admin/layouts/app') ?>
+<?= $this->section('content') ?>
 
-<div class="container mt-4">
-
-<h2>🏢 AGENT DASHBOARD</h2>
-
-<hr>
-
-<div class="mb-3">
-
-<a href="<?= site_url('agent/customers') ?>"
-   class="btn btn-primary">
-   👥 Customers
-</a>
-
-<a href="<?= site_url('agent/invoices') ?>"
-   class="btn btn-warning">
-   🧾 Invoices
-</a>
-
-<a href="<?= site_url('manifests') ?>"
-   class="btn btn-info">
-   📋 Manifests
-</a>
-
-<a href="<?= site_url('shipments') ?>"
-   class="btn btn-success">
-   📦 Shipments
-</a>
-
-
-
-
-</div>
-
-<div class="row">
-
-    <div class="col-md-3">
-        <div class="card border-primary">
-            <div class="card-body text-center">
-                <h5>👥 Customers</h5>
-                <h2><?= $totalCustomers ?></h2>
-            </div>
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="mb-1">🏢 <?= esc($agent['agent_name'] ?? 'Agent Dashboard') ?></h3>
+            <div class="text-muted"><?= esc($agent['agent_code'] ?? '-') ?></div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="<?= site_url('shipments') ?>" class="btn btn-success">📦 Shipments</a>
+            <a href="<?= site_url('manifests') ?>" class="btn btn-info">📋 Manifests</a>
+            <a href="<?= site_url('agent/self-billing') ?>" class="btn btn-primary">💳 Tagihan Agen</a>
         </div>
     </div>
 
-    <div class="col-md-3">
-        <div class="card border-success">
-            <div class="card-body text-center">
-                <h5>📦 Shipments</h5>
-                <h2><?= $totalShipments ?></h2>
-            </div>
-        </div>
+    <div class="row g-3">
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body text-center">
+            <div class="text-muted">Customers</div><h2><?= number_format((int) $totalCustomers) ?></h2>
+        </div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body text-center">
+            <div class="text-muted">Shipments</div><h2><?= number_format((int) $totalShipments) ?></h2>
+        </div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body text-center">
+            <div class="text-muted">Agent Invoices</div><h2><?= number_format((int) $totalInvoices) ?></h2>
+        </div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body text-center">
+            <div class="text-muted">Outstanding</div>
+            <h4>Rp <?= number_format((float) $outstanding, 0, ',', '.') ?></h4>
+        </div></div></div>
     </div>
-
-    <div class="col-md-3">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <h5>🧾 Invoices</h5>
-                <h2><?= $totalInvoices ?></h2>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card border-danger">
-            <div class="card-body text-center">
-                <h5>💰 Outstanding</h5>
-                <h5>
-                    Rp <?= number_format($outstanding) ?>
-                </h5>
-            </div>
-        </div>
-    </div>
-
 </div>
 
-<div class="card mt-4">
-
-    <div class="card-header">
-        Agent Customers
-    </div>
-
-    <div class="card-body">
-
-        <table class="table table-bordered">
-
-            <tr>
-                <th>Customer</th>
-                <th>Status</th>
-            </tr>
-
-            <?php foreach($customers as $c): ?>
-
-            <tr>
-
-                <td><?= esc($c['customer_name']) ?></td>
-
-                <td><?= esc($c['account_status']) ?></td>
-
-            </tr>
-
-            <?php endforeach; ?>
-
-        </table>
-
-    </div>
-
-</div>
-
-</div>
+<?= $this->endSection() ?>

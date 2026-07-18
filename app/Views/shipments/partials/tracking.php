@@ -209,10 +209,20 @@ $directReceiveBlocked = in_array(
                         );
 
                         $badgeClass = match ($internalStatus) {
-                            'DELIVERED' => 'success',
-                            'RETURN_TO_SENDER' => 'danger',
-                            'ON_HOLD' => 'warning',
-                            'OUT_FOR_DELIVERY' => 'dark',
+                            'DELIVERED',
+                            'CUSTOMS_CLEARANCE_COMPLETED'
+                                => 'success',
+                            'RETURN_TO_SENDER',
+                            'CUSTOMS_EXCEPTION'
+                                => 'danger',
+                            'ON_HOLD',
+                            'ARRIVED_AT_TRANSIT_HUB',
+                            'DEPARTED_TRANSIT_HUB',
+                            'CUSTOMS_CLEARANCE_STARTED'
+                                => 'warning',
+                            'OUT_FOR_DELIVERY',
+                            'HANDED_TO_LAST_MILE'
+                                => 'dark',
                             default => 'primary',
                         };
                         ?>
@@ -237,6 +247,47 @@ $directReceiveBlocked = in_array(
                             <div class="fw-bold mt-3">
                                 <?= esc($row['tracking_location'] ?? 'Cartenz System') ?>
                             </div>
+
+                            <?php if (
+                                strtoupper((string) ($row['event_type'] ?? ''))
+                                    === 'VENDOR_TRACKING'
+                                || !empty($row['vendor_event_id'])
+                            ): ?>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <span class="badge bg-dark">
+                                        Source:
+                                        <?= esc($row['source_system'] ?? 'VENDOR') ?>
+                                    </span>
+
+                                    <?php if (!empty($row['vendor_status_code'])): ?>
+                                        <span class="badge bg-secondary">
+                                            Vendor Code:
+                                            <?= esc($row['vendor_status_code']) ?>
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if (!empty($row['hub_code'])): ?>
+                                        <span class="badge bg-info text-dark">
+                                            Hub: <?= esc($row['hub_code']) ?>
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if (!empty($row['country_name']) || !empty($row['country_code'])): ?>
+                                        <span class="badge bg-light text-dark border">
+                                            <?= esc(
+                                                $row['country_name']
+                                                ?? $row['country_code']
+                                            ) ?>
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if (!empty($row['timezone_name'])): ?>
+                                        <span class="badge bg-light text-dark border">
+                                            TZ: <?= esc($row['timezone_name']) ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
 
                             <div class="mt-1">
                                 <?= nl2br(esc($row['tracking_notes'] ?? '-')) ?>

@@ -3,72 +3,43 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
+use App\Models\AgentInvoiceModel;
 use App\Models\CustomerModel;
 use App\Models\ShipmentModel;
-use App\Models\InvoiceModel;
+use App\Services\AgentSelfBillingService;
 
 class AgentDashboardController extends BaseController
 {
     public function index()
     {
-        $agentId = 1; // sementara AGT001
+        try {
+            $context = (new AgentSelfBillingService())->requireAgentContext(
+                (int) (auth()->id() ?? 0)
+            );
 
-        $customerModel = new CustomerModel();
-        $shipmentModel = new ShipmentModel();
-        $invoiceModel  = new InvoiceModel();
+            $agentId = (int) $context['agent_id'];
+            $customers = (new CustomerModel())
+                ->where('agent_id', $agentId)
+                ->findAll();
 
-        $customers = $customerModel
-            ->where('agent_id', $agentId)
-            ->findAll();
-
-        $customerIds = array_column(
-            $customers,
-            'id'
-        );
-
-        $data['totalCustomers']
-            = count($customerIds);
-
-        $data['totalShipments']
-            = empty($customerIds)
-            ? 0
-            : $shipmentModel
-                ->whereIn(
-                    'customer_id',
-                    $customerIds
-                )
-                ->countAllResults();
-
-        $data['totalInvoices']
-            = empty($customerIds)
-            ? 0
-            : $invoiceModel
-                ->whereIn(
-                    'customer_id',
-                    $customerIds
-                )
-                ->countAllResults();
-
-        $outstanding = empty($customerIds)
-            ? ['balance_amount'=>0]
-            : $invoiceModel
+            $outstanding = (new AgentInvoiceModel())
                 ->selectSum('balance_amount')
-                ->whereIn(
-                    'customer_id',
-                    $customerIds
-                )
+                ->where('agent_id', $agentId)
                 ->first();
 
-        $data['outstanding']
-            = $outstanding['balance_amount']
-            ?? 0;
-
-        $data['customers']
-            = $customers;
-
-        return view(
-            'agent/dashboard',
-            $data
-        );
+            return view('agent/dashboard', [
+                'agent'          => $context['agent'],
+                'totalCustomers' => count($customers),
+                'totalShipments' => (new ShipmentModel())
+                    ->where('agent_id', $agentId)
+                    ->countAllResults(),
+                'totalInvoices'  => (new AgentInvoiceModel())
+                    ->where('agent_id', $agentId)
+                    ->countAllResults(),
+                'outstanding'    => (float) ($outstanding['balance_amount'] ?? 0),
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->to(site_url('shipments'))->with('error', $e->getMessage());
+        }
     }
 }

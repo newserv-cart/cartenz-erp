@@ -369,6 +369,19 @@ class ShipmentVendorWorkflowService
                 }
             }
 
+            /*
+             * Simpan event pertama vendor tracking dalam transaksi yang sama.
+             * Status shipment berubah menjadi SUBMITTED_TO_VENDOR hanya jika
+             * seluruh proses submit dan tracking berhasil.
+             */
+            (new VendorTransitTrackingService($this->db))
+                ->recordSystemSubmission(
+                    $shipmentId,
+                    $vendorAwbNo,
+                    $actorId,
+                    false
+                );
+
             $this->recordHistory(
                 $shipmentId,
                 'SUBMITTED_TO_VENDOR',

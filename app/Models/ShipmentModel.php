@@ -80,6 +80,9 @@ class ShipmentModel extends Model
 
         'invoice_id',
         'is_invoiced',
+        'agent_invoice_id',
+        'is_agent_invoiced',
+        'agent_invoiced_at',
         'shipment_status',
         'public_tracking_status',
         'cancel_reason',
