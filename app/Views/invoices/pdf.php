@@ -66,17 +66,17 @@ INVOICE
 <td style="border:none;">
 
 Invoice No :
-<?= esc($invoice['invoice_no']) ?>
+<?= esc($invoice['invoice_no'] ?? '-') ?>
 
 <br>
 
 Invoice Date :
-<?= date('d-m-Y',strtotime($invoice['invoice_date'])) ?>
+<?= !empty($invoice['invoice_date']) ? date('d-m-Y',strtotime($invoice['invoice_date'])) : '-' ?>
 
 <br>
 
 Due Date :
-<?= date('d-m-Y',strtotime($invoice['due_date'])) ?>
+<?= !empty($invoice['due_date']) ? date('d-m-Y',strtotime($invoice['due_date'])) : '-' ?>
 
 </td>
 
@@ -93,6 +93,9 @@ Due Date :
 
 <th>Date</th>
 <th>AWB</th>
+<th>Receiver</th>
+<th>Country</th>
+<th>Package</th>
 <th>Weight</th>
 <th>Amount</th>
 
@@ -102,86 +105,79 @@ Due Date :
 
 <tbody>
 
+<?php if (!empty($items)): ?>
 <?php foreach($items as $item): ?>
+
+<?php
+$receiverName = trim((string) ($item['receiver_name'] ?? ''));
+$countryName = trim((string) ($item['country_name'] ?? ''));
+$packageTypeName = trim((string) ($item['package_type_name'] ?? ''));
+$shipmentDate = $item['shipment_date'] ?? $item['shipment_created_at'] ?? null;
+?>
 
 <tr>
 
 <td>
-<?= date('d-m-Y',strtotime($item['created_at'])) ?>
+<?= $shipmentDate ? date('d-m-Y', strtotime($shipmentDate)) : '-' ?>
 </td>
 
 <td>
-<?= esc($item['awb_no']) ?>
+<?= esc($item['awb_no'] ?? '-') ?>
+</td>
+
+<td>
+<?= esc($receiverName !== '' ? $receiverName : '-') ?>
+</td>
+
+<td>
+<?= esc($countryName !== '' ? $countryName : '-') ?>
+</td>
+
+<td>
+<?= esc($packageTypeName !== '' ? $packageTypeName : '-') ?>
 </td>
 
 <td class="text-right">
-<?= number_format($item['chargeable_weight'],2) ?>
+<?= number_format($item['invoice_weight'] ?? 0, 2, ',', '.') ?>
 </td>
 
 <td class="text-right">
-Rp <?= number_format($item['amount'],0,',','.') ?>
+Rp <?= number_format($item['amount'] ?? 0,0,',','.') ?>
 </td>
 
 </tr>
 
 <?php endforeach; ?>
+<?php else: ?>
+<tr>
+    <td colspan="7" class="text-center">No items found</td>
+</tr>
+<?php endif; ?>
 
 </tbody>
 
 <tfoot>
 
 <tr>
-
-<th colspan="3" class="text-right">
-Sub Total
-</th>
-
-<th class="text-right">
-Rp <?= number_format($invoice['total_amount'],0,',','.') ?>
-</th>
-
+    <th colspan="6" class="text-right">Sub Total</th>
+    <th class="text-right">Rp <?= number_format($invoice['total_amount'] ?? 0,0,',','.') ?></th>
 </tr>
 
 <tr>
-
-<th colspan="3" class="text-right">
-VAT
-</th>
-
-<th class="text-right">
-Rp <?= number_format($invoice['vat_amount'] ?? 0,0,',','.') ?>
-</th>
-
+    <th colspan="6" class="text-right">VAT (<?= $invoice['vat_percent'] ?? 0 ?>%)</th>
+    <th class="text-right">Rp <?= number_format($invoice['vat_amount'] ?? 0,0,',','.') ?></th>
 </tr>
 
 <tr>
-
-<th colspan="3" class="text-right">
-Extra Charge
-</th>
-
-<th class="text-right">
-Rp <?= number_format($invoice['extra_charge'] ?? 0,0,',','.') ?>
-</th>
-
+    <th colspan="6" class="text-right">Extra Charge</th>
+    <th class="text-right">Rp <?= number_format($invoice['extra_charge'] ?? 0,0,',','.') ?></th>
 </tr>
 
 <tr>
-
-    <th colspan="3" class="text-right">
-        Grand Total
-    </th>
-
-    <th class="text-right">
-        Rp <?= number_format(
-            $invoice['grand_total'] ?? $invoice['total_amount'],
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-
+    <th colspan="6" class="text-right">Grand Total</th>
+    <th class="text-right">Rp <?= number_format($invoice['grand_total'] ?? $invoice['total_amount'] ?? 0,0,',','.') ?></th>
 </tr>
+
 </tfoot>
 
 </table>
@@ -194,7 +190,7 @@ Rp <?= number_format($invoice['extra_charge'] ?? 0,0,',','.') ?>
 
 <?= trim(
     terbilang(
-        (int)($invoice['grand_total'] ?? $invoice['total_amount'])
+        (int)($invoice['grand_total'] ?? $invoice['total_amount'] ?? 0)
     )
 ) ?>
 
@@ -202,17 +198,116 @@ Rupiah
 
 </p>
 
-<br><br>
+<!-- Payment Information (Versi PDF) -->
+<?php
+$bankName = trim(
+    (string) ($bankAccount['bank_name'] ?? '')
+);
 
-<h4>
-Payment Information
-</h4>
+$accountName = trim(
+    (string) ($bankAccount['account_name'] ?? '')
+);
 
-<p>
+$accountNumber = trim(
+    (string) ($bankAccount['account_number'] ?? '')
+);
 
-Bank Transfer
+$swiftCode = trim(
+    (string) ($bankAccount['swift_code'] ?? '')
+);
 
-</p>
+$currency = trim(
+    (string) ($bankAccount['currency'] ?? '')
+);
+?>
+
+<div style="margin-top: 25px;">
+    <div
+        style="
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+        "
+    >
+        Payment Information
+    </div>
+
+    <?php if ($bankAccount !== []): ?>
+
+        <table
+            style="
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 11px;
+            "
+        >
+            <tr>
+                <td style="width: 120px; padding: 2px 0;">
+                    Bank
+                </td>
+                <td style="width: 15px;">:</td>
+                <td>
+                    <strong><?= esc($bankName) ?></strong>
+                </td>
+            </tr>
+
+            <tr>
+                <td style="padding: 2px 0;">
+                    Account Name
+                </td>
+                <td>:</td>
+                <td>
+                    <strong><?= esc($accountName) ?></strong>
+                </td>
+            </tr>
+
+            <tr>
+                <td style="padding: 2px 0;">
+                    Account Number
+                </td>
+                <td>:</td>
+                <td>
+                    <strong><?= esc($accountNumber) ?></strong>
+                </td>
+            </tr>
+
+            <tr>
+                <td style="padding: 2px 0;">
+                    Currency
+                </td>
+                <td>:</td>
+                <td><?= esc($currency ?: 'IDR') ?></td>
+            </tr>
+
+            <?php if ($swiftCode !== ''): ?>
+                <tr>
+                    <td style="padding: 2px 0;">
+                        SWIFT Code
+                    </td>
+                    <td>:</td>
+                    <td><?= esc($swiftCode) ?></td>
+                </tr>
+            <?php endif; ?>
+        </table>
+
+        <div
+            style="
+                margin-top: 7px;
+                font-size: 10px;
+                font-style: italic;
+            "
+        >
+            Mohon cantumkan nomor invoice pada berita transfer.
+        </div>
+
+    <?php else: ?>
+
+        <div style="font-size: 11px;">
+            Rekening pembayaran belum dikonfigurasi.
+        </div>
+
+    <?php endif; ?>
+</div>
 
 <br><br><br>
 

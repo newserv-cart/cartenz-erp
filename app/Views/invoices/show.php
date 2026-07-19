@@ -8,6 +8,7 @@
         @media print {
             .btn { display: none !important; }
             .card { border: none !important; }
+            .card-header { border-bottom: 2px solid #dee2e6 !important; }
         }
     </style>
 </head>
@@ -48,32 +49,19 @@
                         </span>
                     </p>
 
-
-
-<div class="text-end">
-
-    <a
-        href="#"
-        onclick="window.print();"
-        class="btn btn-primary btn-sm">
-
-        Print Invoice
-
-    </a>
-                      <a
-    href="<?= base_url('invoices/pdf/'.$invoice['id']) ?>"
-    class="btn btn-danger btn-sm"
-    target="_blank">
-
-    PDF Invoice
-
-</a>      
-
-                    <?php if (($invoice['invoice_status'] ?? '') !== 'PAID'): ?>
-                        <a href="<?= base_url('payments/create/'.($invoice['id'] ?? '')) ?>" class="btn btn-success btn-sm">
-                            Receive Payment
+                    <div class="d-flex gap-2">
+                        <a href="#" onclick="window.print();" class="btn btn-primary btn-sm">
+                            Print Invoice
                         </a>
-                    <?php endif; ?>
+                        <a href="<?= base_url('invoices/pdf/'.$invoice['id']) ?>" class="btn btn-danger btn-sm" target="_blank">
+                            PDF Invoice
+                        </a>
+                        <?php if (($invoice['invoice_status'] ?? '') !== 'PAID'): ?>
+                            <a href="<?= base_url('payments/create/'.($invoice['id'] ?? '')) ?>" class="btn btn-success btn-sm">
+                                Receive Payment
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
             </div>
@@ -84,9 +72,7 @@
             <!-- Info Perusahaan & Customer -->
             <div class="row mb-4 align-items-start">
                 <div class="col-md-7">
-                    <h4 class="mb-1">
-    <?= esc($company['company_name']) ?>
-</h4>
+                    <h4 class="mb-1"><?= esc($company['company_name']) ?></h4>
                     <strong><?= esc($company['legal_name'] ?? '') ?></strong><br>
                     <?= esc($company['address'] ?? '-') ?><br>
                     Tel: <?= esc($company['phone'] ?? '-') ?><br>
@@ -94,57 +80,30 @@
                 </div>
 
                 <div class="col-md-5 mt-3 mt-md-0">
-
-    <table class="table table-borderless table-sm mb-0">
-
-        <tr>
-            <td width="130">
-                Customer / Agen
-            </td>
-            <td width="10">:</td>
-            <td>
-                <strong>
-                    <?= esc($invoice['customer_name'] ?? '-') ?>
-                </strong>
-            </td>
-        </tr>
-
-        <tr>
-            <td>
-                Alamat
-            </td>
-            <td>:</td>
-            <td>
-                <?= nl2br(
-                    esc($invoice['address'] ?? '-')
-                ) ?>
-            </td>
-        </tr>
-
-        <tr>
-            <td>
-                Kontak
-            </td>
-            <td>:</td>
-            <td>
-                <?= esc($invoice['phone'] ?? '-') ?>
-            </td>
-        </tr>
-
-        <tr>
-            <td>
-                NPWP
-            </td>
-            <td>:</td>
-            <td>
-                <?= esc($invoice['tax_number'] ?? '-') ?>
-            </td>
-        </tr>
-
-    </table>
-
-</div>
-            
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr>
+                            <td width="130">Customer / Agen</td>
+                            <td width="10">:</td>
+                            <td><strong><?= esc($invoice['customer_name'] ?? '-') ?></strong></td>
+                        </tr>
+                        <tr>
+                            <td>Alamat</td>
+                            <td>:</td>
+                            <td><?= nl2br(esc($invoice['address'] ?? '-')) ?></td>
+                        </tr>
+                        <tr>
+                            <td>Kontak</td>
+                            <td>:</td>
+                            <td><?= esc($invoice['phone'] ?? '-') ?></td>
+                        </tr>
+                        <tr>
+                            <td>NPWP</td>
+                            <td>:</td>
+                            <td><?= esc($invoice['tax_number'] ?? '-') ?></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
 
             <hr>
 
@@ -190,13 +149,19 @@
                 <tbody>
                     <?php if (!empty($items)): ?>
                         <?php foreach($items as $item): ?>
+                            <?php
+                            $receiverName = trim((string) ($item['receiver_name'] ?? ''));
+                            $countryName = trim((string) ($item['country_name'] ?? ''));
+                            $packageTypeName = trim((string) ($item['package_type_name'] ?? ''));
+                            $shipmentDate = $item['shipment_date'] ?? $item['shipment_created_at'] ?? null;
+                            ?>
                             <tr>
-                                <td><?= !empty($item['created_at']) ? date('d-m-Y', strtotime($item['created_at'])) : '-' ?></td>
+                                <td><?= $shipmentDate ? date('d-m-Y', strtotime($shipmentDate)) : '-' ?></td>
                                 <td><?= esc($item['awb_no'] ?? '-') ?></td>
-                                <td><?= esc($item['receiver_name'] ?? '-') ?></td>
-                                <td><?= esc($item['country_name'] ?? '-') ?></td>
-                                <td><?= esc($item['package_type_name'] ?? '-') ?></td>
-                                <td class="text-end"><?= number_format($item['chargeable_weight'] ?? 0, 2) ?></td>
+                                <td><?= esc($receiverName !== '' ? $receiverName : '-') ?></td>
+                                <td><?= esc($countryName !== '' ? $countryName : '-') ?></td>
+                                <td><?= esc($packageTypeName !== '' ? $packageTypeName : '-') ?></td>
+                                <td class="text-end"><?= number_format($item['invoice_weight'] ?? 0, 2, ',', '.') ?></td>
                                 <td class="text-end"><?= number_format($item['amount'] ?? 0, 0, ',', '.') ?></td>
                             </tr>
                         <?php endforeach; ?>
@@ -207,125 +172,117 @@
                     <?php endif; ?>
                 </tbody>
                 <tfoot>
-
-<tr>
-    <th colspan="6" class="text-end">
-        Subtotal
-    </th>
-
-    <th class="text-end">
-        <?= number_format(
-            $invoice['total_amount'] ?? 0,
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-</tr>
-
-<tr>
-    <th colspan="6" class="text-end">
-        VAT (<?= $invoice['vat_percent'] ?? 0 ?>%)
-    </th>
-
-    <th class="text-end">
-        <?= number_format(
-            $invoice['vat_amount'] ?? 0,
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-</tr>
-
-<tr>
-    <th colspan="6" class="text-end">
-        Extra Charge
-    </th>
-
-    <th class="text-end">
-        <?= number_format(
-            $invoice['extra_charge'] ?? 0,
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-</tr>
-
-<tr class="table-secondary">
-
-    <th colspan="6" class="text-end">
-        GRAND TOTAL
-    </th>
-
-    <th class="text-end">
-        <?= number_format(
-            $invoice['grand_total'] ?? 0,
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-
-</tr>
-
-<tr>
-
-    <th colspan="6" class="text-end">
-        Paid
-    </th>
-
-    <th class="text-end">
-        <?= number_format(
-            $invoice['paid_amount'] ?? 0,
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-
-</tr>
-
-<tr>
-
-    <th colspan="6" class="text-end">
-        Balance
-    </th>
-
-    <th class="text-end">
-        <?= number_format(
-            $invoice['balance_amount'] ?? 0,
-            0,
-            ',',
-            '.'
-        ) ?>
-    </th>
-
-</tr>
-
-</tfoot>
+                    <tr>
+                        <th colspan="6" class="text-end">Subtotal</th>
+                        <th class="text-end"><?= number_format($invoice['total_amount'] ?? 0, 0, ',', '.') ?></th>
+                    </tr>
+                    <tr>
+                        <th colspan="6" class="text-end">VAT (<?= $invoice['vat_percent'] ?? 0 ?>%)</th>
+                        <th class="text-end"><?= number_format($invoice['vat_amount'] ?? 0, 0, ',', '.') ?></th>
+                    </tr>
+                    <tr>
+                        <th colspan="6" class="text-end">Extra Charge</th>
+                        <th class="text-end"><?= number_format($invoice['extra_charge'] ?? 0, 0, ',', '.') ?></th>
+                    </tr>
+                    <tr class="table-secondary">
+                        <th colspan="6" class="text-end">GRAND TOTAL</th>
+                        <th class="text-end"><?= number_format($invoice['grand_total'] ?? 0, 0, ',', '.') ?></th>
+                    </tr>
+                    <tr>
+                        <th colspan="6" class="text-end">Paid</th>
+                        <th class="text-end"><?= number_format($invoice['paid_amount'] ?? 0, 0, ',', '.') ?></th>
+                    </tr>
+                    <tr>
+                        <th colspan="6" class="text-end">Balance</th>
+                        <th class="text-end"><?= number_format($invoice['balance_amount'] ?? 0, 0, ',', '.') ?></th>
+                    </tr>
+                </tfoot>
             </table>
 
             <hr class="my-4">
 
-            <!-- Info Pembayaran -->
-            <h5 class="fs-6 fw-bold mb-3">Payment Information</h5>
+            <!-- Payment Information -->
+            <?php
+            $bankName = trim(
+                (string) ($bankAccount['bank_name'] ?? '')
+            );
 
-            <?php if (!empty($bankAccounts)): ?>
-                <?php foreach($bankAccounts as $bank): ?>
-                    <div class="mb-3 p-3 border rounded bg-light">
-                        <strong><?= esc($bank['bank_name'] ?? '') ?></strong><br>
-                        A/N: <?= esc($bank['account_name'] ?? '') ?><br>
-                        Account No: <?= esc($bank['account_number'] ?? '') ?>
-                        <?php if(!empty($bank['swift_code'])): ?>
-                            <br>SWIFT: <?= esc($bank['swift_code']) ?>
+            $accountName = trim(
+                (string) ($bankAccount['account_name'] ?? '')
+            );
+
+            $accountNumber = trim(
+                (string) ($bankAccount['account_number'] ?? '')
+            );
+
+            $swiftCode = trim(
+                (string) ($bankAccount['swift_code'] ?? '')
+            );
+
+            $currency = trim(
+                (string) ($bankAccount['currency'] ?? '')
+            );
+            ?>
+
+            <div class="mt-4">
+                <h5 class="mb-3">
+                    Payment Information
+                </h5>
+
+                <?php if ($bankAccount !== []): ?>
+
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td style="width: 160px;">Bank</td>
+                            <td style="width: 15px;">:</td>
+                            <td>
+                                <strong><?= esc($bankName) ?></strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Account Name</td>
+                            <td>:</td>
+                            <td>
+                                <strong><?= esc($accountName) ?></strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Account Number</td>
+                            <td>:</td>
+                            <td>
+                                <strong><?= esc($accountNumber) ?></strong>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>Currency</td>
+                            <td>:</td>
+                            <td><?= esc($currency ?: 'IDR') ?></td>
+                        </tr>
+
+                        <?php if ($swiftCode !== ''): ?>
+                            <tr>
+                                <td>SWIFT Code</td>
+                                <td>:</td>
+                                <td><?= esc($swiftCode) ?></td>
+                            </tr>
                         <?php endif; ?>
+                    </table>
+
+                    <div class="alert alert-light border">
+                        Mohon cantumkan nomor invoice pada berita transfer.
                     </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <p class="text-muted">No bank account information available</p>
-            <?php endif; ?>
+
+                <?php else: ?>
+
+                    <div class="alert alert-warning">
+                        Rekening pembayaran belum dikonfigurasi.
+                    </div>
+
+                <?php endif; ?>
+            </div>
 
         </div>
     </div>
