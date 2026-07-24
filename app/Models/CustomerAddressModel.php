@@ -15,37 +15,24 @@ class CustomerAddressModel extends Model
     protected $useTimestamps = true;
 
     protected $allowedFields = [
-
-
-    'customer_id',
-
-    'address_type',
-
-    'address_label',
-
-    'contact_name',
-
-    'company_name',
-
-    'phone',
-
-    'email',
-
-    'address',
-
-    'postal_code',
-
-    'country_id',
-
-    'city',
-
-    'state',
-
-    'identity_number',
-
-    'is_default',
-
-    'status'
-
+        'customer_id',
+        'owner_type',
+        'owner_id',
+        'address_type',
+        'address_label',
+        'contact_name',
+        'company_name',
+        'phone',
+        'email',
+        'address',
+        'postal_code',
+        'country_id',
+        'city',
+        'state',
+        'identity_number',
+        'is_default',
+        'is_primary',
+        'source',
+        'status',
     ];
 }

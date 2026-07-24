@@ -1259,6 +1259,10 @@ SQL;
                 'shipment_date'        =>
                     $post['shipment_date'],
                 'customer_id'          => $customerId,
+                'owner_type'           => 'CUSTOMER',
+                'owner_id'             => $customerId,
+                'created_by_user_id'   => $actorId,
+                'entry_channel'        => 'ADMIN_ASSISTED',
                 'sender_address_id'    => $senderAddressId,
                 'sender_country_id'    =>
                     $sender['country_id'] ?? null,
@@ -2544,6 +2548,10 @@ SQL;
                 'customer_reference_no'=> $this->clean($post['customer_reference_no'] ?? ''),
                 'shipment_date'        => $post['shipment_date'],
                 'customer_id'          => $customerId,
+                'owner_type'           => 'CUSTOMER',
+                'owner_id'             => $customerId,
+                'created_by_user_id'   => $actorId,
+                'entry_channel'        => 'ADMIN_ASSISTED',
                 'sender_address_id'    => $senderAddressId,
                 'sender_country_id'    => $sender['country_id'] ?? null,
                 'receiver_address_id'  => $receiverId,

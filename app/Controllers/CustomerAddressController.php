@@ -310,7 +310,10 @@ class CustomerAddressController extends BaseController
 
             $data = [
                 'customer_id'     => $customerId,
+                'owner_type'      => 'CUSTOMER',
+                'owner_id'        => $customerId,
                 'address_type'    => $type,
+                'source'          => 'MANUAL',
                 'address_label'   => $this->nullableText(
                     $this->request->getPost('address_label'),
                     100
@@ -573,7 +576,10 @@ class CustomerAddressController extends BaseController
 
         return [
             'customer_id' => $customerId,
+            'owner_type' => 'CUSTOMER',
+            'owner_id' => $customerId,
             'address_type' => $type,
+            'source' => 'MANUAL',
             'address_label' => $this->nullableText(
                 $this->request->getPost('address_label'),
                 100

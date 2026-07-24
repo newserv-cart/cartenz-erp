@@ -22,6 +22,12 @@ class ShipmentModel extends Model
         'master_awb_no',
 
         'customer_id',
+        'owner_type',
+        'owner_id',
+        'created_by_user_id',
+        'entry_channel',
+        'sender_snapshot',
+        'receiver_snapshot',
         'sender_address_id',
         'sender_country_id',
         'receiver_address_id',
