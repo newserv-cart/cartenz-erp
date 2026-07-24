@@ -2456,7 +2456,7 @@ SQL;
             if (
                 $receiverSource === 'HISTORY'
                 && (int) $this->request
-                    ->getPost('receiver_id') <= 0
+                    ->getPost('receiver_address_id') <= 0
             ) {
                 throw new \RuntimeException(
                     'Pilih riwayat penerima.'
@@ -2487,7 +2487,7 @@ SQL;
             if ($receiverSource === 'HISTORY') {
                 $receiverAddress = $this->findOwnerAddress(
                     (int) $this->request
-                        ->getPost('receiver_id'),
+                        ->getPost('receiver_address_id'),
                     $ownerContext,
                     'RECEIVER'
                 );
@@ -3933,10 +3933,6 @@ private function insertShipmentAddress(
         );
     }
 
-    $countryField = $prefix === 'receiver'
-        ? 'country_id'
-        : $prefix . '_country';
-
     $data = [
         'customer_id' => $ownerContext['customer_id'],
 
@@ -3970,7 +3966,7 @@ private function insertShipmentAddress(
         ),
 
         'country_id' => (int) $request->getPost(
-            $countryField
+            $prefix . '_country'
         ),
 
         'state' => trim(

@@ -8,7 +8,7 @@ Sprint 50.4
 
 document.addEventListener('DOMContentLoaded', function () {
     // =====================================================
-    // HELPERS
+    // ADDRESS SOURCE: NEW / HISTORY
     // =====================================================
 
     function setSectionVisibility(element, visible) {
@@ -32,45 +32,107 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function initializeAddressSource(config) {
-        const newRadio = document.getElementById(config.newRadioId);
-        const historyRadio = document.getElementById(config.historyRadioId);
-        const newSection = document.getElementById(config.newSectionId);
+        const newRadio = document.getElementById(
+            config.newRadioId
+        );
+
+        const historyRadio = document.getElementById(
+            config.historyRadioId
+        );
+
+        const newSection = document.getElementById(
+            config.newSectionId
+        );
+
         const historySection = document.getElementById(
             config.historySectionId
         );
+
         const historySelect = document.getElementById(
             config.historySelectId
         );
 
         function refresh() {
-            const useHistory = historyRadio?.checked === true;
+            const useHistory =
+                historyRadio?.checked === true;
 
-            setSectionVisibility(newSection, !useHistory);
-            setSectionVisibility(historySection, useHistory);
+            setSectionVisibility(
+                newSection,
+                !useHistory
+            );
 
-            setFieldsDisabled(newSection, useHistory);
-            setFieldsDisabled(historySection, !useHistory);
+            setSectionVisibility(
+                historySection,
+                useHistory
+            );
+
+            /*
+             * Field yang tersembunyi dinonaktifkan agar
+             * tidak ikut terkirim dan tidak mengganggu
+             * validasi HTML required.
+             */
+            setFieldsDisabled(
+                newSection,
+                useHistory
+            );
+
+            setFieldsDisabled(
+                historySection,
+                !useHistory
+            );
 
             if (!useHistory && historySelect) {
                 historySelect.value = '';
             }
         }
 
-        newRadio?.addEventListener('change', refresh);
-        historyRadio?.addEventListener('change', refresh);
+        newRadio?.addEventListener(
+            'change',
+            refresh
+        );
+
+        historyRadio?.addEventListener(
+            'change',
+            refresh
+        );
 
         refresh();
     }
 
-    function fillFieldsFromAddress(selectId, fieldPrefix) {
-        const select = document.getElementById(selectId);
+    initializeAddressSource({
+        newRadioId: 'sender_source_new',
+        historyRadioId: 'sender_source_history',
+        newSectionId: 'senderNewSection',
+        historySectionId: 'senderHistorySection',
+        historySelectId: 'sender_address_id',
+    });
+
+    initializeAddressSource({
+        newRadioId: 'receiver_source_new',
+        historyRadioId: 'receiver_source_history',
+        newSectionId: 'receiverNewSection',
+        historySectionId: 'receiverHistorySection',
+        historySelectId: 'receiver_address_id',
+    });
+
+    // =====================================================
+    // DROPDOWN RIWAYAT MENGISI FORM
+    // =====================================================
+
+    function fillFieldsFromAddress(
+        selectId,
+        fieldPrefix
+    ) {
+        const select =
+            document.getElementById(selectId);
 
         if (!select) {
             return;
         }
 
         select.addEventListener('change', function () {
-            const option = this.options[this.selectedIndex];
+            const option =
+                this.options[this.selectedIndex];
 
             if (!option || !this.value) {
                 return;
@@ -89,25 +151,27 @@ document.addEventListener('DOMContentLoaded', function () {
                 address: option.dataset.address,
             };
 
-            Object.entries(mapping).forEach(function (
-                [suffix, value]
-            ) {
-                const field = document.getElementById(
-                    fieldPrefix + '_' + suffix
-                );
+            Object.entries(mapping).forEach(
+                function ([suffix, value]) {
+                    const field =
+                        document.getElementById(
+                            fieldPrefix + '_' + suffix
+                        );
 
-                if (field) {
-                    field.value = value || '';
+                    if (field) {
+                        field.value = value || '';
+                    }
                 }
-            });
+            );
 
             /*
              * Trigger country change untuk pricing.
              */
             if (fieldPrefix === 'receiver') {
-                const countrySelect = document.getElementById(
-                    'receiver_country'
-                );
+                const countrySelect =
+                    document.getElementById(
+                        'receiver_country'
+                    );
 
                 if (countrySelect) {
                     countrySelect.value =
@@ -120,32 +184,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // =====================================================
-    // SENDER / RECEIVER SOURCE TOGGLE
-    // =====================================================
+    fillFieldsFromAddress(
+        'sender_address_id',
+        'sender'
+    );
 
-    initializeAddressSource({
-        newRadioId: 'sender_source_new',
-        historyRadioId: 'sender_source_history',
-        newSectionId: 'senderNewSection',
-        historySectionId: 'senderHistorySection',
-        historySelectId: 'sender_address_id',
-    });
-
-    initializeAddressSource({
-        newRadioId: 'receiver_source_new',
-        historyRadioId: 'receiver_source_history',
-        newSectionId: 'receiverNewSection',
-        historySectionId: 'receiverHistorySection',
-        historySelectId: 'receiver_id',
-    });
-
-    // =====================================================
-    // FILL INPUTS FROM HISTORY
-    // =====================================================
-
-    fillFieldsFromAddress('sender_address_id', 'sender');
-    fillFieldsFromAddress('receiver_id', 'receiver');
+    fillFieldsFromAddress(
+        'receiver_address_id',
+        'receiver'
+    );
 
     // =====================================================
     // OWNER SYNC
@@ -178,7 +225,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (receiverCountrySelect && countryIdInput) {
         receiverCountrySelect.addEventListener('change', function () {
             countryIdInput.value = this.value;
-
             countryIdInput.dispatchEvent(new Event('change'));
         });
 
