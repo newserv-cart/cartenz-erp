@@ -109,18 +109,33 @@ window.ShipmentReceiver = {
                 ).trim();
 
                 // Pola aman: anti null/undefined error saat pakai .trim()
-                const customerId = String(
-                    $("#customer_id").val() || ""
+                let ownerType = String(
+                    $("#shipment_owner_type").val() || ""
                 ).trim();
 
-                if (!customerId) {
+                let ownerId = String(
+                    $("#shipment_owner_id").val() || ""
+                ).trim();
+
+                if (!ownerType || !ownerId) {
+                    ownerType = "CUSTOMER";
+                    ownerId = String(
+                        $("#customer_id").val() || ""
+                    ).trim();
+                }
+
+                if (!ownerId) {
                     alert("Pilih Customer/Pengirim terlebih dahulu.");
                     return;
                 }
 
                 const receiverData = {
                     address_type: "RECEIVER",
-                    customer_id: customerId,
+                    owner_type: ownerType,
+                    owner_id: ownerId,
+                    customer_id: ownerType === "CUSTOMER"
+                        ? ownerId
+                        : "",
                     country_id: String($("#new_receiver_country").val() || "").trim(),
                     contact_name: String($("#new_receiver_name").val() || "").trim(),
                     company_name: String($("#new_receiver_company").val() || "").trim(),
@@ -401,18 +416,33 @@ window.ShipmentReceiver = {
                 ).trim();
 
                 // Pola aman: anti null/undefined error saat pakai .trim()
-                const customerId = String(
-                    $("#customer_id").val() || ""
+                let ownerType = String(
+                    $("#shipment_owner_type").val() || ""
                 ).trim();
 
-                if (!customerId) {
+                let ownerId = String(
+                    $("#shipment_owner_id").val() || ""
+                ).trim();
+
+                if (!ownerType || !ownerId) {
+                    ownerType = "CUSTOMER";
+                    ownerId = String(
+                        $("#customer_id").val() || ""
+                    ).trim();
+                }
+
+                if (!ownerId) {
                     alert("Pilih Customer/Pengirim terlebih dahulu.");
                     return;
                 }
 
                 const receiverData = {
                     address_type: "RECEIVER",
-                    customer_id: customerId,
+                    owner_type: ownerType,
+                    owner_id: ownerId,
+                    customer_id: ownerType === "CUSTOMER"
+                        ? ownerId
+                        : "",
                     country_id: String($("#new_receiver_country").val() || "").trim(),
                     contact_name: String($("#new_receiver_name").val() || "").trim(),
                     company_name: String($("#new_receiver_company").val() || "").trim(),

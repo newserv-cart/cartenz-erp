@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use App\Models\CustomerAddressModel;
 use App\Models\CustomerModel;
+use App\Services\ShipmentOwnerContextService;
 
 class CustomerAddressController extends BaseController
 {
@@ -233,11 +234,6 @@ class CustomerAddressController extends BaseController
             : 'Receiver';
 
         $rules = [
-            'customer_id' => [
-                'label' => 'Customer',
-                'rules' => 'required|is_natural_no_zero',
-            ],
-
             'address_type' => [
                 'label' => 'Address Type',
                 'rules' => 'required|in_list[SENDER,RECEIVER]',
@@ -295,11 +291,63 @@ class CustomerAddressController extends BaseController
                 ]);
         }
 
+        $postedOwnerType = strtoupper(
+            trim(
+                (string) $this->request
+                    ->getPost('owner_type')
+            )
+        );
+
+        $postedOwnerId = (int) $this->request
+            ->getPost('owner_id');
+
+        if ($postedOwnerType === '') {
+            $legacyCustomerId = (int) $this->request
+                ->getPost('customer_id');
+
+            $legacyAgentId = (int) $this->request
+                ->getPost('agent_id');
+
+            if ($legacyCustomerId > 0) {
+                $postedOwnerType = 'CUSTOMER';
+                $postedOwnerId   = $legacyCustomerId;
+            } elseif ($legacyAgentId > 0) {
+                $postedOwnerType = 'AGENT';
+                $postedOwnerId   = $legacyAgentId;
+            }
+        }
+
+        $userId = (int) (auth()->id() ?? 0);
+
+        if ($userId <= 0) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Sesi user tidak ditemukan.',
+                ]);
+        }
+
         try {
-            $customerId = $this->resolveCustomerId();
+            $ownerContext = (new ShipmentOwnerContextService())
+                ->resolve(
+                    $userId,
+                    $this->isOperationalUser(),
+                    $postedOwnerType,
+                    $postedOwnerId
+                );
+        } catch (\Throwable $e) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => $e->getMessage(),
+                ]);
+        }
 
-            $type = $addressType;
+        $type = $addressType;
 
+        try {
             $province = trim(
                 (string) (
                     $this->request->getPost('state')
@@ -309,11 +357,15 @@ class CustomerAddressController extends BaseController
             );
 
             $data = [
-                'customer_id'     => $customerId,
-                'owner_type'      => 'CUSTOMER',
-                'owner_id'        => $customerId,
+                'customer_id'     =>
+                    $ownerContext['customer_id'],
+                'owner_type'      =>
+                    $ownerContext['owner_type'],
+                'owner_id'        =>
+                    $ownerContext['owner_id'],
                 'address_type'    => $type,
-                'source'          => 'MANUAL',
+                'source'          => 'SHIPMENT_INPUT',
+                'is_primary'      => 0,
                 'address_label'   => $this->nullableText(
                     $this->request->getPost('address_label'),
                     100

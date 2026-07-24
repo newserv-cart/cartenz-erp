@@ -19,6 +19,13 @@ window.ShipmentSender = {
         this.initialized = true;
 
         this.bindCustomer();
+
+        const $customer = $("#customer_id");
+
+        if ($customer.val()) {
+            $customer.trigger("change");
+        }
+
         this.bindModal();
         this.bindSave();
 
@@ -42,6 +49,12 @@ window.ShipmentSender = {
                         window.ShipmentSender.clear();
                         return;
                     }
+
+                    $("#shipment_owner_type")
+                        .val("CUSTOMER");
+
+                    $("#shipment_owner_id")
+                        .val(this.value);
 
                     window.ShipmentSender.fill(
                         option.dataset
@@ -202,12 +215,30 @@ window.ShipmentSender = {
                         return;
                     }
 
+                    let ownerType = String(
+                        $("#shipment_owner_type").val() || ""
+                    ).trim();
+
+                    let ownerId = String(
+                        $("#shipment_owner_id").val() || ""
+                    ).trim();
+
+                    if (!ownerType || !ownerId) {
+                        ownerType = "CUSTOMER";
+                        ownerId = String(
+                            $("#customer_id").val() || ""
+                        ).trim();
+                    }
+
                     const senderData = {
                         address_type: "SENDER",
 
-                        customer_id: String(
-                            $("#customer_id").val() || ""
-                        ).trim(),
+                        owner_type: ownerType,
+                        owner_id: ownerId,
+
+                        customer_id: ownerType === "CUSTOMER"
+                            ? ownerId
+                            : "",
 
                         country_id: String(
                             $("#new_sender_country_id").val() || ""
@@ -274,7 +305,7 @@ window.ShipmentSender = {
                             ).trim()
                     };
 
-                    if (!senderData.customer_id) {
+                    if (!senderData.owner_id) {
                         alert(
                             "Pilih Customer terlebih dahulu."
                         );
@@ -367,7 +398,10 @@ window.ShipmentSender = {
                              * fallback.
                              */
                             const customerId =
-                                details.customer_id || "";
+                                details.customer_id
+                                || details.owner_id
+                                || senderData.owner_id
+                                || "";
 
                             const defaultCountryName =
                                 String(

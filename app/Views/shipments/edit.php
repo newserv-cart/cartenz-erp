@@ -177,6 +177,36 @@ $customerOtherCharges =
 
     <?= csrf_field() ?>
 
+    <?php
+        $initialOwnerType = strtoupper(
+            trim(
+                (string) (
+                    $shipment['owner_type']
+                    ?? 'CUSTOMER'
+                )
+            )
+        );
+
+        $initialOwnerId = (int) (
+            $shipment['owner_id']
+            ?? $shipment['customer_id']
+            ?? 0
+        );
+    ?>
+
+    <input
+        type="hidden"
+        name="owner_type"
+        id="shipment_owner_type"
+        value="<?= esc($initialOwnerType) ?>"
+    >
+    <input
+        type="hidden"
+        name="owner_id"
+        id="shipment_owner_id"
+        value="<?= (int) $initialOwnerId ?>"
+    >
+
     <div class="container mt-4 mb-5">
         <div
             class="d-flex flex-column flex-md-row

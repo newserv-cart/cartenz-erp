@@ -58,6 +58,33 @@ $receivingLocationValue = old(
     <input type="hidden" name="inbound_intake_id" value="<?= (int) ($inboundIntake['id'] ?? 0) ?>">
     <input type="hidden" name="source_agent_id" value="<?= (int) ($inboundIntake['agent_id'] ?? 0) ?>">
 
+    <?php
+        $initialOwnerType = 'CUSTOMER';
+        $initialOwnerId   = 0;
+
+        if (!empty($senderAddresses[0]['customer_id'])) {
+            $initialOwnerId = (int) $senderAddresses[0]['customer_id'];
+        } elseif (
+            !empty(old('customer_id'))
+            && (int) old('customer_id') > 0
+        ) {
+            $initialOwnerId = (int) old('customer_id');
+        }
+    ?>
+
+    <input
+        type="hidden"
+        name="owner_type"
+        id="shipment_owner_type"
+        value="<?= esc($initialOwnerType) ?>"
+    >
+    <input
+        type="hidden"
+        name="owner_id"
+        id="shipment_owner_id"
+        value="<?= (int) $initialOwnerId ?>"
+    >
+
 <div class="container mt-4 mb-5">
     <h2 class="mb-4">Create Shipment</h2>
 
