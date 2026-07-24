@@ -138,17 +138,30 @@ class RegularCalculationService
             : 0;
 
         return [
-            'freight'        => round($freight, 2),
-            'insurance'      => round($insurance, 2),
-            'packing'        => round($packing, 2),
-            'additional'     => round($additional, 2),
-            'commodity'      => round($commodityCharge, 2),
-            'discount'       => round($discount, 2),
-            'customer_total' => $customerTotal,
-            'vendor_total'   => round($vendorCost, 2),
-            'profit'         => $profit,
-            'margin'         => $margin,
-            'markup'         => $markup,
+            'tariff_id'          => (int) (
+                $rate['tariff_id'] ?? 0
+            ),
+            'freight'            => round($freight, 2),
+            'insurance'          => round($insurance, 2),
+            'packing'            => round($packing, 2),
+            'additional'         => round($additional, 2),
+            'commodity'          => round($commodityCharge, 2),
+            'discount'           => round($discount, 2),
+            'customer_total'     => $customerTotal,
+            'vendor_total'       => round($vendorCost, 2),
+            'profit'             => $profit,
+            'margin'             => $margin,
+            'markup'             => $markup,
+
+            'chargeable_weight'  => (float) (
+                $rate['chargeable_weight'] ?? $chargeWeight
+            ),
+            'billing_weight'     => (float) (
+                $rate['billing_weight'] ?? 0
+            ),
+            'invoice_weight'     => (float) (
+                $rate['invoice_weight'] ?? 0
+            ),
 
             'rate_info' => [
                 'tariff_id'       => $rate['tariff_id'],
@@ -156,7 +169,11 @@ class RegularCalculationService
                 'weight_to'       => $rate['weight_to'],
                 'weight_range'    => $rate['weight_range'],
                 'chargeable_weight' =>
-                    $rate['chargeable_weight'],
+                    $rate['chargeable_weight'] ?? $chargeWeight,
+                'billing_weight'  =>
+                    $rate['billing_weight'] ?? 0,
+                'invoice_weight'  =>
+                    $rate['invoice_weight'] ?? 0,
                 'pricing_date'    => $rate['pricing_date'],
                 'agent_type'      => $rate['agent_type'],
                 'price_column'    => $rate['price_column'],

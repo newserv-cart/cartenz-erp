@@ -25,46 +25,130 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // ===============================
-    // SENDER DROPDOWN CHANGE
-    // ===============================
+    // =====================================================
+    // SENDER / CUSTOMER DROPDOWN CHANGE
+    // =====================================================
+
     const senderSelect = document.getElementById("customer_id");
-    if (senderSelect) {
-        senderSelect.addEventListener("change", function () {
+    const senderAddressIdInput =
+        document.getElementById("sender_address_id");
 
-    const selected = this.options[this.selectedIndex];
+    function setSenderField(id, value) {
+        const field = document.getElementById(id);
 
-    console.log("SELECTED OPTION");
-    console.log(selected);
+        if (field) {
+            field.value = value || "";
+        }
+    }
 
-    console.log("DATASET");
-    console.log(selected.dataset);
+    function clearSenderFields() {
+        if (senderAddressIdInput) {
+            senderAddressIdInput.value = "";
+        }
 
-    if (this.value && Object.keys(selected.dataset).length > 0) {
+        setSenderField("sender_company", "");
+        setSenderField("sender_phone", "");
+        setSenderField("sender_email", "");
+        setSenderField("sender_identity", "");
+        setSenderField("sender_province", "");
+        setSenderField("sender_city", "");
+        setSenderField("sender_postal", "");
+        setSenderField("sender_address", "");
+        setSenderField("sender_country", "");
+        setSenderField("sender_country_id", "");
+    }
 
+    function fillSenderFields() {
+        if (!senderSelect) {
+            return;
+        }
 
-        
-                document.getElementById("sender_company").value      = selected.dataset.company || "";
-                document.getElementById("sender_phone").value         = selected.dataset.phone || "";
-                document.getElementById("sender_identity").value      = selected.dataset.identity || "";
-                document.getElementById("sender_email").value        = selected.dataset.email || "";
-                document.getElementById("sender_province").value      = selected.dataset.state || "";
-                document.getElementById("sender_city").value          = selected.dataset.city || "";
-                document.getElementById("sender_postal_code").value   = selected.dataset.postal_code || "";
-                document.getElementById("sender_address").value      = selected.dataset.address || "";
-                document.getElementById("sender_country").value       = selected.dataset.country || "";
-            } else {
-                document.getElementById("sender_company").value      = "";
-                document.getElementById("sender_phone").value         = "";
-                document.getElementById("sender_identity").value      = "";
-                document.getElementById("sender_email").value        = "";
-                document.getElementById("sender_province").value      = "";
-                document.getElementById("sender_city").value          = "";
-                document.getElementById("sender_postal_code").value   = "";
-                document.getElementById("sender_address").value      = "";
-                document.getElementById("sender_country").value       = "";
-            }
+        const selected =
+            senderSelect.options[senderSelect.selectedIndex];
+
+        if (!selected || !senderSelect.value) {
+            clearSenderFields();
+            return;
+        }
+
+        const data = selected.dataset;
+
+        if (senderAddressIdInput) {
+            senderAddressIdInput.value =
+                data.addressId || "";
+        }
+
+        setSenderField(
+            "sender_company",
+            data.company
+        );
+
+        setSenderField(
+            "sender_phone",
+            data.phone
+        );
+
+        setSenderField(
+            "sender_email",
+            data.email
+        );
+
+        setSenderField(
+            "sender_identity",
+            data.identity
+        );
+
+        setSenderField(
+            "sender_province",
+            data.state
+        );
+
+        setSenderField(
+            "sender_city",
+            data.city
+        );
+
+        setSenderField(
+            "sender_postal",
+            data.postal
+        );
+
+        setSenderField(
+            "sender_address",
+            data.address
+        );
+
+        setSenderField(
+            "sender_country",
+            data.countryName
+        );
+
+        setSenderField(
+            "sender_country_id",
+            data.countryId
+        );
+
+        console.log("Sender selected:", {
+            customerId: senderSelect.value,
+            senderAddressId: data.addressId,
+            contactName: data.contactName,
+            company: data.company
         });
+    }
+
+    if (senderSelect) {
+        senderSelect.addEventListener(
+            "change",
+            fillSenderFields
+        );
+
+        /*
+         * Isi ulang ketika validation gagal
+         * dan halaman kembali membawa old input.
+         */
+        if (senderSelect.selectedIndex > 0) {
+            fillSenderFields();
+        }
     }
 
     // ===============================
@@ -107,25 +191,45 @@ document.addEventListener("DOMContentLoaded", function () {
         
         const s = res.address_details; // Ini array $address dari PHP
         const newOption = document.createElement("option");
-        
-        newOption.value = res.data.id; // Mengambil ID dari res.data.id atau s.id
-        newOption.text  = res.data.text; // Menggunakan textDisplay yang sudah dibuat di PHP
+
+        /*
+         * Dropdown value adalah customer_id.
+         * ID alamat disimpan di data-address-id untuk hidden
+         * sender_address_id.
+         */
+        newOption.value = String(s.customer_id || "");
+
+        const contactName = (s.contact_name || "").trim();
+        const companyName = (s.company_name || "").trim();
+        let optionLabel = contactName;
+
+        if (
+            companyName !== ""
+            && companyName.toLowerCase() !== contactName.toLowerCase()
+        ) {
+            optionLabel += " — " + companyName;
+        }
+
+        newOption.text = optionLabel;
 
         // Mapping dataset disesuaikan dengan key dari Controller PHP
-        newOption.dataset.company   = s.company_name || "";
-        newOption.dataset.phone     = s.phone || "";
-        newOption.dataset.email     = s.email || "";   
-        newOption.dataset.state     = s.state || "";        // 🛠️ FIXED: dari PHP namanya 'state'
-        newOption.dataset.city      = s.city || "";
-        newOption.dataset.postal    = s.postal_code || "";  // 🛠️ FIXED: pastikan konsisten camelCase/lowercase di dropdown change
-        newOption.dataset.identity  = s.identity_number || "";
-        newOption.dataset.country   = s.country_name || "";
-        newOption.dataset.countryId = s.country_id || "";
+        newOption.dataset.addressId   = s.id || "";
+        newOption.dataset.contactName = contactName;
+        newOption.dataset.company     = companyName;
+        newOption.dataset.phone       = s.phone || "";
+        newOption.dataset.email       = s.email || "";
+        newOption.dataset.state       = s.state || "";        // 🛠️ FIXED: dari PHP namanya 'state'
+        newOption.dataset.city        = s.city || "";
+        newOption.dataset.postal      = s.postal_code || "";  // 🛠️ FIXED: pastikan konsisten camelCase/lowercase di dropdown change
+        newOption.dataset.identity    = s.identity_number || "";
+        newOption.dataset.address     = s.address || "";
+        newOption.dataset.countryId   = s.country_id || "";
+        newOption.dataset.countryName = s.country_name || "";
 
         // Tambah ke dropdown dan select otomatis
         senderSelect.appendChild(newOption);
-        senderSelect.value = res.data.id;
-        
+        newOption.selected = true;
+
         // Pemicu biar input form langsung auto-fill setelah modal close
         senderSelect.dispatchEvent(new Event("change"));
 

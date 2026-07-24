@@ -102,8 +102,13 @@ Sprint 49.12A
             const data = option.dataset;
 
             $("#real_customer_id").val(
-                data.customerId || ""
+                data.customerId || data.customer_id || ""
             );
+
+            $("#sender_address_id").val(
+                data.addressId || data.address_id || ""
+            );
+
             $("#sender_company").val(
                 data.company || ""
             );
@@ -117,17 +122,41 @@ Sprint 49.12A
                 data.identity || ""
             );
             $("#sender_province").val(
-                data.state || ""
+                data.state || data.province || ""
             );
             $("#sender_city").val(
                 data.city || ""
             );
-            $("#sender_postal_code").val(
-                data.postalCode || ""
-            );
+
+            const postalValue =
+                data.postalCode ||
+                data.postal ||
+                "";
+
+            $("#sender_postal").val(postalValue);
+            $("#sender_postal_code").val(postalValue);
+
             $("#sender_country").val(
-                data.country || ""
+                data.country ||
+                data.countryName ||
+                ""
             );
+
+            $("#sender_country_code").val(
+                data.countryCode ||
+                data.country_code ||
+                ""
+            );
+
+            $("#sender_country_zone").val(
+                data.countryZone ||
+                data.country_zone ||
+                data.expressZoneCode ||
+                data.express_zone_code ||
+                data.zoneCode ||
+                ""
+            );
+
             $("#sender_address").val(
                 data.address || ""
             );

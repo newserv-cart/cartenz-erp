@@ -71,6 +71,24 @@ $currencyCode = $shipment['currency_code'] ?? 'USD';
                                 <td><?= number_format((float) ($shipment['chargeable_weight'] ?? 0), 2, ',', '.') ?> Kg</td>
                             </tr>
                             <tr>
+                                <th>Billing Weight</th>
+                                <td>
+                                    <?= number_format(
+                                        (float) (
+                                            $shipment['invoice_weight']
+                                            ?? ceil(
+                                                (float) (
+                                                    $shipment['chargeable_weight'] ?? 0
+                                                )
+                                            )
+                                        ),
+                                        2,
+                                        ',',
+                                        '.'
+                                    ) ?> Kg
+                                </td>
+                            </tr>
+                            <tr>
                                 <th>Declared Value</th>
                                 <td>
                                     <?= esc($currencyCode) ?>

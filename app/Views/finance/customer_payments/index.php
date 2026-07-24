@@ -1,68 +1,98 @@
-<h2>👤 Customer Payments</h2>
-<table border="1" cellpadding="8" cellspacing="0">
+<?= $this->extend('admin/layouts/app') ?>
+<?= $this->section('content') ?>
 
-    <tr>
-        <th>Payment No</th>
-        <th>Reference</th>
-        <th>Amount</th>
-        <th>Proof</th>
-        <th>Status</th>
-        <th>Action</th>
-    </tr>
+<div class="container-fluid">
+    <h3 class="mb-4">👤 Customer Payments</h3>
 
+    <?php if (session()->getFlashdata('success')): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?= esc(session()->getFlashdata('success')) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?= esc(session()->getFlashdata('error')) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
 
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Payment No</th>
+                            <th>Invoice No</th>
+                            <th>Customer Name</th>
+                            <th>Payment Date</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                            <th class="text-end">Amount</th>
+                            <th>Proof</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if (empty($payments)): ?>
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-4">Belum ada data pembayaran pelanggan.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($payments as $payment): ?>
+                            <?php
+                            $status = strtoupper(trim((string) ($payment['status'] ?? '')));
+                            $badgeClass = match($status) {
+                                'APPROVED' => 'bg-success',
+                                'REJECTED' => 'bg-danger',
+                                'PENDING' => 'bg-warning text-dark',
+                                default => 'bg-secondary'
+                            };
+                            ?>
+                            <tr>
+                                <td><?= esc($payment['payment_no'] ?? '-') ?></td>
+                                <td><?= esc($payment['invoice_no'] ?? '-') ?></td>
+                                <td><?= esc($payment['customer_name'] ?? '-') ?></td>
+                                <td><?= !empty($payment['payment_date']) ? date('d-m-Y', strtotime($payment['payment_date'])) : '-' ?></td>
+                                <td><?= esc(ucwords(str_replace('_', ' ', $payment['payment_method'] ?? '-'))) ?></td>
+                                <td><?= esc($payment['reference_no'] ?? '-') ?></td>
+                                <td class="text-end fw-semibold">
+                                    Rp <?= number_format((float) ($payment['amount'] ?? 0), 0, ',', '.') ?>
+                                </td>
+                                <td>
+                                    <?php if (!empty($payment['proof_file'])): ?>
+                                        <a href="<?= base_url('uploads/payments/' . rawurlencode($payment['proof_file'])) ?>"
+                                           target="_blank" rel="noopener noreferrer"
+                                           class="text-decoration-none">Lihat</a>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="badge <?= $badgeClass ?>">
+                                        <?= esc($status ?: '-') ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <?php if ($status === 'PENDING'): ?>
+                                        <a href="<?= site_url('finance/customer-payments/approve/' . (int) $payment['id']) ?>"
+                                           class="btn btn-sm btn-success me-1">Setujui</a>
+                                        <a href="<?= site_url('finance/customer-payments/reject/' . (int) $payment['id']) ?>"
+                                           class="btn btn-sm btn-outline-danger">Tolak</a>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <?php foreach($payments as $payment): ?>
-
-    <tr>
-
-        <td><?= $payment['payment_no'] ?></td>
-
-        <td><?= esc($payment['invoice_no']) ?></td>
-
-        <td><?= number_format($payment['amount']) ?></td>
-
-        <td>
-            <a target="_blank"
-               href="<?= base_url('uploads/payments/'.$payment['proof_file']) ?>">
-               View Proof
-            </a>
-        </td>
-
-        <td><?= $payment['status'] ?></td>
-
-        <td>
-
-<?php if ($payment['status'] == 'PENDING'): ?>
-
-    <a href="<?= site_url('finance/customer-payments/approve/'.$payment['id']) ?>">
-        Approve
-    </a>
-
-    |
-
-    <a href="<?= site_url('finance/customer-payments/reject/'.$payment['id']) ?>">
-        Reject
-    </a>
-
-<?php elseif ($payment['status'] == 'APPROVED'): ?>
-
-    <span style="color:green;font-weight:bold;">
-        ✓ Approved
-    </span>
-
-<?php else: ?>
-
-    <span style="color:red;font-weight:bold;">
-        ✗ Rejected
-    </span>
-
-<?php endif; ?>
-
-</td>
-
-    </tr>
-
-    <?php endforeach; ?>
-
-</table>
+<?= $this->endSection() ?>

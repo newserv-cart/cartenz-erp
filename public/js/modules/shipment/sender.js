@@ -59,7 +59,13 @@ window.ShipmentSender = {
             data.customerId ||
             data.customer_id ||
             ""
-        );    
+        );
+
+        $("#sender_address_id").val(
+            data.addressId ||
+            data.address_id ||
+            ""
+        );
 
         $("#sender_company").val(
             data.company || ""
@@ -81,11 +87,13 @@ window.ShipmentSender = {
             data.state || data.province || ""
         );
 
-        $("#sender_postal_code").val(
+        const postalValue =
             data.postalCode ||
             data.postal ||
-            ""
-        );
+            "";
+
+        $("#sender_postal").val(postalValue);
+        $("#sender_postal_code").val(postalValue);
 
         $("#sender_address").val(
             data.address || ""
@@ -96,7 +104,24 @@ window.ShipmentSender = {
         );
 
         $("#sender_country").val(
-            data.country || ""
+            data.country ||
+            data.countryName ||
+            ""
+        );
+
+        $("#sender_country_code").val(
+            data.countryCode ||
+            data.country_code ||
+            ""
+        );
+
+        $("#sender_country_zone").val(
+            data.countryZone ||
+            data.country_zone ||
+            data.expressZoneCode ||
+            data.express_zone_code ||
+            data.zoneCode ||
+            ""
         );
     },
 
@@ -106,15 +131,19 @@ window.ShipmentSender = {
     clear() {
 
         $("#real_customer_id").val("");
+        $("#sender_address_id").val("");
         $("#sender_company").val("");
         $("#sender_phone").val("");
         $("#sender_email").val("");
         $("#sender_city").val("");
         $("#sender_province").val("");
+        $("#sender_postal").val("");
         $("#sender_postal_code").val("");
         $("#sender_address").val("");
         $("#sender_identity").val("");
         $("#sender_country").val("");
+        $("#sender_country_code").val("");
+        $("#sender_country_zone").val("");
     },
 
     // ==================================================
@@ -176,9 +205,13 @@ window.ShipmentSender = {
                     const senderData = {
                         address_type: "SENDER",
 
-                        // Modal Sender belum memiliki
-                        // dropdown negara
-                        country_id: 0,
+                        customer_id: String(
+                            $("#customer_id").val() || ""
+                        ).trim(),
+
+                        country_id: String(
+                            $("#new_sender_country_id").val() || ""
+                        ).trim(),
 
                         contact_name:
                             (
@@ -210,6 +243,12 @@ window.ShipmentSender = {
                                 || ""
                             ).trim(),
 
+                        state:
+                            (
+                                $("#new_sender_province").val()
+                                || ""
+                            ).trim(),
+
                         city:
                             (
                                 $("#new_sender_city").val()
@@ -235,6 +274,13 @@ window.ShipmentSender = {
                             ).trim()
                     };
 
+                    if (!senderData.customer_id) {
+                        alert(
+                            "Pilih Customer terlebih dahulu."
+                        );
+                        return;
+                    }
+
                     if (!senderData.contact_name) {
                         alert(
                             "Customer Name is required!"
@@ -245,6 +291,13 @@ window.ShipmentSender = {
                     if (!senderData.phone) {
                         alert(
                             "Customer Phone is required!"
+                        );
+                        return;
+                    }
+
+                    if (!senderData.country_id) {
+                        alert(
+                            "Country is required!"
                         );
                         return;
                     }
@@ -313,7 +366,47 @@ window.ShipmentSender = {
                              * Respons server hanya menjadi
                              * fallback.
                              */
+                            const customerId =
+                                details.customer_id || "";
+
+                            const defaultCountryName =
+                                String(
+                                    $("#new_sender_country_name").val() || ""
+                                ).trim()
+                                ||
+                                "Indonesia";
+
+                            const defaultCountryCode =
+                                String(
+                                    $("#new_sender_country_code").val() || ""
+                                ).trim()
+                                ||
+                                "ID";
+
+                            const defaultCountryZone =
+                                String(
+                                    $("#new_sender_country_zone").val() || ""
+                                ).trim();
+
+                            const countryName =
+                                details.country_name
+                                ||
+                                defaultCountryName;
+
+                            const countryCode =
+                                details.country_code
+                                ||
+                                defaultCountryCode;
+
+                            const countryZone =
+                                details.express_zone_code
+                                ||
+                                defaultCountryZone;
+
                             const normalizedData = {
+                                customerId: customerId,
+                                addressId: senderId,
+
                                 company:
                                     senderData.company_name
                                     ||
@@ -372,19 +465,42 @@ window.ShipmentSender = {
                                     ||
                                     "",
 
-                                country:
-                                    details.country_name
-                                    ||
-                                    ""
+                                country: countryName,
+                                countryName: countryName,
+                                countryCode: countryCode,
+                                countryZone: countryZone
                             };
+
+                            const contactName =
+                                senderData.contact_name
+                                ||
+                                details.contact_name
+                                ||
+                                "";
+
+                            const companyName =
+                                senderData.company_name
+                                ||
+                                details.company_name
+                                ||
+                                "";
+
+                            let optionLabel = contactName;
+
+                            if (
+                                companyName !== ""
+                                && companyName.toLowerCase()
+                                    !== contactName.toLowerCase()
+                            ) {
+                                optionLabel +=
+                                    " — " + companyName;
+                            }
 
                             const option =
                                 new Option(
-                                    responseData.text
-                                    ||
-                                    senderData.contact_name,
+                                    optionLabel,
 
-                                    senderId,
+                                    String(customerId),
 
                                     true,
                                     true
@@ -393,12 +509,27 @@ window.ShipmentSender = {
                             $(option).attr({
 
                                 "data-customer-id":
-                                    details.customer_id 
-                                    || "",
+                                    customerId,
+
+                                "data-address-id":
+                                    senderId,
+
+                                "data-contact-name":
+                                    contactName,
 
                                 "data-country-id":
                                     details.country_id
+                                    || senderData.country_id
                                     || "",
+
+                                "data-country-name":
+                                    normalizedData.countryName,
+
+                                "data-country-code":
+                                    normalizedData.countryCode,
+
+                                "data-country-zone":
+                                    normalizedData.countryZone,
 
                                 "data-company":
                                     normalizedData.company,
@@ -433,7 +564,6 @@ window.ShipmentSender = {
                              */
                             $("#customer_id")
                                 .append(option)
-                                .val(String(senderId))
                                 .trigger("change");
 
                             /*
@@ -469,9 +599,46 @@ window.ShipmentSender = {
                                 xhr.responseText
                             );
 
-                            alert(
+                            let message =
                                 "Error Save Sender: " +
-                                xhr.status
+                                xhr.status;
+
+                            try {
+                                const res =
+                                    xhr.responseJSON ||
+                                    JSON.parse(
+                                        xhr.responseText || "{}"
+                                    );
+
+                                if (res.message) {
+                                    message = res.message;
+                                }
+
+                                if (
+                                    res.errors &&
+                                    typeof res.errors ===
+                                        "object"
+                                ) {
+                                    const errorList = Object
+                                        .values(res.errors)
+                                        .join("\n");
+
+                                    if (errorList) {
+                                        message +=
+                                            "\n\n" + errorList;
+                                    }
+                                }
+                            } catch (parseError) {
+                                if (xhr.responseText) {
+                                    message +=
+                                        "\n\n" +
+                                        xhr.responseText;
+                                }
+                            }
+
+                            alert(
+                                "Gagal menyimpan sender:\n\n" +
+                                message
                             );
                         },
 
@@ -537,8 +704,9 @@ window.ShipmentSender = {
     // ==================================================
     clearModal() {
         $(
-            "#senderModal input, " +
-            "#senderModal textarea"
+            "#senderModal input:not([type=hidden]), " +
+            "#senderModal textarea, " +
+            "#senderModal select"
         ).val("");
     }
 };

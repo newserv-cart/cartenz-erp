@@ -235,7 +235,6 @@ $customerOtherCharges =
             <div class="card-body">
                 <input
                     type="hidden"
-                    name="customer_id"
                     id="real_customer_id"
                     value="<?= esc(
                         (string) $selectedCustomerId
@@ -248,7 +247,7 @@ $customerOtherCharges =
                 </label>
 
                 <select
-                    name="sender_address_id"
+                    name="customer_id"
                     id="customer_id"
                     class="form-select"
                     required>
@@ -258,74 +257,90 @@ $customerOtherCharges =
                     </option>
 
                     <?php foreach (
-                        $senderAddresses as $row
+                        $senderAddresses as $sender
                     ): ?>
+
+                        <?php
+                            $senderId   = (int) ($sender['id'] ?? 0);
+                            $customerId = (int) ($sender['customer_id'] ?? 0);
+
+                            $contactName = trim(
+                                (string) ($sender['contact_name'] ?? '')
+                            );
+
+                            $companyName = trim(
+                                (string) ($sender['company_name'] ?? '')
+                            );
+
+                            $optionLabel = $contactName;
+
+                            if (
+                                $companyName !== ''
+                                && strcasecmp(
+                                    $companyName,
+                                    $contactName
+                                ) !== 0
+                            ) {
+                                $optionLabel .=
+                                    ' — ' . $companyName;
+                            }
+
+                            $isSelected =
+                                old('sender_address_id', $selectedSenderId)
+                                    == $senderId;
+                        ?>
+
                         <option
-                            value="<?= esc(
-                                (string) $row['id']
-                            ) ?>"
-                            data-customer-id="<?= esc(
-                                (string) (
-                                    $row['customer_id'] ?? ''
-                                )
-                            ) ?>"
-                            data-country-id="<?= esc(
-                                (string) (
-                                    $row['country_id'] ?? ''
-                                )
-                            ) ?>"
-                            data-company="<?= esc(
-                                $row['company_name'] ?? ''
-                            ) ?>"
-                            data-phone="<?= esc(
-                                $row['phone'] ?? ''
-                            ) ?>"
-                            data-email="<?= esc(
-                                $row['email'] ?? ''
-                            ) ?>"
-                            data-city="<?= esc(
-                                $row['city'] ?? ''
-                            ) ?>"
-                            data-state="<?= esc(
-                                $row['state'] ?? ''
-                            ) ?>"
-                            data-postal-code="<?= esc(
-                                $row['postal_code'] ?? ''
-                            ) ?>"
-                            data-address="<?= esc(
-                                $row['address'] ?? ''
-                            ) ?>"
-                            data-country="<?= esc(
-                                $row['country_name'] ?? ''
-                            ) ?>"
+                            value="<?= $customerId ?>"
+
+                            data-customer-id="<?= $customerId ?>"
+                            data-address-id="<?= $senderId ?>"
+                            data-contact-name="<?= esc($contactName, 'attr') ?>"
+                            data-company="<?= esc($companyName, 'attr') ?>"
+                            data-phone="<?= esc($sender['phone'] ?? '', 'attr') ?>"
+                            data-email="<?= esc($sender['email'] ?? '', 'attr') ?>"
                             data-identity="<?= esc(
-                                $row['identity_number'] ?? ''
+                                $sender['identity_number'] ?? '',
+                                'attr'
                             ) ?>"
-                            <?= (int) $row['id']
-                                === $selectedSenderId
-                                ? 'selected'
-                                : '' ?>>
+                            data-address="<?= esc($sender['address'] ?? '', 'attr') ?>"
+                            data-state="<?= esc($sender['state'] ?? '', 'attr') ?>"
+                            data-city="<?= esc($sender['city'] ?? '', 'attr') ?>"
+                            data-postal-code="<?= esc(
+                                $sender['postal_code'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-country-id="<?= (int) (
+                                $sender['country_id'] ?? 0
+                            ) ?>"
+                            data-country-code="<?= esc(
+                                $sender['country_code'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-country-name="<?= esc(
+                                $sender['country_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-country-zone="<?= esc(
+                                $sender['express_zone_code'] ?? '',
+                                'attr'
+                            ) ?>"
 
-                            <?= !empty(
-                                $row['owner_customer_name']
-                            )
-                                ? esc(
-                                    $row['owner_customer_name']
-                                ) . ' — '
-                                : '' ?>
+                            <?= $isSelected ? 'selected' : '' ?>
 
-                            <?= esc(
-                                $row['contact_name'] ?? '-'
-                            ) ?>
-
-                            <?= !empty($row['company_name'])
-                                ? ' - ' . esc(
-                                    $row['company_name']
-                                )
-                                : '' ?>
+                            <?= esc($optionLabel) ?>
                         </option>
+
                     <?php endforeach; ?>
                 </select>
+
+                <input
+                    type="hidden"
+                    name="sender_address_id"
+                    id="sender_address_id"
+                    value="<?= esc(
+                        old('sender_address_id', $selectedSenderId)
+                    ) ?>">
 
                 <div class="form-text">
                     Ganti Sender melalui dropdown ini. Detail di bawah adalah
@@ -423,6 +438,22 @@ $customerOtherCharges =
                         <label>Country</label>
                         <input
                             id="sender_country"
+                            class="form-control"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label>Country Code</label>
+                        <input
+                            id="sender_country_code"
+                            class="form-control"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label>Country Zone</label>
+                        <input
+                            id="sender_country_zone"
                             class="form-control"
                             readonly>
                     </div>

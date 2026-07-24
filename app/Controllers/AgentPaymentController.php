@@ -27,6 +27,7 @@ class AgentPaymentController extends BaseController
             $invoice = $this->ownedInvoice((int) $invoiceId);
             $this->assertPayable($invoice);
 
+            // Cek pembayaran pending
             $pending = (new PaymentModel())
                 ->where('payment_type', 'AGENT')
                 ->where('agent_invoice_id', (int) $invoice['id'])
@@ -37,23 +38,34 @@ class AgentPaymentController extends BaseController
                 throw new \RuntimeException('Masih ada pembayaran yang menunggu verifikasi Finance.');
             }
 
-            $amount  = round((float) ($this->request->getPost('amount') ?? 0), 2);
-            $balance = round((float) ($invoice['balance_amount'] ?? 0), 2);
+            // Hitung total & saldo dengan cadangan
+            $invoiceTotal = (float) (
+                (float) ($invoice['grand_total'] ?? 0) > 0
+                    ? $invoice['grand_total']
+                    : ($invoice['total_amount'] ?? 0)
+            );
 
-            if ($amount <= 0 || $amount > $balance) {
-                throw new \RuntimeException(
-                    'Nominal pembayaran harus lebih dari nol dan tidak boleh melebihi balance invoice.'
-                );
+            $amount  = round((float) ($this->request->getPost('amount') ?? 0), 2);
+            $balance = round(
+                (float) ($invoice['balance_amount'] ?? $invoiceTotal),
+                2
+            );
+
+            if ($amount <= 0) {
+                throw new \RuntimeException('Jumlah pembayaran tidak valid.');
             }
 
-            $file = $this->request->getFile('proof_file');
+            if ($amount > $balance) {
+                throw new \RuntimeException('Jumlah pembayaran melebihi sisa invoice.');
+            }
 
+            // Validasi file
+            $file = $this->request->getFile('proof_file');
             if (!$file || !$file->isValid() || $file->hasMoved()) {
                 throw new \RuntimeException('Bukti pembayaran wajib diunggah.');
             }
 
             $extension = strtolower($file->getClientExtension());
-
             if (!in_array($extension, ['jpg', 'jpeg', 'png', 'pdf'], true)) {
                 throw new \RuntimeException('Bukti pembayaran harus JPG, JPEG, PNG, atau PDF.');
             }
@@ -62,8 +74,8 @@ class AgentPaymentController extends BaseController
                 throw new \RuntimeException('Ukuran bukti pembayaran maksimal 5 MB.');
             }
 
+            // Simpan file
             $directory = FCPATH . 'uploads/payments';
-
             if (!is_dir($directory)) {
                 mkdir($directory, 0775, true);
             }
@@ -71,18 +83,19 @@ class AgentPaymentController extends BaseController
             $fileName = $file->getRandomName();
             $file->move($directory, $fileName);
 
+            // Simpan data pembayaran
             (new PaymentModel())->insert([
-                'payment_no'      => $this->nextPaymentNo(),
-                'invoice_id'      => 0,
-                'payment_type'    => 'AGENT',
-                'agent_invoice_id'=> (int) $invoice['id'],
-                'payment_date'    => date('Y-m-d'),
-                'payment_method'  => trim((string) ($this->request->getPost('payment_method') ?? '')),
-                'reference_no'    => trim((string) ($this->request->getPost('reference_no') ?? '')),
-                'amount'          => $amount,
-                'remarks'         => trim((string) ($this->request->getPost('remarks') ?? '')),
-                'proof_file'      => $fileName,
-                'status'          => 'PENDING',
+                'payment_no'       => $this->nextPaymentNo(),
+                'invoice_id'       => 0,
+                'payment_type'     => 'AGENT',
+                'agent_invoice_id' => (int) $invoice['id'],
+                'payment_date'     => date('Y-m-d'),
+                'payment_method'   => trim((string) ($this->request->getPost('payment_method') ?? '')),
+                'reference_no'     => trim((string) ($this->request->getPost('reference_no') ?? '')),
+                'amount'           => $amount,
+                'remarks'          => trim((string) ($this->request->getPost('remarks') ?? '')),
+                'proof_file'       => $fileName,
+                'status'           => 'PENDING',
             ]);
 
             return redirect()
@@ -120,9 +133,15 @@ class AgentPaymentController extends BaseController
             throw new \RuntimeException('Invoice belum disetujui Finance.');
         }
 
-        if (!in_array($status, ['UNPAID', 'PARTIAL'], true)
-            || (float) ($invoice['balance_amount'] ?? 0) <= 0) {
-            throw new \RuntimeException('Invoice tidak dapat dibayar pada status ini.');
+        $invoiceTotal = (float) (
+            (float) ($invoice['grand_total'] ?? 0) > 0
+                ? $invoice['grand_total']
+                : ($invoice['total_amount'] ?? 0)
+        );
+        $balance = (float) ($invoice['balance_amount'] ?? $invoiceTotal);
+
+        if (!in_array($status, ['UNPAID', 'PARTIAL'], true) || $balance <= 0) {
+            throw new \RuntimeException('Invoice sudah lunas atau tidak dapat dibayar saat ini.');
         }
     }
 
@@ -132,7 +151,6 @@ class AgentPaymentController extends BaseController
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $number = 'PAY' . date('ymdHis') . random_int(10, 99);
-
             if (!$model->where('payment_no', $number)->first()) {
                 return $number;
             }

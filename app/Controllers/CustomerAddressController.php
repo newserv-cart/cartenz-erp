@@ -65,9 +65,9 @@ class CustomerAddressController extends BaseController
     public function store()
     {
         try {
-            $customer = $this->requireCustomer();
+            $customerId = $this->resolveCustomerId();
             $data = $this->validatedAddressData(
-                (int) $customer['id']
+                $customerId
             );
 
             $model = new CustomerAddressModel();
@@ -221,47 +221,224 @@ class CustomerAddressController extends BaseController
                 ]);
         }
 
-        try {
-            $customer = $this->requireCustomer();
-            $data = $this->validatedAddressData(
-                (int) $customer['id']
+        $addressType = strtoupper(
+            trim(
+                (string) $this->request
+                    ->getPost('address_type')
+            )
+        );
+
+        $personLabel = $addressType === 'SENDER'
+            ? 'Sender'
+            : 'Receiver';
+
+        $rules = [
+            'customer_id' => [
+                'label' => 'Customer',
+                'rules' => 'required|is_natural_no_zero',
+            ],
+
+            'address_type' => [
+                'label' => 'Address Type',
+                'rules' => 'required|in_list[SENDER,RECEIVER]',
+            ],
+
+            'contact_name' => [
+                'label' => $personLabel . ' Name',
+                'rules' => 'required|min_length[2]|max_length[200]',
+            ],
+
+            'phone' => [
+                'label' => $personLabel . ' Phone',
+                'rules' => 'required|max_length[50]',
+            ],
+
+            'country_id' => [
+                'label' => $personLabel . ' Country',
+                'rules' => 'required|is_natural_no_zero',
+            ],
+
+            'address' => [
+                'label' => 'Complete Address',
+                'rules' => 'required|min_length[3]|max_length[5000]',
+            ],
+
+            'email' => [
+                'label' => 'Email',
+                'rules' => 'permit_empty|valid_email|max_length[150]',
+            ],
+        ];
+
+        if (!$this->validate($rules)) {
+            $errors = $this->validator->getErrors();
+
+            log_message(
+                'error',
+                'SAVE {type} VALIDATION FAILED: {errors}',
+                [
+                    'type' => $personLabel,
+                    'errors' => json_encode(
+                        $errors,
+                        JSON_UNESCAPED_SLASHES
+                    ),
+                ]
             );
+
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Data ' .
+                        strtolower($personLabel) .
+                        ' belum valid.',
+                    'errors'  => $errors,
+                ]);
+        }
+
+        try {
+            $customerId = $this->resolveCustomerId();
+
+            $type = $addressType;
+
+            $province = trim(
+                (string) (
+                    $this->request->getPost('state')
+                    ?: $this->request->getPost('province')
+                    ?: ''
+                )
+            );
+
+            $data = [
+                'customer_id'     => $customerId,
+                'address_type'    => $type,
+                'address_label'   => $this->nullableText(
+                    $this->request->getPost('address_label'),
+                    100
+                ) ?? ucfirst(strtolower($type)),
+                'contact_name'    => mb_substr(
+                    trim(
+                        (string) $this->request
+                            ->getPost('contact_name')
+                    ),
+                    0,
+                    200
+                ),
+                'company_name'    => $this->nullableText(
+                    $this->request->getPost('company_name'),
+                    200
+                ),
+                'phone'           => mb_substr(
+                    trim(
+                        (string) $this->request
+                            ->getPost('phone')
+                    ),
+                    0,
+                    50
+                ),
+                'email'           => $this->nullableText(
+                    $this->request->getPost('email'),
+                    150
+                ),
+                'identity_number' => $this->nullableText(
+                    $this->request->getPost('identity_number'),
+                    100
+                ),
+                'country_id'      => (int) $this->request
+                    ->getPost('country_id'),
+                'state'           => $province,
+                'city'            => $this->nullableText(
+                    $this->request->getPost('city'),
+                    100
+                ),
+                'postal_code'     => $this->nullableText(
+                    $this->request->getPost('postal_code'),
+                    20
+                ),
+                'address'         => mb_substr(
+                    trim(
+                        (string) $this->request
+                            ->getPost('address')
+                    ),
+                    0,
+                    5000
+                ),
+                'is_default'      => $this->request
+                    ->getPost('is_default') ? 1 : 0,
+                'status'          => 1,
+            ];
+
             $model = new CustomerAddressModel();
             $id = $model->insert($data, true);
 
             if (!$id) {
+                $modelErrors = $model->errors();
+
                 throw new \RuntimeException(
-                    'Alamat gagal disimpan.'
+                    !empty($modelErrors)
+                        ? implode(', ', $modelErrors)
+                        : 'Alamat gagal disimpan.'
                 );
             }
 
             $address = $model->find($id);
+
             $country = db_connect()
                 ->table('countries')
-                ->where('id', (int) ($address['country_id'] ?? 0))
+                ->select(
+                    'countries.*, ' .
+                    'express_zones.zone_code AS express_zone_code'
+                )
+                ->join(
+                    'express_zones',
+                    'express_zones.id = countries.express_zone_id',
+                    'left'
+                )
+                ->where(
+                    'countries.id',
+                    (int) ($address['country_id'] ?? 0)
+                )
                 ->get()
                 ->getRowArray();
+
             $address['country_name'] =
                 $country['country_name'] ?? '';
+            $address['country_code'] =
+                $country['country_code'] ?? '';
+            $address['express_zone_code'] =
+                $country['express_zone_code'] ?? '';
 
-            return $this->response->setJSON([
-                'status' => 'success',
-                'data' => [
-                    'id' => (int) $id,
-                    'text' => trim(
-                        (string) $address['contact_name'] .
-                        (!empty($address['company_name'])
-                            ? ' - ' . $address['company_name']
-                            : '')
-                    ),
-                ],
-                'address_details' => $address,
-            ]);
+            return $this->response
+                ->setStatusCode(201)
+                ->setJSON([
+                    'status'          => 'success',
+                    'success'         => true,
+                    'message'         => 'Receiver berhasil disimpan.',
+                    'id'              => (int) $id,
+                    'data'            => [
+                        'id' => (int) $id,
+                        'text' => trim(
+                            (string) $address['contact_name'] .
+                            (!empty($address['company_name'])
+                                ? ' - ' . $address['company_name']
+                                : '')
+                        ),
+                    ],
+                    'details'         => $address,
+                    'address_details' => $address,
+                ]);
         } catch (\Throwable $e) {
+            log_message(
+                'error',
+                'SAVE RECEIVER FAILED: {message}',
+                [
+                    'message' => $e->getMessage(),
+                ]
+            );
+
             return $this->response
                 ->setStatusCode(422)
                 ->setJSON([
-                    'status' => 'error',
+                    'status'  => 'error',
                     'message' => $e->getMessage(),
                 ]);
         }
@@ -293,6 +470,49 @@ class CustomerAddressController extends BaseController
         }
 
         return $customer;
+    }
+
+    private function isOperationalUser(): bool
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->inGroup('superadmin')
+            || $user->inGroup('admin');
+    }
+
+    private function resolveCustomerId(): int
+    {
+        $postedCustomerId = (int) $this->request
+            ->getPost('customer_id');
+
+        if ($this->isOperationalUser()) {
+            if ($postedCustomerId <= 0) {
+                throw new \RuntimeException(
+                    'Customer belum dipilih.'
+                );
+            }
+
+            $customer = (new CustomerModel())
+                ->where('id', $postedCustomerId)
+                ->where('status', 1)
+                ->first();
+
+            if (!$customer) {
+                throw new \RuntimeException(
+                    'Customer tidak ditemukan.'
+                );
+            }
+
+            return (int) $customer['id'];
+        }
+
+        $customer = $this->requireCustomer();
+
+        return (int) $customer['id'];
     }
 
     private function ownedAddress(

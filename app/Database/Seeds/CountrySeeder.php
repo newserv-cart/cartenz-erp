@@ -10,6 +10,7 @@ class CountrySeeder extends Seeder
     {
         $data = [
 
+            ['region_id' => 1, 'country_code' => 'ID', 'country_name' => 'Indonesia'],
             ['region_id' => 1, 'country_code' => 'SG', 'country_name' => 'Singapore'],
             ['region_id' => 1, 'country_code' => 'MY', 'country_name' => 'Malaysia'],
             ['region_id' => 1, 'country_code' => 'HK', 'country_name' => 'Hong Kong'],

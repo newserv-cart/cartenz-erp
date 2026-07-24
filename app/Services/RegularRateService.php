@@ -63,14 +63,29 @@ class RegularRateService
             default     => 'A',
         };
 
+        $rawChargeableWeight = (float) $chargeWeight;
+
+        $billingWeight = max(
+            1,
+            (float) ceil($rawChargeableWeight)
+        );
+
         $pricingDate = $this->normalizePricingDate(
             $pricingDate
         );
 
+        log_message('debug', 'REGULAR WEIGHT DEBUG: ' . json_encode([
+            'raw_chargeable_weight' => $rawChargeableWeight,
+            'billing_weight'        => $billingWeight,
+            'country_id'            => $countryId,
+            'service_id'            => $serviceId,
+            'shipment_date'         => $pricingDate,
+        ], JSON_UNESCAPED_SLASHES));
+
         $tariff = $this->tariffModel->findApplicableRate(
             $countryId,
             $serviceId,
-            $chargeWeight,
+            $billingWeight,
             $pricingDate
         );
 
@@ -78,7 +93,8 @@ class RegularRateService
             return $this->emptyResult(
                 $agentType,
                 $pricingDate,
-                $chargeWeight
+                $rawChargeableWeight,
+                $billingWeight
             );
         }
 
@@ -106,12 +122,12 @@ class RegularRateService
          */
         $customerFreight = $this->calculateFreightTotal(
             $customerPricePerKg,
-            $chargeWeight
+            $billingWeight
         );
 
         $vendorFreight = $this->calculateFreightTotal(
             $vendorPricePerKg,
-            $chargeWeight
+            $billingWeight
         );
 
         return [
@@ -120,7 +136,12 @@ class RegularRateService
             'weight_to'          => (float) $tariff['weight_to'],
             'weight_range'       => $tariff['weight_from'] .
                 ' - ' . $tariff['weight_to'],
-            'chargeable_weight'  => round($chargeWeight, 2),
+            'chargeable_weight'  => round(
+                $rawChargeableWeight,
+                2
+            ),
+            'billing_weight'     => $billingWeight,
+            'invoice_weight'     => $billingWeight,
             'pricing_date'       => $pricingDate,
             'agent_type'         => $agentType,
             'price_column'       => $priceColumn,
@@ -137,7 +158,7 @@ class RegularRateService
             'vendor_price_per_kg'   => $vendorPricePerKg,
             'customer_freight'      => $customerFreight,
             'vendor_freight'        => $vendorFreight,
-            'formula'               => 'rate_per_kg_x_chargeable_weight',
+            'formula'               => 'rate_per_kg_x_billing_weight',
         ];
     }
 
@@ -180,14 +201,20 @@ class RegularRateService
     private function emptyResult(
         string $agentType,
         string $pricingDate,
-        float $chargeWeight
+        float $rawChargeableWeight,
+        float $billingWeight = 0
     ): array {
         return [
             'tariff_id'              => 0,
             'weight_from'            => 0,
             'weight_to'              => 0,
             'weight_range'           => '0 - 0',
-            'chargeable_weight'      => round($chargeWeight, 2),
+            'chargeable_weight'      => round(
+                $rawChargeableWeight,
+                2
+            ),
+            'billing_weight'         => $billingWeight,
+            'invoice_weight'         => $billingWeight,
             'pricing_date'           => $pricingDate,
             'agent_type'             => $agentType,
             'price_column'           => null,
@@ -199,7 +226,7 @@ class RegularRateService
             'customer_freight'       => 0,
             'vendor_freight'         => 0,
             'formula'                =>
-                'rate_per_kg_x_chargeable_weight',
+                'rate_per_kg_x_billing_weight',
         ];
     }
 }

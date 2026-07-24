@@ -57,7 +57,7 @@
                             PDF Invoice
                         </a>
                         <?php if (($invoice['invoice_status'] ?? '') !== 'PAID'): ?>
-                            <a href="<?= base_url('payments/create/'.($invoice['id'] ?? '')) ?>" class="btn btn-success btn-sm">
+                            <a href="<?= base_url('customer/payments/create/'.($invoice['id'] ?? '')) ?>" class="btn btn-success btn-sm">
                                 Receive Payment
                             </a>
                         <?php endif; ?>

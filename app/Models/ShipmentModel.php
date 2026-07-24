@@ -54,6 +54,7 @@ class ShipmentModel extends Model
         'actual_weight',
         'volume_weight',
         'chargeable_weight',
+        'invoice_weight',
         'declared_value',
         'currency_id',
 

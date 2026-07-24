@@ -109,14 +109,25 @@ window.ShipmentReceiver = {
                 ).trim();
 
                 // Pola aman: anti null/undefined error saat pakai .trim()
+                const customerId = String(
+                    $("#customer_id").val() || ""
+                ).trim();
+
+                if (!customerId) {
+                    alert("Pilih Customer/Pengirim terlebih dahulu.");
+                    return;
+                }
+
                 const receiverData = {
                     address_type: "RECEIVER",
+                    customer_id: customerId,
                     country_id: String($("#new_receiver_country").val() || "").trim(),
                     contact_name: String($("#new_receiver_name").val() || "").trim(),
                     company_name: String($("#new_receiver_company").val() || "").trim(),
                     phone: String($("#new_receiver_phone").val() || "").trim(),
                     identity_number: String($("#new_receiver_identity").val() || "").trim(),
                     province: String($("#new_receiver_province").val() || "").trim(),
+                    state: String($("#new_receiver_province").val() || "").trim(),
                     city: String($("#new_receiver_city").val() || "").trim(),
                     postal_code: String($("#new_receiver_postal").val() || "").trim(),
                     email: String($("#new_receiver_email").val() || "").trim(),
@@ -202,7 +213,39 @@ window.ShipmentReceiver = {
 
                     error: function (xhr) {
                         console.error("❌ Save Receiver Error:", xhr.responseText);
-                        alert("⚠️ Server error: " + xhr.status);
+
+                        let message = "⚠️ Server error: " + xhr.status;
+
+                        try {
+                            const res = xhr.responseJSON ||
+                                JSON.parse(xhr.responseText || "{}");
+
+                            if (res.message) {
+                                message = res.message;
+                            }
+
+                            if (
+                                res.errors &&
+                                typeof res.errors === "object"
+                            ) {
+                                const errorList = Object
+                                    .values(res.errors)
+                                    .join("\n");
+
+                                if (errorList) {
+                                    message += "\n\n" + errorList;
+                                }
+                            }
+                        } catch (parseError) {
+                            if (xhr.responseText) {
+                                message += "\n\n" + xhr.responseText;
+                            }
+                        }
+
+                        alert(
+                            "Gagal menyimpan receiver:\n\n" +
+                            message
+                        );
                     },
 
                     complete: function () {
@@ -358,14 +401,25 @@ window.ShipmentReceiver = {
                 ).trim();
 
                 // Pola aman: anti null/undefined error saat pakai .trim()
+                const customerId = String(
+                    $("#customer_id").val() || ""
+                ).trim();
+
+                if (!customerId) {
+                    alert("Pilih Customer/Pengirim terlebih dahulu.");
+                    return;
+                }
+
                 const receiverData = {
                     address_type: "RECEIVER",
+                    customer_id: customerId,
                     country_id: String($("#new_receiver_country").val() || "").trim(),
                     contact_name: String($("#new_receiver_name").val() || "").trim(),
                     company_name: String($("#new_receiver_company").val() || "").trim(),
                     phone: String($("#new_receiver_phone").val() || "").trim(),
                     identity_number: String($("#new_receiver_identity").val() || "").trim(),
                     province: String($("#new_receiver_province").val() || "").trim(),
+                    state: String($("#new_receiver_province").val() || "").trim(),
                     city: String($("#new_receiver_city").val() || "").trim(),
                     postal_code: String($("#new_receiver_postal").val() || "").trim(),
                     email: String($("#new_receiver_email").val() || "").trim(),
@@ -451,7 +505,39 @@ window.ShipmentReceiver = {
 
                     error: function (xhr) {
                         console.error("❌ Save Receiver Error:", xhr.responseText);
-                        alert("⚠️ Server error: " + xhr.status);
+
+                        let message = "⚠️ Server error: " + xhr.status;
+
+                        try {
+                            const res = xhr.responseJSON ||
+                                JSON.parse(xhr.responseText || "{}");
+
+                            if (res.message) {
+                                message = res.message;
+                            }
+
+                            if (
+                                res.errors &&
+                                typeof res.errors === "object"
+                            ) {
+                                const errorList = Object
+                                    .values(res.errors)
+                                    .join("\n");
+
+                                if (errorList) {
+                                    message += "\n\n" + errorList;
+                                }
+                            }
+                        } catch (parseError) {
+                            if (xhr.responseText) {
+                                message += "\n\n" + xhr.responseText;
+                            }
+                        }
+
+                        alert(
+                            "Gagal menyimpan receiver:\n\n" +
+                            message
+                        );
                     },
 
                     complete: function () {

@@ -133,12 +133,162 @@ public function create()
 
         $addressSelect = implode(', ', [
             'customer_addresses.*',
+            'countries.country_code',
             'countries.country_name',
+            'express_zones.zone_code AS express_zone_code',
             'customers.customer_name AS owner_customer_name',
             'customers.customer_code AS owner_customer_code',
         ]);
 
-        $senderAddresses = $senderAddressModel
+        $senderOwnerCustomerId = 1;
+
+        $senderSql = <<<'SQL'
+SELECT
+    ca.*,
+    countries.country_code,
+    countries.country_name,
+    express_zones.zone_code AS express_zone_code,
+    customers.customer_name AS owner_customer_name,
+    customers.customer_code AS owner_customer_code
+
+FROM customer_addresses ca
+
+INNER JOIN (
+    SELECT
+        MAX(x.id) AS selected_id
+
+    FROM customer_addresses x
+
+    WHERE x.customer_id = ?
+      AND x.address_type = 'SENDER'
+      AND x.status = 1
+
+      /* Nama wajib layak */
+      AND CHAR_LENGTH(
+            TRIM(COALESCE(x.contact_name, ''))
+          ) >= 3
+
+      AND x.contact_name REGEXP '[A-Za-z]'
+
+      /* Telepon harus mengandung angka */
+      AND x.phone REGEXP '[0-9]'
+
+      AND CHAR_LENGTH(
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                TRIM(COALESCE(x.phone, '')),
+                                ' ',
+                                ''
+                            ),
+                            '-',
+                            ''
+                        ),
+                        '+',
+                        ''
+                    ),
+                    '(',
+                    ''
+                ),
+                ')',
+                ''
+            )
+          ) >= 7
+
+      /* Alamat minimal layak */
+      AND CHAR_LENGTH(
+            TRIM(COALESCE(x.address, ''))
+          ) >= 10
+
+      /* Minimal memiliki kota atau kode pos */
+      AND (
+            TRIM(COALESCE(x.city, '')) <> ''
+            OR
+            TRIM(COALESCE(x.postal_code, '')) <> ''
+          )
+
+      /*
+       * Jangan tampilkan nama pengirim apabila salah satu
+       * data duplikatnya sudah masuk invoice.
+       */
+      AND NOT EXISTS (
+          SELECT 1
+
+          FROM customer_addresses used_address
+
+          INNER JOIN shipments s
+              ON s.sender_address_id = used_address.id
+
+          WHERE used_address.customer_id = x.customer_id
+            AND used_address.address_type = 'SENDER'
+
+            AND UPPER(
+                    TRIM(
+                        COALESCE(
+                            used_address.contact_name,
+                            ''
+                        )
+                    )
+                )
+                =
+                UPPER(
+                    TRIM(
+                        COALESCE(
+                            x.contact_name,
+                            ''
+                        )
+                    )
+                )
+
+            AND (
+                s.invoice_id IS NOT NULL
+                OR COALESCE(s.is_invoiced, 0) = 1
+            )
+      )
+
+    /*
+     * Satu nama pengirim hanya satu baris.
+     * MAX(id) mengambil data terbaru.
+     */
+    GROUP BY
+        x.customer_id,
+        UPPER(
+            TRIM(
+                COALESCE(
+                    x.contact_name,
+                    ''
+                )
+            )
+        )
+
+) clean_sender
+    ON clean_sender.selected_id = ca.id
+
+LEFT JOIN countries
+    ON countries.id = ca.country_id
+
+LEFT JOIN express_zones
+    ON express_zones.id = countries.express_zone_id
+
+INNER JOIN customers
+    ON customers.id = ca.customer_id
+
+WHERE customers.status = 1
+
+ORDER BY
+    ca.contact_name ASC
+SQL;
+
+        $senderAddresses = $db
+            ->query(
+                $senderSql,
+                [$senderOwnerCustomerId]
+            )
+            ->getResultArray();
+
+        $receiverAddresses = $receiverAddressModel
             ->select($addressSelect)
             ->join(
                 'countries',
@@ -146,22 +296,8 @@ public function create()
                 'left'
             )
             ->join(
-                'customers',
-                'customers.id = customer_addresses.customer_id',
-                'inner'
-            )
-            ->where('customer_addresses.address_type', 'SENDER')
-            ->where('customer_addresses.status', 1)
-            ->where('customers.status', 1)
-            ->orderBy('customers.customer_name', 'ASC')
-            ->orderBy('customer_addresses.contact_name', 'ASC')
-            ->findAll();
-
-        $receiverAddresses = $receiverAddressModel
-            ->select($addressSelect)
-            ->join(
-                'countries',
-                'countries.id = customer_addresses.country_id',
+                'express_zones',
+                'express_zones.id = countries.express_zone_id',
                 'left'
             )
             ->join(
@@ -185,7 +321,16 @@ public function create()
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
             'countries'         => (new CountryModel())
-                ->where('status', 1)
+                ->select(
+                    'countries.*, ' .
+                    'express_zones.zone_code AS express_zone_code'
+                )
+                ->join(
+                    'express_zones',
+                    'express_zones.id = countries.express_zone_id',
+                    'left'
+                )
+                ->where('countries.status', 1)
                 ->orderBy('country_name', 'ASC')
                 ->findAll(),
             'services'          => (new ServiceModel())
@@ -292,12 +437,229 @@ public function create()
 
         $addressSelect = implode(', ', [
             'customer_addresses.*',
+            'countries.country_code',
             'countries.country_name',
+            'express_zones.zone_code AS express_zone_code',
             'customers.customer_name AS owner_customer_name',
             'customers.customer_code AS owner_customer_code',
         ]);
 
-        $senderAddresses = (new CustomerAddressModel())
+        $senderOwnerCustomerId = 1;
+
+        $senderSql = <<<'SQL'
+SELECT
+    ca.*,
+    countries.country_code,
+    countries.country_name,
+    express_zones.zone_code AS express_zone_code,
+    customers.customer_name AS owner_customer_name,
+    customers.customer_code AS owner_customer_code
+
+FROM customer_addresses ca
+
+INNER JOIN (
+    SELECT
+        MAX(x.id) AS selected_id
+
+    FROM customer_addresses x
+
+    WHERE x.customer_id = ?
+      AND x.address_type = 'SENDER'
+      AND x.status = 1
+
+      /* Nama wajib layak */
+      AND CHAR_LENGTH(
+            TRIM(COALESCE(x.contact_name, ''))
+          ) >= 3
+
+      AND x.contact_name REGEXP '[A-Za-z]'
+
+      /* Telepon harus mengandung angka */
+      AND x.phone REGEXP '[0-9]'
+
+      AND CHAR_LENGTH(
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                TRIM(COALESCE(x.phone, '')),
+                                ' ',
+                                ''
+                            ),
+                            '-',
+                            ''
+                        ),
+                        '+',
+                        ''
+                    ),
+                    '(',
+                    ''
+                ),
+                ')',
+                ''
+            )
+          ) >= 7
+
+      /* Alamat minimal layak */
+      AND CHAR_LENGTH(
+            TRIM(COALESCE(x.address, ''))
+          ) >= 10
+
+      /* Minimal memiliki kota atau kode pos */
+      AND (
+            TRIM(COALESCE(x.city, '')) <> ''
+            OR
+            TRIM(COALESCE(x.postal_code, '')) <> ''
+          )
+
+      /*
+       * Jangan tampilkan nama pengirim apabila salah satu
+       * data duplikatnya sudah masuk invoice.
+       */
+      AND NOT EXISTS (
+          SELECT 1
+
+          FROM customer_addresses used_address
+
+          INNER JOIN shipments s
+              ON s.sender_address_id = used_address.id
+
+          WHERE used_address.customer_id = x.customer_id
+            AND used_address.address_type = 'SENDER'
+
+            AND UPPER(
+                    TRIM(
+                        COALESCE(
+                            used_address.contact_name,
+                            ''
+                        )
+                    )
+                )
+                =
+                UPPER(
+                    TRIM(
+                        COALESCE(
+                            x.contact_name,
+                            ''
+                        )
+                    )
+                )
+
+            AND (
+                s.invoice_id IS NOT NULL
+                OR COALESCE(s.is_invoiced, 0) = 1
+            )
+      )
+
+    /*
+     * Satu nama pengirim hanya satu baris.
+     * MAX(id) mengambil data terbaru.
+     */
+    GROUP BY
+        x.customer_id,
+        UPPER(
+            TRIM(
+                COALESCE(
+                    x.contact_name,
+                    ''
+                )
+            )
+        )
+
+) clean_sender
+    ON clean_sender.selected_id = ca.id
+
+LEFT JOIN countries
+    ON countries.id = ca.country_id
+
+LEFT JOIN express_zones
+    ON express_zones.id = countries.express_zone_id
+
+INNER JOIN customers
+    ON customers.id = ca.customer_id
+
+WHERE customers.status = 1
+
+ORDER BY
+    ca.contact_name ASC
+SQL;
+
+        $senderAddresses = $db
+            ->query(
+                $senderSql,
+                [$senderOwnerCustomerId]
+            )
+            ->getResultArray();
+
+        /*
+         * Pastikan alamat sender yang tersimpan di shipment tetap
+         * tersedia di dropdown saat edit, meskipun bukan MAX(id)
+         * untuk contact name-nya.
+         */
+        $selectedSenderId = (int) (
+            $shipment['sender_address_id'] ?? 0
+        );
+
+        if ($selectedSenderId > 0) {
+            $currentSender = (new CustomerAddressModel())
+                ->select($addressSelect)
+                ->join(
+                    'countries',
+                    'countries.id = customer_addresses.country_id',
+                    'left'
+                )
+                ->join(
+                    'express_zones',
+                    'express_zones.id = countries.express_zone_id',
+                    'left'
+                )
+                ->join(
+                    'customers',
+                    'customers.id = customer_addresses.customer_id',
+                    'inner'
+                )
+                ->where('customer_addresses.id', $selectedSenderId)
+                ->where('customer_addresses.address_type', 'SENDER')
+                ->where('customer_addresses.status', 1)
+                ->where('customers.status', 1)
+                ->first();
+
+            if ($currentSender) {
+                $replaced = false;
+                $currentContact = trim(
+                    (string) ($currentSender['contact_name'] ?? '')
+                );
+                $currentCustomerId = (int) (
+                    $currentSender['customer_id'] ?? 0
+                );
+
+                foreach ($senderAddresses as $key => $sender) {
+                    $senderContact = trim(
+                        (string) ($sender['contact_name'] ?? '')
+                    );
+
+                    if (
+                        (int) ($sender['customer_id'] ?? 0)
+                            === $currentCustomerId
+                        && strcasecmp(
+                            $senderContact,
+                            $currentContact
+                        ) === 0
+                    ) {
+                        $senderAddresses[$key] = $currentSender;
+                        $replaced = true;
+                        break;
+                    }
+                }
+
+                if (!$replaced) {
+                    $senderAddresses[] = $currentSender;
+                }
+            }
+        }
+
+        $receiverAddresses = (new CustomerAddressModel())
             ->select($addressSelect)
             ->join(
                 'countries',
@@ -305,28 +667,8 @@ public function create()
                 'left'
             )
             ->join(
-                'customers',
-                'customers.id = customer_addresses.customer_id',
-                'inner'
-            )
-            ->where(
-                'customer_addresses.address_type',
-                'SENDER'
-            )
-            ->where('customer_addresses.status', 1)
-            ->where('customers.status', 1)
-            ->orderBy('customers.customer_name', 'ASC')
-            ->orderBy(
-                'customer_addresses.contact_name',
-                'ASC'
-            )
-            ->findAll();
-
-        $receiverAddresses = (new CustomerAddressModel())
-            ->select($addressSelect)
-            ->join(
-                'countries',
-                'countries.id = customer_addresses.country_id',
+                'express_zones',
+                'express_zones.id = countries.express_zone_id',
                 'left'
             )
             ->join(
@@ -452,7 +794,16 @@ public function create()
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
             'countries'         => (new CountryModel())
-                ->where('status', 1)
+                ->select(
+                    'countries.*, ' .
+                    'express_zones.zone_code AS express_zone_code'
+                )
+                ->join(
+                    'express_zones',
+                    'express_zones.id = countries.express_zone_id',
+                    'left'
+                )
+                ->where('countries.status', 1)
                 ->orderBy('country_name', 'ASC')
                 ->findAll(),
             'services'          => (new ServiceModel())
@@ -850,6 +1201,20 @@ public function create()
                 $freight <= 0
                 || $customerTotal <= 0
             ) {
+                log_message('error', 'CUSTOMER RATE DEBUG: ' . json_encode([
+                    'customer_id'       => $this->request->getPost('customer_id'),
+                    'sender_address_id' => $this->request->getPost('sender_address_id'),
+                    'country_id'        => $this->request->getPost('country_id'),
+                    'service_id'        => $this->request->getPost('service_id'),
+                    'package_type_id'   => $this->request->getPost('package_type_id'),
+                    'commodity_type_id' => $this->request->getPost('commodity_type_id'),
+                    'transport_mode_id' => $this->request->getPost('transport_mode_id'),
+                    'delivery_type_id'  => $this->request->getPost('delivery_type_id'),
+                    'actual_weight'     => $this->request->getPost('actual_weight'),
+                    'chargeable_weight' => $this->request->getPost('chargeable_weight'),
+                    'payment_type'      => $this->request->getPost('payment_type'),
+                ], JSON_UNESCAPED_SLASHES));
+
                 throw new \RuntimeException(
                     'Tarif customer tidak ditemukan. ' .
                     'Periksa master tariff.'
@@ -924,6 +1289,12 @@ public function create()
                     $packageSummary['volume_weight'],
                 'chargeable_weight'    =>
                     $packageSummary['chargeable_weight'],
+                'invoice_weight'       => (float) (
+                    $pricing['invoice_weight']
+                    ?? $pricing['billing_weight']
+                    ?? $packageSummary['chargeable_weight']
+                    ?? 0
+                ),
                 'declared_value'       =>
                     $packageSummary['declared_value'],
                 'currency_id'          =>
@@ -2129,6 +2500,20 @@ public function create()
             );
 
             if ($freight <= 0 || $customerTotal <= 0) {
+                log_message('error', 'CUSTOMER RATE DEBUG: ' . json_encode([
+                    'customer_id'       => $this->request->getPost('customer_id'),
+                    'sender_address_id' => $this->request->getPost('sender_address_id'),
+                    'country_id'        => $this->request->getPost('country_id'),
+                    'service_id'        => $this->request->getPost('service_id'),
+                    'package_type_id'   => $this->request->getPost('package_type_id'),
+                    'commodity_type_id' => $this->request->getPost('commodity_type_id'),
+                    'transport_mode_id' => $this->request->getPost('transport_mode_id'),
+                    'delivery_type_id'  => $this->request->getPost('delivery_type_id'),
+                    'actual_weight'     => $this->request->getPost('actual_weight'),
+                    'chargeable_weight' => $this->request->getPost('chargeable_weight'),
+                    'payment_type'      => $this->request->getPost('payment_type'),
+                ], JSON_UNESCAPED_SLASHES));
+
                 throw new \RuntimeException(
                     'Tarif customer tidak ditemukan. Periksa master tariff.'
                 );
@@ -2206,6 +2591,12 @@ public function create()
                 'actual_weight'        => $packageSummary['actual_weight'],
                 'volume_weight'        => $packageSummary['volume_weight'],
                 'chargeable_weight'    => $packageSummary['chargeable_weight'],
+                'invoice_weight'       => (float) (
+                    $pricing['invoice_weight']
+                    ?? $pricing['billing_weight']
+                    ?? $packageSummary['chargeable_weight']
+                    ?? 0
+                ),
                 'declared_value'       => $packageSummary['declared_value'],
                 'currency_id'          => $packageSummary['currency_id'],
                 'insurance_amount'     => $customerInsurance,

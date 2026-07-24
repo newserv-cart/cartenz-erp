@@ -99,39 +99,94 @@ $receivingLocationValue = old(
             <div class="row align-items-end">
                 <div class="col-md-9">
                     <label class="form-label fw-bold">🏢 Customer</label>
-                    <input
-    type="hidden"
-    name="customer_id"
-    id="real_customer_id"
-    value="">
-
-<select
-    name="sender_address_id"
-    id="customer_id"
-    class="form-select">
+                    <select
+                        name="customer_id"
+                        id="customer_id"
+                        class="form-select"
+                        required
+                    >
                         <option value="">-- Select Customer --</option>
-                        <?php foreach($senderAddresses as $row): ?>
-                        <option
-                            value="<?= $row['id'] ?>"
-                            data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"
-                            data-country-id="<?= $row['country_id']?>"
-                            data-company="<?= esc($row['company_name']) ?>"
-                            data-phone="<?= esc($row['phone']) ?>"
-                            data-email="<?= esc($row['email']) ?>"
-                            data-city="<?= esc($row['city']) ?>"
-                            data-state="<?= esc($row['state']) ?>"
-                             data-postal-code="<?= esc($row['postal_code']) ?>"
-                            data-address="<?= esc($row['address']) ?>"
-                            data-country="<?= esc($row['country_name']) ?>"
-                            data-identity="<?= esc($row['identity_number']) ?>">
-                            <?= !empty($row['owner_customer_name'])
-                                ? esc($row['owner_customer_name']) . ' — '
-                                : '' ?>
-                            <?= esc($row['contact_name']) ?>
-                            <?= $row['company_name'] ? ' - '.esc($row['company_name']) : '' ?>
-                        </option>
-                        <?php endforeach; ?>
+
+                        <?php foreach ($senderAddresses as $sender): ?>
+
+                            <?php
+                                $senderId   = (int) ($sender['id'] ?? 0);
+                                $customerId = (int) ($sender['customer_id'] ?? 0);
+
+                                $contactName = trim(
+                                    (string) ($sender['contact_name'] ?? '')
+                                );
+
+                                $companyName = trim(
+                                    (string) ($sender['company_name'] ?? '')
+                                );
+
+                                /*
+                                 * Karena semua milik LIANA,
+                                 * tidak perlu menampilkan LIANA berulang kali.
+                                 */
+                                $optionLabel = $contactName;
+
+                                if (
+                                    $companyName !== ''
+                                    && strcasecmp($companyName, $contactName) !== 0
+                                ) {
+                                    $optionLabel .= ' — ' . $companyName;
+                                }
+                            ?>
+
+                            <option
+                                value="<?= $customerId ?>"
+
+                                data-customer-id="<?= $customerId ?>"
+                                data-address-id="<?= $senderId ?>"
+                                data-contact-name="<?= esc($contactName, 'attr') ?>"
+                                data-company="<?= esc($companyName, 'attr') ?>"
+                                data-phone="<?= esc($sender['phone'] ?? '', 'attr') ?>"
+                                data-email="<?= esc($sender['email'] ?? '', 'attr') ?>"
+                                data-identity="<?= esc(
+                                    $sender['identity_number'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-address="<?= esc($sender['address'] ?? '', 'attr') ?>"
+                                data-state="<?= esc($sender['state'] ?? '', 'attr') ?>"
+                                data-city="<?= esc($sender['city'] ?? '', 'attr') ?>"
+                                data-postal="<?= esc(
+                                    $sender['postal_code'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-country-id="<?= (int) (
+                                    $sender['country_id'] ?? 0
+                                ) ?>"
+                                data-country-code="<?= esc(
+                                    $sender['country_code'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-country-name="<?= esc(
+                                    $sender['country_name'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-country-zone="<?= esc(
+                                    $sender['express_zone_code'] ?? '',
+                                    'attr'
+                                ) ?>"
+
+                                <?= old('sender_address_id') == $senderId
+                                    ? 'selected'
+                                    : '' ?>
+                            >
+                                <?= esc($optionLabel) ?>
+                            </option>
+
+                        <?php endforeach ?>
                     </select>
+
+                    <input
+                        type="hidden"
+                        name="sender_address_id"
+                        id="sender_address_id"
+                        value="<?= esc(old('sender_address_id') ?? '') ?>"
+                    >
                 </div>
                 <div class="col-md-3 d-grid">
                     <button type="button" id="btnAddCustomer" class="btn btn-success">➕ Add Customer</button>
@@ -174,11 +229,22 @@ $receivingLocationValue = old(
 <div class="row">
     <div class="col-md-6 mb-3">
         <label>Postal Code</label>
-        <input id="sender_postal_code" class="form-control" readonly>
+        <input id="sender_postal" class="form-control" readonly>
     </div>
     <div class="col-md-6 mb-3">
         <label>Country</label>
         <input id="sender_country" class="form-control" readonly>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label>Country Code</label>
+        <input id="sender_country_code" class="form-control" readonly>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label>Country Zone</label>
+        <input id="sender_country_zone" class="form-control" readonly>
     </div>
 </div>
 
@@ -823,6 +889,50 @@ $receivingLocationValue = old(
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+
+                <?php
+                    $defaultSenderCountry = null;
+
+                    foreach ($countries as $c) {
+                        if (($c['country_code'] ?? '') === 'ID') {
+                            $defaultSenderCountry = $c;
+                            break;
+                        }
+                    }
+
+                    if ($defaultSenderCountry === null) {
+                        $defaultSenderCountry = $countries[0] ?? null;
+                    }
+                ?>
+
+                <input
+                    type="hidden"
+                    id="new_sender_country_id"
+                    value="<?= (int) ($defaultSenderCountry['id'] ?? 0) ?>">
+
+                <input
+                    type="hidden"
+                    id="new_sender_country_name"
+                    value="<?= esc(
+                        $defaultSenderCountry['country_name'] ?? 'Indonesia',
+                        'attr'
+                    ) ?>">
+
+                <input
+                    type="hidden"
+                    id="new_sender_country_code"
+                    value="<?= esc(
+                        $defaultSenderCountry['country_code'] ?? 'ID',
+                        'attr'
+                    ) ?>">
+
+                <input
+                    type="hidden"
+                    id="new_sender_country_zone"
+                    value="<?= esc(
+                        $defaultSenderCountry['express_zone_code'] ?? '',
+                        'attr'
+                    ) ?>">
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
