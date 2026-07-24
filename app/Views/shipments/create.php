@@ -123,19 +123,18 @@ $receivingLocationValue = old(
             🏢 CUSTOMER INFORMATION
         </div>
         <div class="card-body">
-            <div class="row align-items-end">
+            <div class="row align-items-end mb-3">
                 <div class="col-md-9">
-                    <label class="form-label fw-bold">🏢 Customer</label>
+                    <label class="form-label fw-bold">🏢 Account Owner</label>
                     <select
                         name="customer_id"
                         id="customer_id"
                         class="form-select"
                         required
                     >
-                        <option value="">-- Select Customer --</option>
+                        <option value="">-- Select Account Owner --</option>
 
                         <?php foreach ($senderAddresses as $sender): ?>
-
                             <?php
                                 $senderId   = (int) ($sender['id'] ?? 0);
                                 $customerId = (int) ($sender['customer_id'] ?? 0);
@@ -148,10 +147,6 @@ $receivingLocationValue = old(
                                     (string) ($sender['company_name'] ?? '')
                                 );
 
-                                /*
-                                 * Karena semua milik LIANA,
-                                 * tidak perlu menampilkan LIANA berulang kali.
-                                 */
                                 $optionLabel = $contactName;
 
                                 if (
@@ -164,121 +159,252 @@ $receivingLocationValue = old(
 
                             <option
                                 value="<?= $customerId ?>"
-
                                 data-customer-id="<?= $customerId ?>"
-                                data-address-id="<?= $senderId ?>"
-                                data-contact-name="<?= esc($contactName, 'attr') ?>"
-                                data-company="<?= esc($companyName, 'attr') ?>"
-                                data-phone="<?= esc($sender['phone'] ?? '', 'attr') ?>"
-                                data-email="<?= esc($sender['email'] ?? '', 'attr') ?>"
-                                data-identity="<?= esc(
-                                    $sender['identity_number'] ?? '',
-                                    'attr'
-                                ) ?>"
-                                data-address="<?= esc($sender['address'] ?? '', 'attr') ?>"
-                                data-state="<?= esc($sender['state'] ?? '', 'attr') ?>"
-                                data-city="<?= esc($sender['city'] ?? '', 'attr') ?>"
-                                data-postal="<?= esc(
-                                    $sender['postal_code'] ?? '',
-                                    'attr'
-                                ) ?>"
-                                data-country-id="<?= (int) (
-                                    $sender['country_id'] ?? 0
-                                ) ?>"
-                                data-country-code="<?= esc(
-                                    $sender['country_code'] ?? '',
-                                    'attr'
-                                ) ?>"
-                                data-country-name="<?= esc(
-                                    $sender['country_name'] ?? '',
-                                    'attr'
-                                ) ?>"
-                                data-country-zone="<?= esc(
-                                    $sender['express_zone_code'] ?? '',
-                                    'attr'
-                                ) ?>"
-
-                                <?= old('sender_address_id') == $senderId
+                                <?= old('customer_id') == $customerId
                                     ? 'selected'
                                     : '' ?>
                             >
                                 <?= esc($optionLabel) ?>
                             </option>
-
                         <?php endforeach ?>
                     </select>
-
-                    <input
-                        type="hidden"
-                        name="sender_address_id"
-                        id="sender_address_id"
-                        value="<?= esc(old('sender_address_id') ?? '') ?>"
-                    >
-                </div>
-                <div class="col-md-3 d-grid">
-                    <button type="button" id="btnAddCustomer" class="btn btn-success">➕ Add Customer</button>
                 </div>
             </div>
 
-          <div class="row">
-    <div class="col-md-6 mb-3">
-        <label>Company</label>
-        <input id="sender_company" class="form-control" readonly>
-    </div>
-    <div class="col-md-6 mb-3">
-        <label>Phone</label>
-        <input id="sender_phone" class="form-control" readonly>
-    </div>
-</div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Sender Source</label>
 
-<div class="row">
-    <div class="col-md-6 mb-3">
-        <label>Email</label>
-        <input id="sender_email" class="form-control" readonly>
-    </div>
-    <div class="col-md-6 mb-3">
-        <label>Identity Number</label>
-        <input id="sender_identity" class="form-control" readonly>
-    </div>
-</div>
+                <div class="d-flex gap-4">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="sender_source"
+                            id="sender_source_new"
+                            value="NEW"
+                            <?= old('sender_source', 'NEW') === 'NEW'
+                                ? 'checked'
+                                : '' ?>
+                        >
+                        <label class="form-check-label" for="sender_source_new">
+                            Input Pengirim Baru
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="sender_source"
+                            id="sender_source_history"
+                            value="HISTORY"
+                            <?= old('sender_source') === 'HISTORY'
+                                ? 'checked'
+                                : '' ?>
+                        >
+                        <label class="form-check-label" for="sender_source_history">
+                            Pilih dari Riwayat
+                        </label>
+                    </div>
+                </div>
+            </div>
 
-<div class="row">
-    <div class="col-md-6 mb-3">
-        <label>Province</label>
-        <input id="sender_province" class="form-control" readonly>
-    </div>
-    <div class="col-md-6 mb-3">
-        <label>City</label>
-        <input id="sender_city" class="form-control" readonly>
-    </div>
-</div>
+            <div id="senderHistorySection" class="d-none">
+                <label class="form-label fw-bold">Cari Riwayat Pengirim</label>
+                <select
+                    id="sender_address_id"
+                    name="sender_address_id"
+                    class="form-select"
+                >
+                    <option value="">-- Cari / Pilih Pengirim --</option>
 
-<div class="row">
-    <div class="col-md-6 mb-3">
-        <label>Postal Code</label>
-        <input id="sender_postal" class="form-control" readonly>
-    </div>
-    <div class="col-md-6 mb-3">
-        <label>Country</label>
-        <input id="sender_country" class="form-control" readonly>
-    </div>
-</div>
+                    <?php foreach ($senderAddresses as $sender): ?>
+                        <option
+                            value="<?= (int) ($sender['id'] ?? 0) ?>"
+                            data-contact-name="<?= esc(
+                                $sender['contact_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-company="<?= esc(
+                                $sender['company_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-phone="<?= esc(
+                                $sender['phone'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-email="<?= esc(
+                                $sender['email'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-identity="<?= esc(
+                                $sender['identity_number'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-country-id="<?= (int) (
+                                $sender['country_id'] ?? 0
+                            ) ?>"
+                            data-country-name="<?= esc(
+                                $sender['country_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-state="<?= esc(
+                                $sender['state'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-city="<?= esc(
+                                $sender['city'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-postal="<?= esc(
+                                $sender['postal_code'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-address="<?= esc(
+                                $sender['address'] ?? '',
+                                'attr'
+                            ) ?>"
+                        >
+                            <?= esc($sender['contact_name'] ?? '-') ?>
+                            <?php if (
+                                !empty($sender['company_name'])
+                                && strcasecmp(
+                                    trim((string) $sender['company_name']),
+                                    trim((string) $sender['contact_name'])
+                                ) !== 0
+                            ): ?>
+                                — <?= esc($sender['company_name']) ?>
+                            <?php endif ?>
+                        </option>
+                    <?php endforeach ?>
+                </select>
+            </div>
 
-<div class="row">
-    <div class="col-md-6 mb-3">
-        <label>Country Code</label>
-        <input id="sender_country_code" class="form-control" readonly>
-    </div>
-    <div class="col-md-6 mb-3">
-        <label>Country Zone</label>
-        <input id="sender_country_zone" class="form-control" readonly>
-    </div>
-</div>
+            <div id="senderNewSection">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Name *</label>
+                        <input
+                            type="text"
+                            id="sender_name"
+                            name="sender_name"
+                            class="form-control"
+                            value="<?= esc(old('sender_name') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Company</label>
+                        <input
+                            type="text"
+                            id="sender_company"
+                            name="sender_company"
+                            class="form-control"
+                            value="<?= esc(old('sender_company') ?? '') ?>"
+                        >
+                    </div>
+                </div>
 
-<div class="mb-3">
-    <label>Complete Address</label>
-    <textarea id="sender_address" class="form-control" rows="3" readonly></textarea>
-</div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Phone *</label>
+                        <input
+                            type="text"
+                            id="sender_phone"
+                            name="sender_phone"
+                            class="form-control"
+                            value="<?= esc(old('sender_phone') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Email</label>
+                        <input
+                            type="email"
+                            id="sender_email"
+                            name="sender_email"
+                            class="form-control"
+                            value="<?= esc(old('sender_email') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Identity No.</label>
+                        <input
+                            type="text"
+                            id="sender_identity"
+                            name="sender_identity"
+                            class="form-control"
+                            value="<?= esc(old('sender_identity') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Country *</label>
+                        <select
+                            id="sender_country"
+                            name="sender_country"
+                            class="form-select"
+                        >
+                            <option value="">-- Select Country --</option>
+                            <?php foreach ($countries as $country): ?>
+                                <option
+                                    value="<?= (int) ($country['id'] ?? 0) ?>"
+                                    <?= old('sender_country') == ($country['id'] ?? 0)
+                                        ? 'selected'
+                                        : '' ?>
+                                >
+                                    <?= esc($country['country_name'] ?? '') ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Province / State</label>
+                        <input
+                            type="text"
+                            id="sender_province"
+                            name="sender_province"
+                            class="form-control"
+                            value="<?= esc(old('sender_province') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>City</label>
+                        <input
+                            type="text"
+                            id="sender_city"
+                            name="sender_city"
+                            class="form-control"
+                            value="<?= esc(old('sender_city') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Postal Code</label>
+                        <input
+                            type="text"
+                            id="sender_postal"
+                            name="sender_postal"
+                            class="form-control"
+                            value="<?= esc(old('sender_postal') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Complete Address</label>
+                    <textarea
+                        id="sender_address"
+                        name="sender_address"
+                        class="form-control"
+                        rows="3"
+                    ><?= esc(old('sender_address') ?? '') ?></textarea>
+                </div>
+            </div>
 
     <!-- =======================================
          RECEIVER INFORMATION
@@ -288,88 +414,237 @@ $receivingLocationValue = old(
             👤 Receiver Information
         </div>
         <div class="card-body">
-            <div class="row align-items-end">
-                <div class="col-md-9">
-<!-- DROPDOWN RECEIVER YANG BENAR -->
-<select id="receiver_id" name="receiver_id" class="form-select">
-    <option value="">-- Select Receiver --</option>
-    <?php foreach($receiverAddresses as $row): ?>
-    <option
-        value="<?= $row['id'] ?>"
-        data-customer-id="<?= esc($row['customer_id'] ?? '') ?>"
-        data-country-id="<?= esc($row['country_id']) ?>"
-        data-company="<?= esc($row['company_name']) ?>"
-        data-phone="<?= esc($row['phone']) ?>"
-        data-email="<?= esc($row['email']) ?>"
-        data-city="<?= esc($row['city']) ?>"
-        data-state="<?= esc($row['state']) ?>"
-        data-postal-code="<?= esc($row['postal_code']) ?>"
-        data-address="<?= esc($row['address']) ?>"
-        data-country="<?= esc($row['country_name']) ?>"
-        data-identity="<?= esc($row['identity_number']) ?>"
-    >
-        <?= !empty($row['owner_customer_name'])
-            ? esc($row['owner_customer_name']) . ' — '
-            : '' ?>
-        <?= esc($row['contact_name']) ?>
-        <?= !empty($row['company_name']) ? ' - ' . esc($row['company_name']) : '' ?>
-    </option>
-    <?php endforeach; ?>
-</select>
-                </div>
-                <div class="col-md-3 d-grid">
-                    <button type="button" id="btnAddReceiver" class="btn btn-success">➕ Add Receiver</button>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>Company</label>
-                    <input id="receiver_company" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Phone</label>
-                    <input id="receiver_phone" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>Identity Number</label>
-                    <input id="receiver_identity" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Province</label>
-                    <input id="receiver_province" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>City</label>
-                    <input id="receiver_city" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Postal Code</label>
-                    <input id="receiver_postal_code" class="form-control" readonly>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label>Destination Country</label>
-                    <input type="hidden" id="country_id" name="country_id">
-                    <input id="receiver_country" name="receiver_country" class="form-control" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Email</label>
-                    <input id="receiver_email" class="form-control" readonly>
-                </div>
-            </div>
-
             <div class="mb-3">
-                <label>Complete Address</label>
-                <textarea id="receiver_address" class="form-control" rows="3" readonly></textarea>
+                <label class="form-label fw-bold">Receiver Source</label>
+
+                <div class="d-flex gap-4">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="receiver_source"
+                            id="receiver_source_new"
+                            value="NEW"
+                            checked
+                        >
+                        <label class="form-check-label" for="receiver_source_new">
+                            Input Penerima Baru
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="receiver_source"
+                            id="receiver_source_history"
+                            value="HISTORY"
+                        >
+                        <label class="form-check-label" for="receiver_source_history">
+                            Pilih dari Riwayat
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="receiverHistorySection" class="d-none">
+                <label class="form-label fw-bold">Cari Riwayat Penerima</label>
+                <select
+                    id="receiver_id"
+                    name="receiver_id"
+                    class="form-select"
+                >
+                    <option value="">-- Cari / Pilih Penerima --</option>
+                    <?php foreach ($receiverAddresses as $row): ?>
+                        <option
+                            value="<?= (int) ($row['id'] ?? 0) ?>"
+                            data-contact-name="<?= esc(
+                                $row['contact_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-company="<?= esc(
+                                $row['company_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-phone="<?= esc(
+                                $row['phone'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-email="<?= esc(
+                                $row['email'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-identity="<?= esc(
+                                $row['identity_number'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-country-id="<?= (int) (
+                                $row['country_id'] ?? 0
+                            ) ?>"
+                            data-country-name="<?= esc(
+                                $row['country_name'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-state="<?= esc(
+                                $row['state'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-city="<?= esc(
+                                $row['city'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-postal="<?= esc(
+                                $row['postal_code'] ?? '',
+                                'attr'
+                            ) ?>"
+                            data-address="<?= esc(
+                                $row['address'] ?? '',
+                                'attr'
+                            ) ?>"
+                        >
+                            <?= esc($row['contact_name'] ?? '-') ?>
+                            <?php if (
+                                !empty($row['company_name'])
+                                && strcasecmp(
+                                    trim((string) $row['company_name']),
+                                    trim((string) $row['contact_name'])
+                                ) !== 0
+                            ): ?>
+                                — <?= esc($row['company_name']) ?>
+                            <?php endif ?>
+                        </option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+
+            <div id="receiverNewSection">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label>Destination Country *</label>
+                        <input
+                            type="hidden"
+                            id="country_id"
+                            name="country_id"
+                            value="<?= esc(old('country_id') ?? '') ?>"
+                        >
+
+                        <select
+                            id="receiver_country"
+                            name="receiver_country"
+                            class="form-select"
+                        >
+                            <option value="">-- Select Country --</option>
+                            <?php foreach ($countries as $country): ?>
+                                <option
+                                    value="<?= (int) ($country['id'] ?? 0) ?>"
+                                >
+                                    <?= esc($country['country_name'] ?? '') ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Name *</label>
+                        <input
+                            type="text"
+                            id="receiver_name"
+                            name="receiver_name"
+                            class="form-control"
+                            value="<?= esc(old('receiver_name') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Company</label>
+                        <input
+                            type="text"
+                            id="receiver_company"
+                            name="receiver_company"
+                            class="form-control"
+                            value="<?= esc(old('receiver_company') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Phone *</label>
+                        <input
+                            type="text"
+                            id="receiver_phone"
+                            name="receiver_phone"
+                            class="form-control"
+                            value="<?= esc(old('receiver_phone') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Identity No.</label>
+                        <input
+                            type="text"
+                            id="receiver_identity"
+                            name="receiver_identity"
+                            class="form-control"
+                            value="<?= esc(old('receiver_identity') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Province / District</label>
+                        <input
+                            type="text"
+                            id="receiver_province"
+                            name="receiver_province"
+                            class="form-control"
+                            value="<?= esc(old('receiver_province') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>City</label>
+                        <input
+                            type="text"
+                            id="receiver_city"
+                            name="receiver_city"
+                            class="form-control"
+                            value="<?= esc(old('receiver_city') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Postal Code</label>
+                        <input
+                            type="text"
+                            id="receiver_postal"
+                            name="receiver_postal"
+                            class="form-control"
+                            value="<?= esc(old('receiver_postal') ?? '') ?>"
+                        >
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Email</label>
+                        <input
+                            type="email"
+                            id="receiver_email"
+                            name="receiver_email"
+                            class="form-control"
+                            value="<?= esc(old('receiver_email') ?? '') ?>"
+                        >
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Complete Address</label>
+                    <textarea
+                        id="receiver_address"
+                        name="receiver_address"
+                        class="form-control"
+                        rows="3"
+                    ><?= esc(old('receiver_address') ?? '') ?></textarea>
+                </div>
             </div>
         </div>
     </div>
@@ -1127,8 +1402,7 @@ $receivingLocationValue = old(
 <script src="<?= base_url('js/modules/shipment/charges.js?v=49.7.3') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/profit.js?v=49.7.3') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/sender.js?v=49.7.2') ?>"></script>
-<script src="<?= base_url('js/modules/shipment/receiver.js') ?>"></script>
+<script src="<?= base_url('js/create-shipment.js?v=50.4') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js?v=49.7.4') ?>"></script>
 
 <?php if (!empty($intakePackages)): ?>

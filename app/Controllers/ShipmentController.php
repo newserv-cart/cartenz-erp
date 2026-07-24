@@ -2219,8 +2219,6 @@ SQL;
 
             $rules = [
                 'customer_id'       => 'required|is_natural_no_zero',
-                'sender_address_id' => 'required|is_natural_no_zero',
-                'receiver_id'       => 'required|is_natural_no_zero',
                 'service_id'        => 'required|is_natural_no_zero',
                 'package_type_id'   => 'required|is_natural_no_zero',
                 'commodity_type_id' => 'required|is_natural_no_zero',
@@ -2293,8 +2291,6 @@ SQL;
                 $ownerContext['source_agent_id'] ?? 0
             );
 
-            $senderAddressId = (int) $post['sender_address_id'];
-            $receiverId     = (int) $post['receiver_id'];
             $serviceId      = (int) $post['service_id'];
             $packageTypeId  = (int) $post['package_type_id'];
             $commodityId    = (int) $post['commodity_type_id'];
@@ -2425,45 +2421,107 @@ SQL;
                 throw new \RuntimeException('Customer tidak ditemukan atau tidak aktif.');
             }
 
-            $addressModel = new CustomerAddressModel();
+            $senderSource = strtoupper(
+                trim(
+                    (string) $this->request
+                        ->getPost('sender_source')
+                )
+            );
 
-            $sender = $addressModel
-                ->where('id', $senderAddressId)
-                ->where('owner_type', $ownerContext['owner_type'])
-                ->where('owner_id', $ownerContext['owner_id'])
-                ->where('address_type', 'SENDER')
-                ->where('status', 1)
-                ->first();
+            $receiverSource = strtoupper(
+                trim(
+                    (string) $this->request
+                        ->getPost('receiver_source')
+                )
+            );
 
-            if (!$sender) {
-                throw new \RuntimeException(
-                    'Alamat sender tidak ditemukan atau bukan milik owner terpilih.'
-                );
+            if (!in_array($senderSource, ['NEW', 'HISTORY'], true)) {
+                $senderSource = 'NEW';
             }
 
-            $receiver = (new CustomerAddressModel())
-                ->where('id', $receiverId)
-                ->where('owner_type', $ownerContext['owner_type'])
-                ->where('owner_id', $ownerContext['owner_id'])
-                ->where('address_type', 'RECEIVER')
-                ->where('status', 1)
-                ->first();
-
-            if (!$receiver) {
-                throw new \RuntimeException(
-                    'Alamat receiver tidak ditemukan atau bukan milik owner terpilih.'
-                );
-            }
-
-            $countryId = (int) ($receiver['country_id'] ?? 0);
-
-            if ($countryId <= 0) {
-                throw new \RuntimeException('Negara tujuan receiver belum lengkap.');
+            if (!in_array($receiverSource, ['NEW', 'HISTORY'], true)) {
+                $receiverSource = 'NEW';
             }
 
             if (
-                !empty($post['country_id']) &&
-                (int) $post['country_id'] !== $countryId
+                $senderSource === 'HISTORY'
+                && (int) $this->request
+                    ->getPost('sender_address_id') <= 0
+            ) {
+                throw new \RuntimeException(
+                    'Pilih riwayat pengirim.'
+                );
+            }
+
+            if (
+                $receiverSource === 'HISTORY'
+                && (int) $this->request
+                    ->getPost('receiver_id') <= 0
+            ) {
+                throw new \RuntimeException(
+                    'Pilih riwayat penerima.'
+                );
+            }
+
+            if ($senderSource === 'HISTORY') {
+                $senderAddress = $this->findOwnerAddress(
+                    (int) $this->request
+                        ->getPost('sender_address_id'),
+                    $ownerContext,
+                    'SENDER'
+                );
+
+                if (!$senderAddress) {
+                    throw new \RuntimeException(
+                        'Riwayat pengirim tidak ditemukan atau bukan milik account ini.'
+                    );
+                }
+            } else {
+                $senderAddress = $this->insertShipmentAddress(
+                    $ownerContext,
+                    'SENDER',
+                    'sender'
+                );
+            }
+
+            if ($receiverSource === 'HISTORY') {
+                $receiverAddress = $this->findOwnerAddress(
+                    (int) $this->request
+                        ->getPost('receiver_id'),
+                    $ownerContext,
+                    'RECEIVER'
+                );
+
+                if (!$receiverAddress) {
+                    throw new \RuntimeException(
+                        'Riwayat penerima tidak ditemukan atau bukan milik account ini.'
+                    );
+                }
+            } else {
+                $receiverAddress = $this->insertShipmentAddress(
+                    $ownerContext,
+                    'RECEIVER',
+                    'receiver'
+                );
+            }
+
+            $senderAddressId = (int) ($senderAddress['id'] ?? 0);
+            $receiverId      = (int) ($receiverAddress['id'] ?? 0);
+
+            $sender   = $senderAddress;
+            $receiver = $receiverAddress;
+
+            $countryId = (int) ($receiverAddress['country_id'] ?? 0);
+
+            if ($countryId <= 0) {
+                throw new \RuntimeException(
+                    'Negara tujuan receiver belum lengkap.'
+                );
+            }
+
+            if (
+                !empty($post['country_id'])
+                && (int) $post['country_id'] !== $countryId
             ) {
                 throw new \RuntimeException(
                     'Negara tujuan tidak sama dengan alamat receiver.'
@@ -2647,6 +2705,10 @@ SQL;
                 'sender_address_id'    => $senderAddressId,
                 'sender_country_id'    => $sender['country_id'] ?? null,
                 'receiver_address_id'  => $receiverId,
+                'sender_snapshot'      =>
+                    $this->addressSnapshot($senderAddress),
+                'receiver_snapshot'    =>
+                    $this->addressSnapshot($receiverAddress),
                 'agent_id'             => $sourceAgentId > 0
                     ? $sourceAgentId
                     : ($ownerContext['agent_id'] ?? $customer['agent_id'] ?? null),
@@ -3818,6 +3880,188 @@ private function shipmentAccessContext(): array
         'agent_id'       => (int) ($profile['agent_id'] ?? 0),
         'profile'        => $profile,
     ];
+}
+
+private function findOwnerAddress(
+    int $addressId,
+    array $ownerContext,
+    string $addressType
+): ?array {
+    if ($addressId <= 0) {
+        return null;
+    }
+
+    return db_connect()
+        ->table('customer_addresses')
+        ->where('id', $addressId)
+        ->where('owner_type', $ownerContext['owner_type'])
+        ->where('owner_id', $ownerContext['owner_id'])
+        ->where('address_type', strtoupper($addressType))
+        ->where('status', 1)
+        ->get()
+        ->getRowArray();
+}
+
+private function insertShipmentAddress(
+    array $ownerContext,
+    string $addressType,
+    string $prefix
+): array {
+    $request = service('request');
+
+    $contactName = trim(
+        (string) $request->getPost(
+            $prefix . '_name'
+        )
+    );
+
+    $phone = trim(
+        (string) $request->getPost(
+            $prefix . '_phone'
+        )
+    );
+
+    if ($contactName === '') {
+        throw new \RuntimeException(
+            ucfirst($prefix) . ' name wajib diisi.'
+        );
+    }
+
+    if ($phone === '') {
+        throw new \RuntimeException(
+            ucfirst($prefix) . ' phone wajib diisi.'
+        );
+    }
+
+    $countryField = $prefix === 'receiver'
+        ? 'country_id'
+        : $prefix . '_country';
+
+    $data = [
+        'customer_id' => $ownerContext['customer_id'],
+
+        'owner_type' => $ownerContext['owner_type'],
+
+        'owner_id' => $ownerContext['owner_id'],
+
+        'address_type' =>
+            strtoupper($addressType),
+
+        'contact_name' => $contactName,
+
+        'company_name' => trim(
+            (string) $request->getPost(
+                $prefix . '_company'
+            )
+        ),
+
+        'phone' => $phone,
+
+        'email' => trim(
+            (string) $request->getPost(
+                $prefix . '_email'
+            )
+        ),
+
+        'identity_number' => trim(
+            (string) $request->getPost(
+                $prefix . '_identity'
+            )
+        ),
+
+        'country_id' => (int) $request->getPost(
+            $countryField
+        ),
+
+        'state' => trim(
+            (string) $request->getPost(
+                $prefix . '_province'
+            )
+        ),
+
+        'city' => trim(
+            (string) $request->getPost(
+                $prefix . '_city'
+            )
+        ),
+
+        'postal_code' => trim(
+            (string) $request->getPost(
+                $prefix . '_postal'
+            )
+        ),
+
+        'address' => trim(
+            (string) $request->getPost(
+                $prefix . '_address'
+            )
+        ),
+
+        'is_primary' => 0,
+        'source'      => 'SHIPMENT_INPUT',
+        'status'      => 1,
+    ];
+
+    $model = new CustomerAddressModel();
+
+    $addressId = $model->insert($data, true);
+
+    if (!$addressId) {
+        throw new \RuntimeException(
+            implode(', ', $model->errors())
+                ?: 'Alamat gagal disimpan.'
+        );
+    }
+
+    $data['id'] = (int) $addressId;
+
+    return $data;
+}
+
+private function addressSnapshot(array $address): string
+{
+    return json_encode(
+        [
+            'id'              => (int) (
+                $address['id'] ?? 0
+            ),
+            'address_type'    => $address[
+                'address_type'
+            ] ?? null,
+            'contact_name'    => $address[
+                'contact_name'
+            ] ?? null,
+            'company_name'    => $address[
+                'company_name'
+            ] ?? null,
+            'phone'           => $address[
+                'phone'
+            ] ?? null,
+            'email'           => $address[
+                'email'
+            ] ?? null,
+            'identity_number' => $address[
+                'identity_number'
+            ] ?? null,
+            'country_id'      => $address[
+                'country_id'
+            ] ?? null,
+            'state'           => $address[
+                'state'
+            ] ?? null,
+            'city'            => $address[
+                'city'
+            ] ?? null,
+            'postal_code'     => $address[
+                'postal_code'
+            ] ?? null,
+            'address'         => $address[
+                'address'
+            ] ?? null,
+        ],
+        JSON_UNESCAPED_UNICODE
+        | JSON_UNESCAPED_SLASHES
+    );
 }
 
 private function assertShipmentReadable(array $shipment): void
