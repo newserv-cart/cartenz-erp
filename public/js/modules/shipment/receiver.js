@@ -43,19 +43,23 @@ window.ShipmentReceiver = {
     // Isi Form
     // ==================================================
     fill(data) {
+        $("#receiver_name").val(data.contactName || data.contact_name || "");
         $("#receiver_company").val(data.company || "");
         $("#receiver_phone").val(data.phone || "");
         $("#receiver_email").val(data.email || "");
         $("#receiver_city").val(data.city || "");
         $("#receiver_province").val(data.state || data.province || "");
-        $("#receiver_postal_code").val(data.postalCode || data.postal_code || "");
+
+        const postalValue = data.postalCode || data.postal || "";
+        $("#receiver_postal").val(postalValue);
+        $("#receiver_postal_code").val(postalValue);
+
         $("#receiver_address").val(data.address || "");
         $("#receiver_identity").val(data.identity || "");
-        $("#receiver_country").val(data.country || "");
 
-        // Set country_id dan trigger event untuk memulai perhitungan tarif
+        const countryId = data.countryId || data.country_id || "";
         $("#country_id")
-            .val(data.countryId || data.country_id || "")
+            .val(countryId)
             .trigger("change");
     },
 
@@ -63,15 +67,16 @@ window.ShipmentReceiver = {
     // Kosongkan Form
     // ==================================================
     clear() {
+        $("#receiver_name").val("");
         $("#receiver_company").val("");
         $("#receiver_phone").val("");
         $("#receiver_email").val("");
         $("#receiver_city").val("");
         $("#receiver_province").val("");
+        $("#receiver_postal").val("");
         $("#receiver_postal_code").val("");
         $("#receiver_address").val("");
         $("#receiver_identity").val("");
-        $("#receiver_country").val("");
         $("#country_id").val("").trigger("change");
     },
 
@@ -350,19 +355,23 @@ window.ShipmentReceiver = {
     // Isi Form
     // ==================================================
     fill(data) {
+        $("#receiver_name").val(data.contactName || data.contact_name || "");
         $("#receiver_company").val(data.company || "");
         $("#receiver_phone").val(data.phone || "");
         $("#receiver_email").val(data.email || "");
         $("#receiver_city").val(data.city || "");
         $("#receiver_province").val(data.state || data.province || "");
-        $("#receiver_postal_code").val(data.postalCode || data.postal_code || "");
+
+        const postalValue = data.postalCode || data.postal || "";
+        $("#receiver_postal").val(postalValue);
+        $("#receiver_postal_code").val(postalValue);
+
         $("#receiver_address").val(data.address || "");
         $("#receiver_identity").val(data.identity || "");
-        $("#receiver_country").val(data.country || "");
 
-        // Set country_id dan trigger event untuk memulai perhitungan tarif
+        const countryId = data.countryId || data.country_id || "";
         $("#country_id")
-            .val(data.countryId || data.country_id || "")
+            .val(countryId)
             .trigger("change");
     },
 
@@ -370,15 +379,16 @@ window.ShipmentReceiver = {
     // Kosongkan Form
     // ==================================================
     clear() {
+        $("#receiver_name").val("");
         $("#receiver_company").val("");
         $("#receiver_phone").val("");
         $("#receiver_email").val("");
         $("#receiver_city").val("");
         $("#receiver_province").val("");
+        $("#receiver_postal").val("");
         $("#receiver_postal_code").val("");
         $("#receiver_address").val("");
         $("#receiver_identity").val("");
-        $("#receiver_country").val("");
         $("#country_id").val("").trigger("change");
     },
 

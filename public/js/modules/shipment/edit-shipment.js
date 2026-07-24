@@ -21,7 +21,8 @@ Sprint 49.12A
             }
 
             const form =
-                document.getElementById("shipmentForm");
+                document.getElementById("shipmentForm")
+                || document.getElementById("shipmentEditForm");
 
             if (
                 !form
@@ -109,6 +110,10 @@ Sprint 49.12A
                 data.addressId || data.address_id || ""
             );
 
+            $("#sender_name").val(
+                data.contactName || data.contact_name || ""
+            );
+
             $("#sender_company").val(
                 data.company || ""
             );
@@ -136,11 +141,12 @@ Sprint 49.12A
             $("#sender_postal").val(postalValue);
             $("#sender_postal_code").val(postalValue);
 
-            $("#sender_country").val(
-                data.country ||
-                data.countryName ||
-                ""
-            );
+            const senderCountryId =
+                data.countryId ||
+                data.country_id ||
+                "";
+
+            $("#sender_country").val(senderCountryId);
 
             $("#sender_country_code").val(
                 data.countryCode ||
@@ -219,6 +225,9 @@ Sprint 49.12A
 
             const data = option.dataset;
 
+            $("#receiver_name").val(
+                data.contactName || data.contact_name || ""
+            );
             $("#receiver_company").val(
                 data.company || ""
             );
@@ -237,12 +246,11 @@ Sprint 49.12A
             $("#receiver_city").val(
                 data.city || ""
             );
-            $("#receiver_postal_code").val(
-                data.postalCode || ""
-            );
-            $("#receiver_country").val(
-                data.country || ""
-            );
+
+            const postalValue = data.postalCode || data.postal || "";
+            $("#receiver_postal").val(postalValue);
+            $("#receiver_postal_code").val(postalValue);
+
             $("#receiver_address").val(
                 data.address || ""
             );

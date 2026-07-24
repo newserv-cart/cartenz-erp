@@ -7,6 +7,10 @@ Sprint 50.4
 */
 
 document.addEventListener('DOMContentLoaded', function () {
+    if (!document.getElementById('shipmentCreateForm')) {
+        return;
+    }
+
     // =====================================================
     // ADDRESS SOURCE: NEW / HISTORY
     // =====================================================

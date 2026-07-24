@@ -149,7 +149,9 @@ if (customerId) {
                 receiver_city:
                     $("#receiver_city").val() || "",
                 receiver_postcode:
-                    $("#receiver_postal_code").val() || ""
+                    $("#receiver_postal").val()
+                    || $("#receiver_postal_code").val()
+                    || ""
             };
         },
 

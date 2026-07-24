@@ -789,9 +789,57 @@ SQL;
             ),
         ];
 
+        $senderSnapshot = json_decode(
+            (string) ($shipment['sender_snapshot'] ?? ''),
+            true
+        );
+
+        $receiverSnapshot = json_decode(
+            (string) ($shipment['receiver_snapshot'] ?? ''),
+            true
+        );
+
+        $senderAddress = [];
+
+        if (!empty($shipment['sender_address_id'])) {
+            $senderAddress = (new CustomerAddressModel())
+                ->find(
+                    (int) $shipment['sender_address_id']
+                ) ?? [];
+        }
+
+        $receiverAddress = [];
+
+        if (!empty($shipment['receiver_address_id'])) {
+            $receiverAddress = (new CustomerAddressModel())
+                ->find(
+                    (int) $shipment['receiver_address_id']
+                ) ?? [];
+        }
+
+        /*
+         * Snapshot lebih diprioritaskan karena merupakan
+         * data shipment saat ini.
+         */
+        $senderForm = array_merge(
+            $senderAddress,
+            is_array($senderSnapshot)
+                ? $senderSnapshot
+                : []
+        );
+
+        $receiverForm = array_merge(
+            $receiverAddress,
+            is_array($receiverSnapshot)
+                ? $receiverSnapshot
+                : []
+        );
+
         return view('shipments/edit', [
             'shipment'          => $shipment,
             'packages'          => $packages,
+            'senderForm'        => $senderForm,
+            'receiverForm'      => $receiverForm,
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
             'countries'         => (new CountryModel())
@@ -1046,21 +1094,99 @@ SQL;
                 );
             }
 
-            $countryId =
-                (int) ($receiver['country_id'] ?? 0);
+            $senderInput = [
+                'contact_name'    => $this->clean(
+                    $post['sender_name'] ?? ''
+                ),
+                'company_name'    => $this->clean(
+                    $post['sender_company'] ?? ''
+                ),
+                'phone'           => $this->clean(
+                    $post['sender_phone'] ?? ''
+                ),
+                'email'           => $this->clean(
+                    $post['sender_email'] ?? ''
+                ),
+                'identity_number' => $this->clean(
+                    $post['sender_identity'] ?? ''
+                ),
+                'country_id'      => (int) (
+                    $post['sender_country'] ?? 0
+                ),
+                'state'           => $this->clean(
+                    $post['sender_province'] ?? ''
+                ),
+                'city'            => $this->clean(
+                    $post['sender_city'] ?? ''
+                ),
+                'postal_code'     => $this->clean(
+                    $post['sender_postal'] ?? ''
+                ),
+                'address'         => $this->clean(
+                    $post['sender_address'] ?? ''
+                ),
+            ];
+
+            $receiverInput = [
+                'contact_name'    => $this->clean(
+                    $post['receiver_name'] ?? ''
+                ),
+                'company_name'    => $this->clean(
+                    $post['receiver_company'] ?? ''
+                ),
+                'phone'           => $this->clean(
+                    $post['receiver_phone'] ?? ''
+                ),
+                'email'           => $this->clean(
+                    $post['receiver_email'] ?? ''
+                ),
+                'identity_number' => $this->clean(
+                    $post['receiver_identity'] ?? ''
+                ),
+                'country_id'      => (int) (
+                    $post['country_id'] ?? 0
+                ),
+                'state'           => $this->clean(
+                    $post['receiver_province'] ?? ''
+                ),
+                'city'            => $this->clean(
+                    $post['receiver_city'] ?? ''
+                ),
+                'postal_code'     => $this->clean(
+                    $post['receiver_postal'] ?? ''
+                ),
+                'address'         => $this->clean(
+                    $post['receiver_address'] ?? ''
+                ),
+            ];
+
+            if (
+                $senderAddressId > 0
+                && !empty($post['update_sender_address_book'])
+            ) {
+                (new CustomerAddressModel())
+                    ->update($senderAddressId, $senderInput);
+            }
+
+            if (
+                $receiverId > 0
+                && !empty($post['update_receiver_address_book'])
+            ) {
+                (new CustomerAddressModel())
+                    ->update($receiverId, $receiverInput);
+            }
+
+            $sender   = array_merge($sender, $senderInput);
+            $receiver = array_merge($receiver, $receiverInput);
+
+            $countryId = (int) (
+                $receiverInput['country_id']
+                ?: ($receiver['country_id'] ?? 0)
+            );
 
             if ($countryId <= 0) {
                 throw new \RuntimeException(
                     'Negara tujuan receiver belum lengkap.'
-                );
-            }
-
-            if (
-                !empty($post['country_id'])
-                && (int) $post['country_id'] !== $countryId
-            ) {
-                throw new \RuntimeException(
-                    'Negara tujuan tidak sama dengan alamat receiver.'
                 );
             }
 
@@ -1305,6 +1431,10 @@ SQL;
                 'sender_country_id'    =>
                     $sender['country_id'] ?? null,
                 'receiver_address_id'  => $receiverId,
+                'sender_snapshot'      =>
+                    $this->addressSnapshot($sender),
+                'receiver_snapshot'    =>
+                    $this->addressSnapshot($receiver),
                 'agent_id'             =>
                     $sourceAgentId > 0
                         ? $sourceAgentId

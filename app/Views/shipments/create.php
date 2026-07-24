@@ -56,7 +56,7 @@ $receivingLocationValue = old(
 ?>
 
 <form
-    id="shipmentForm"
+    id="shipmentCreateForm"
     method="post"
     action="<?= site_url('shipments/store') ?>"
     data-base-url="<?= esc(rtrim(base_url(), '/')) ?>"

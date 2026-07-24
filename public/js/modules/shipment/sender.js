@@ -80,6 +80,12 @@ window.ShipmentSender = {
             ""
         );
 
+        $("#sender_name").val(
+            data.contactName ||
+            data.contact_name ||
+            ""
+        );
+
         $("#sender_company").val(
             data.company || ""
         );
@@ -116,11 +122,12 @@ window.ShipmentSender = {
             data.identity || ""
         );
 
-        $("#sender_country").val(
-            data.country ||
-            data.countryName ||
-            ""
-        );
+        const countryId =
+            data.countryId ||
+            data.country_id ||
+            "";
+
+        $("#sender_country").val(countryId);
 
         $("#sender_country_code").val(
             data.countryCode ||
@@ -145,6 +152,7 @@ window.ShipmentSender = {
 
         $("#real_customer_id").val("");
         $("#sender_address_id").val("");
+        $("#sender_name").val("");
         $("#sender_company").val("");
         $("#sender_phone").val("");
         $("#sender_email").val("");

@@ -27,7 +27,9 @@ Sprint 49.7C
 
         loadConfiguration() {
             const form =
-                document.getElementById("shipmentForm");
+                document.getElementById("shipmentForm")
+                || document.getElementById("shipmentCreateForm")
+                || document.getElementById("shipmentEditForm");
 
             const baseUrl =
                 form?.dataset.baseUrl || "";

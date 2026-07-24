@@ -166,7 +166,7 @@ $customerOtherCharges =
 ?>
 
 <form
-    id="shipmentForm"
+    id="shipmentEditForm"
     method="post"
     action="<?= site_url(
         'shipments/update/' . $shipment['id']
@@ -373,130 +373,194 @@ $customerOtherCharges =
                     ) ?>">
 
                 <div class="form-text">
-                    Ganti Sender melalui dropdown ini. Detail di bawah adalah
-                    preview Address Book dan sengaja readonly.
+                    Pilih ulang sender dari dropdown bila perlu, atau langsung
+                    edit data di bawah.
                 </div>
+
+                <input
+                    type="hidden"
+                    name="sender_address_id"
+                    value="<?= (int) ($shipment['sender_address_id'] ?? 0) ?>"
+                >
 
                 <div class="row mt-3">
                     <div class="col-md-6 mb-3">
-                        <label>Company</label>
+                        <label>Name *</label>
                         <input
-                            id="sender_company"
+                            type="text"
+                            name="sender_name"
+                            id="sender_name"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['sender_company']
-                                ?? ''
+                                $getValue(
+                                    'sender_name',
+                                    $senderForm['contact_name'] ?? ''
+                                )
                             ) ?>"
-                            readonly>
+                            required>
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label>Phone</label>
+                        <label>Company</label>
                         <input
+                            type="text"
+                            name="sender_company"
+                            id="sender_company"
+                            class="form-control"
+                            value="<?= esc(
+                                $getValue(
+                                    'sender_company',
+                                    $senderForm['company_name'] ?? ''
+                                )
+                            ) ?>">
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label>Phone *</label>
+                        <input
+                            type="text"
+                            name="sender_phone"
                             id="sender_phone"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['sender_phone']
-                                ?? ''
+                                $getValue(
+                                    'sender_phone',
+                                    $senderForm['phone'] ?? ''
+                                )
                             ) ?>"
-                            readonly>
+                            required>
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>Email</label>
                         <input
+                            type="email"
+                            name="sender_email"
                             id="sender_email"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['sender_email']
-                                ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'sender_email',
+                                    $senderForm['email'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label>Identity Number</label>
+                        <label>Identity No.</label>
                         <input
+                            type="text"
+                            name="sender_identity"
                             id="sender_identity"
                             class="form-control"
                             value="<?= esc(
-                                $shipment[
-                                    'sender_identity_number'
-                                ] ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'sender_identity',
+                                    $senderForm['identity_number'] ?? ''
+                                )
+                            ) ?>">
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label>Country</label>
+                        <select
+                            name="sender_country"
+                            id="sender_country"
+                            class="form-select"
+                        >
+                            <option value="">
+                                -- Select Country --
+                            </option>
+                            <?php foreach ($countries as $country): ?>
+                                <option
+                                    value="<?= (int) ($country['id'] ?? 0) ?>"
+                                    <?= (int) ($senderForm['country_id'] ?? 0)
+                                        === (int) ($country['id'] ?? 0)
+                                        ? 'selected'
+                                        : '' ?>
+                                >
+                                    <?= esc($country['country_name'] ?? '') ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>Province / State</label>
                         <input
+                            type="text"
+                            name="sender_province"
                             id="sender_province"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['sender_state']
-                                ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'sender_province',
+                                    $senderForm['state'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>City</label>
                         <input
+                            type="text"
+                            name="sender_city"
                             id="sender_city"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['sender_city']
-                                ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'sender_city',
+                                    $senderForm['city'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>Postal Code</label>
                         <input
-                            id="sender_postal_code"
+                            type="text"
+                            name="sender_postal"
+                            id="sender_postal"
                             class="form-control"
                             value="<?= esc(
-                                $shipment[
-                                    'sender_postal_code'
-                                ] ?? ''
-                            ) ?>"
-                            readonly>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Country</label>
-                        <input
-                            id="sender_country"
-                            class="form-control"
-                            readonly>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Country Code</label>
-                        <input
-                            id="sender_country_code"
-                            class="form-control"
-                            readonly>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Country Zone</label>
-                        <input
-                            id="sender_country_zone"
-                            class="form-control"
-                            readonly>
+                                $getValue(
+                                    'sender_postal',
+                                    $senderForm['postal_code'] ?? ''
+                                )
+                            ) ?>">
                     </div>
                 </div>
 
-                <label>Complete Address</label>
-                <textarea
-                    id="sender_address"
-                    class="form-control"
-                    rows="3"
-                    readonly><?= esc(
-                        $shipment['sender_address'] ?? ''
+                <div class="mb-3">
+                    <label>Complete Address</label>
+                    <textarea
+                        name="sender_address"
+                        id="sender_address"
+                        class="form-control"
+                        rows="3"
+                    ><?= esc(
+                        $getValue(
+                            'sender_address',
+                            $senderForm['address'] ?? ''
+                        )
                     ) ?></textarea>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        name="update_sender_address_book"
+                        id="update_sender_address_book"
+                        value="1"
+                    >
+                    <label
+                        class="form-check-label"
+                        for="update_sender_address_book"
+                    >
+                        Perbarui juga Address Book
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -515,8 +579,7 @@ $customerOtherCharges =
                 <select
                     id="receiver_id"
                     name="receiver_id"
-                    class="form-select"
-                    required>
+                    class="form-select">
 
                     <option value="">
                         -- Select Receiver --
@@ -593,127 +656,197 @@ $customerOtherCharges =
                 </select>
 
                 <div class="form-text">
-                    Daftar Receiver otomatis mengikuti customer dari Sender.
-                    Detail di bawah adalah preview Address Book dan sengaja readonly.
+                    Pilih ulang receiver dari dropdown bila perlu, atau langsung
+                    edit data di bawah.
                 </div>
+
+                <input
+                    type="hidden"
+                    name="receiver_address_id"
+                    value="<?= (int) ($shipment['receiver_address_id'] ?? 0) ?>"
+                >
 
                 <div class="row mt-3">
                     <div class="col-md-6 mb-3">
+                        <label>Name *</label>
+                        <input
+                            type="text"
+                            name="receiver_name"
+                            id="receiver_name"
+                            class="form-control"
+                            value="<?= esc(
+                                $getValue(
+                                    'receiver_name',
+                                    $receiverForm['contact_name'] ?? ''
+                                )
+                            ) ?>"
+                            required>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
                         <label>Company</label>
                         <input
+                            type="text"
+                            name="receiver_company"
                             id="receiver_company"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['receiver_company']
-                                ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'receiver_company',
+                                    $receiverForm['company_name'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label>Phone</label>
+                        <label>Phone *</label>
                         <input
+                            type="text"
+                            name="receiver_phone"
                             id="receiver_phone"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['receiver_phone']
-                                ?? ''
+                                $getValue(
+                                    'receiver_phone',
+                                    $receiverForm['phone'] ?? ''
+                                )
                             ) ?>"
-                            readonly>
+                            required>
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label>Email</label>
+                        <label>Identity No.</label>
                         <input
-                            id="receiver_email"
-                            class="form-control"
-                            value="<?= esc(
-                                $shipment['receiver_email']
-                                ?? ''
-                            ) ?>"
-                            readonly>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label>Identity Number</label>
-                        <input
+                            type="text"
+                            name="receiver_identity"
                             id="receiver_identity"
                             class="form-control"
                             value="<?= esc(
-                                $shipment[
-                                    'receiver_id_number'
-                                ] ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'receiver_identity',
+                                    $receiverForm['identity_number'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>Province / State</label>
                         <input
+                            type="text"
+                            name="receiver_province"
                             id="receiver_province"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['receiver_state']
-                                ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'receiver_province',
+                                    $receiverForm['state'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>City</label>
                         <input
+                            type="text"
+                            name="receiver_city"
                             id="receiver_city"
                             class="form-control"
                             value="<?= esc(
-                                $shipment['receiver_city']
-                                ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'receiver_city',
+                                    $receiverForm['city'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label>Postal Code</label>
                         <input
-                            id="receiver_postal_code"
+                            type="text"
+                            name="receiver_postal"
+                            id="receiver_postal"
                             class="form-control"
                             value="<?= esc(
-                                $shipment[
-                                    'receiver_postal_code'
-                                ] ?? ''
-                            ) ?>"
-                            readonly>
+                                $getValue(
+                                    'receiver_postal',
+                                    $receiverForm['postal_code'] ?? ''
+                                )
+                            ) ?>">
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label>Destination Country</label>
-
+                        <label>Email</label>
                         <input
-                            type="hidden"
-                            id="country_id"
-                            name="country_id"
+                            type="email"
+                            name="receiver_email"
+                            id="receiver_email"
+                            class="form-control"
                             value="<?= esc(
-                                (string) (
-                                    $shipment['country_id']
-                                    ?? ''
+                                $getValue(
+                                    'receiver_email',
+                                    $receiverForm['email'] ?? ''
                                 )
                             ) ?>">
-
-                        <input
-                            id="receiver_country"
-                            class="form-control"
-                            readonly>
                     </div>
                 </div>
 
-                <label>Complete Address</label>
-                <textarea
-                    id="receiver_address"
-                    class="form-control"
-                    rows="3"
-                    readonly><?= esc(
-                        $shipment['receiver_address']
-                        ?? ''
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label>Destination Country *</label>
+                        <select
+                            name="country_id"
+                            id="country_id"
+                            class="form-select"
+                            required
+                        >
+                            <option value="">
+                                -- Select Country --
+                            </option>
+                            <?php foreach ($countries as $country): ?>
+                                <option
+                                    value="<?= (int) ($country['id'] ?? 0) ?>"
+                                    <?= (int) ($receiverForm['country_id'] ?? 0)
+                                        === (int) ($country['id'] ?? 0)
+                                        ? 'selected'
+                                        : '' ?>
+                                >
+                                    <?= esc($country['country_name'] ?? '') ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Complete Address</label>
+                    <textarea
+                        name="receiver_address"
+                        id="receiver_address"
+                        class="form-control"
+                        rows="3"
+                    ><?= esc(
+                        $getValue(
+                            'receiver_address',
+                            $receiverForm['address'] ?? ''
+                        )
                     ) ?></textarea>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        name="update_receiver_address_book"
+                        id="update_receiver_address_book"
+                        value="1"
+                    >
+                    <label
+                        class="form-check-label"
+                        for="update_receiver_address_book"
+                    >
+                        Perbarui juga Address Book
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -1910,5 +2043,49 @@ $customerOtherCharges =
 <script src="<?= base_url(
     'js/modules/shipment/edit-shipment.js?v=49.12.1'
 ) ?>"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const editForm =
+        document.getElementById('shipmentEditForm');
+
+    if (!editForm) {
+        return;
+    }
+
+    const editableFieldIds = [
+        'sender_name',
+        'sender_company',
+        'sender_phone',
+        'sender_identity',
+        'sender_province',
+        'sender_city',
+        'sender_postal',
+        'sender_email',
+        'sender_address',
+
+        'receiver_name',
+        'receiver_company',
+        'receiver_phone',
+        'receiver_identity',
+        'receiver_province',
+        'receiver_city',
+        'receiver_postal',
+        'receiver_email',
+        'receiver_address'
+    ];
+
+    editableFieldIds.forEach(function (id) {
+        const field = document.getElementById(id);
+
+        if (!field) {
+            return;
+        }
+
+        field.disabled = false;
+        field.readOnly = false;
+    });
+});
+</script>
 </body>
 </html>
