@@ -1562,7 +1562,12 @@ SQL;
             );
 
             $pricingInput = [
-                'customer_id'       => $customerId,
+                'owner_type'        => $ownerContext['owner_type'],
+                'owner_id'          => $ownerContext['owner_id'],
+                'customer_id'       => $ownerContext['customer_id'],
+                'agent_id'          => $ownerContext['agent_id']
+                    ?? $sourceAgentId
+                    ?? null,
                 'shipment_date'     => (string) $post['shipment_date'],
                 'country_id'        => $countryId,
                 'service_id'        => $serviceId,
@@ -2706,9 +2711,68 @@ SQL;
                 );
             }
 
-            $customerId = (int) (
-                $ownerContext['customer_id'] ?? 0
+            $ownerType = strtoupper(
+                trim(
+                    (string) (
+                        $ownerContext['owner_type'] ?? ''
+                    )
+                )
             );
+
+            $ownerId = (int) (
+                $ownerContext['owner_id'] ?? 0
+            );
+
+            if ($ownerId <= 0) {
+                throw new \RuntimeException(
+                    'Shipment owner tidak valid.'
+                );
+            }
+
+            if ($ownerType === 'CUSTOMER') {
+                $customerId = (int) (
+                    $ownerContext['customer_id']
+                    ?? $ownerId
+                );
+
+                $customer = (new CustomerModel())
+                    ->where('id', $customerId)
+                    ->where('status', 1)
+                    ->first();
+
+                if (!$customer) {
+                    throw new \RuntimeException(
+                        'Customer tidak ditemukan atau tidak aktif.'
+                    );
+                }
+
+                $agentId = null;
+            } elseif ($ownerType === 'AGENT') {
+                $agentId = (int) (
+                    $ownerContext['agent_id']
+                    ?? $ownerId
+                );
+
+                $agent = $db
+                    ->table('agents')
+                    ->where('id', $agentId)
+                    ->where('status', 1)
+                    ->get()
+                    ->getRowArray();
+
+                if (!$agent) {
+                    throw new \RuntimeException(
+                        'Agent tidak ditemukan atau tidak aktif.'
+                    );
+                }
+
+                $customer = null;
+                $customerId = null;
+            } else {
+                throw new \RuntimeException(
+                    'Shipment owner type tidak didukung.'
+                );
+            }
 
             $sourceAgentId = (int) (
                 $ownerContext['source_agent_id'] ?? 0
@@ -2831,17 +2895,6 @@ SQL;
                     $acceptanceService->initialState(
                         $acceptanceMethod
                     );
-            }
-
-            $customer = $customerId > 0
-                ? (new CustomerModel())
-                    ->where('id', $customerId)
-                    ->where('status', 1)
-                    ->first()
-                : null;
-
-            if (!$customer && $ownerContext['owner_type'] === 'CUSTOMER') {
-                throw new \RuntimeException('Customer tidak ditemukan atau tidak aktif.');
             }
 
             $senderSource = strtoupper(
@@ -3038,7 +3091,10 @@ SQL;
             );
 
             $pricingInput = [
+                'owner_type'         => $ownerType,
+                'owner_id'           => $ownerId,
                 'customer_id'        => $customerId,
+                'agent_id'           => $agentId,
                 'shipment_date'      => (string) $post['shipment_date'],
                 'country_id'         => $countryId,
                 'service_id'         => $serviceId,
@@ -3120,9 +3176,12 @@ SQL;
                 'shipment_mode'        => 'MULTI_COLLY',
                 'customer_reference_no'=> $this->clean($post['customer_reference_no'] ?? ''),
                 'shipment_date'        => $post['shipment_date'],
-                'customer_id'          => $ownerContext['customer_id'],
-                'owner_type'           => $ownerContext['owner_type'],
-                'owner_id'             => $ownerContext['owner_id'],
+                'owner_type'           => $ownerType,
+                'owner_id'             => $ownerId,
+                'customer_id'          => $customerId,
+                'agent_id'             => $sourceAgentId > 0
+                    ? $sourceAgentId
+                    : $agentId,
                 'created_by_user_id'   => $ownerContext['created_by_user_id'],
                 'entry_channel'        => $ownerContext['entry_channel'],
                 'sender_address_id'    => $senderAddressId,
@@ -3132,9 +3191,6 @@ SQL;
                     $this->addressSnapshot($senderAddress),
                 'receiver_snapshot'    =>
                     $this->addressSnapshot($receiverAddress),
-                'agent_id'             => $sourceAgentId > 0
-                    ? $sourceAgentId
-                    : ($ownerContext['agent_id'] ?? $customer['agent_id'] ?? null),
                 'inbound_intake_id'    => $inboundIntakeId > 0
                     ? $inboundIntakeId
                     : null,

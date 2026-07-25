@@ -20,7 +20,6 @@ class RegularCalculationService
 
     public function calculate(array $data): array
     {
-        $customerId = (int) ($data['customer_id'] ?? 0);
         $countryId = (int) ($data['country_id'] ?? 0);
         $serviceId = (int) ($data['service_id'] ?? 0);
         $commodityTypeId = (int) (
@@ -43,25 +42,14 @@ class RegularCalculationService
             ? $explicitChargeable
             : max($actualWeight, $volumeWeight);
 
-        if ($customerId <= 0) {
-            throw new RuntimeException(
-                'Customer ID tidak valid.'
-            );
-        }
-
         if ($chargeWeight <= 0) {
             throw new RuntimeException(
                 'Chargeable Weight harus lebih dari 0 Kg.'
             );
         }
 
-        $rate = $this->regularRateService->calculate(
-            $customerId,
-            $countryId,
-            $serviceId,
-            $chargeWeight,
-            $data['shipment_date'] ?? null
-        );
+        $rate = $this->regularRateService
+            ->calculateByOwner($data);
 
         $freight = (float) (
             $rate['customer_freight'] ?? 0

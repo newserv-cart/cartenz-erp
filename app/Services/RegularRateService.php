@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\CustomerModel;
 use App\Models\RegularTariffModel;
+use CodeIgniter\Database\BaseConnection;
+use Config\Database;
 use DateTimeImmutable;
 use RuntimeException;
 
@@ -11,11 +13,13 @@ class RegularRateService
 {
     protected RegularTariffModel $tariffModel;
     protected CustomerModel $customerModel;
+    protected BaseConnection $db;
 
     public function __construct()
     {
         $this->tariffModel   = new RegularTariffModel();
         $this->customerModel = new CustomerModel();
+        $this->db            = Database::connect();
     }
 
     public function calculate(
@@ -27,18 +31,6 @@ class RegularRateService
     ): array {
         if ($customerId <= 0) {
             throw new RuntimeException('Customer ID tidak valid.');
-        }
-
-        if ($countryId <= 0 || $serviceId <= 0) {
-            throw new RuntimeException(
-                'Country dan Service wajib dipilih.'
-            );
-        }
-
-        if ($chargeWeight <= 0) {
-            throw new RuntimeException(
-                'Chargeable Weight harus lebih dari 0 Kg.'
-            );
         }
 
         $customer = $this->customerModel->find($customerId);
@@ -63,6 +55,133 @@ class RegularRateService
             default     => 'A',
         };
 
+        return $this->doCalculateRate(
+            $agentType,
+            $countryId,
+            $serviceId,
+            $chargeWeight,
+            $pricingDate
+        );
+    }
+
+    public function calculateByOwner(array $data): array
+    {
+        $ownerType = strtoupper(
+            trim(
+                (string) ($data['owner_type'] ?? '')
+            )
+        );
+
+        $ownerId = (int) ($data['owner_id'] ?? 0);
+        $agentId = (int) ($data['agent_id'] ?? 0);
+        $customerId = (int) ($data['customer_id'] ?? 0);
+
+        $countryId = (int) ($data['country_id'] ?? 0);
+        $serviceId = (int) ($data['service_id'] ?? 0);
+
+        $chargeWeight = (float) (
+            $data['chargeable_weight'] ?? 0
+        );
+
+        if ($countryId <= 0 || $serviceId <= 0) {
+            throw new RuntimeException(
+                'Country dan Service wajib dipilih.'
+            );
+        }
+
+        if ($chargeWeight <= 0) {
+            throw new RuntimeException(
+                'Chargeable Weight harus lebih dari 0 Kg.'
+            );
+        }
+
+        if ($ownerType === 'AGENT' || $agentId > 0) {
+            $agentId = $agentId > 0 ? $agentId : $ownerId;
+
+            if ($agentId <= 0) {
+                throw new RuntimeException(
+                    'Agent ID tidak valid.'
+                );
+            }
+
+            $agentRecord = $this->db
+                ->table('agents AS a')
+                ->select(
+                    'a.*, agent_types.agent_type_name'
+                )
+                ->join(
+                    'agent_types',
+                    'agent_types.id = a.agent_type_id',
+                    'left'
+                )
+                ->where('a.id', $agentId)
+                ->where('a.status', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!$agentRecord) {
+                throw new RuntimeException(
+                    'Agent tidak ditemukan atau tidak aktif.'
+                );
+            }
+
+            $agentTypeName = strtoupper(
+                trim(
+                    (string) (
+                        $agentRecord['agent_type_name']
+                        ?? 'A'
+                    )
+                )
+            );
+
+            $agentType = match ($agentTypeName) {
+                'A', 'AGENT A' => 'A',
+                'B', 'AGENT B' => 'B',
+                'C', 'AGENT C' => 'C',
+                default        => 'A',
+            };
+
+            return $this->doCalculateRate(
+                $agentType,
+                $countryId,
+                $serviceId,
+                $chargeWeight,
+                $data['shipment_date'] ?? null
+            );
+        }
+
+        if ($ownerType === 'CUSTOMER' || $customerId > 0) {
+            $customerId = $customerId > 0
+                ? $customerId
+                : $ownerId;
+
+            if ($customerId <= 0) {
+                throw new RuntimeException(
+                    'Customer ID tidak valid.'
+                );
+            }
+
+            return $this->calculate(
+                $customerId,
+                $countryId,
+                $serviceId,
+                $chargeWeight,
+                $data['shipment_date'] ?? null
+            );
+        }
+
+        throw new RuntimeException(
+            'Owner type tidak dikenal untuk perhitungan tarif.'
+        );
+    }
+
+    private function doCalculateRate(
+        string $agentType,
+        int $countryId,
+        int $serviceId,
+        float $chargeWeight,
+        ?string $pricingDate
+    ): array {
         $rawChargeableWeight = (float) $chargeWeight;
 
         $billingWeight = max(
@@ -70,17 +189,7 @@ class RegularRateService
             (float) ceil($rawChargeableWeight)
         );
 
-        $pricingDate = $this->normalizePricingDate(
-            $pricingDate
-        );
-
-        log_message('debug', 'REGULAR WEIGHT DEBUG: ' . json_encode([
-            'raw_chargeable_weight' => $rawChargeableWeight,
-            'billing_weight'        => $billingWeight,
-            'country_id'            => $countryId,
-            'service_id'            => $serviceId,
-            'shipment_date'         => $pricingDate,
-        ], JSON_UNESCAPED_SLASHES));
+        $pricingDate = $this->normalizePricingDate($pricingDate);
 
         $tariff = $this->tariffModel->findApplicableRate(
             $countryId,
@@ -113,13 +222,6 @@ class RegularRateService
             $tariff['vendor_cost'] ?? 0
         );
 
-        /*
-         * The values stored in agent_a_price / agent_b_price /
-         * agent_c_price / publish_price / vendor_cost are rates PER KG.
-         * The old code returned the per-kg rate directly as freight,
-         * which made a 25 Kg shipment with Rp65.000/Kg cost only
-         * Rp65.000. Freight must be rate x chargeable weight.
-         */
         $customerFreight = $this->calculateFreightTotal(
             $customerPricePerKg,
             $billingWeight
@@ -146,14 +248,12 @@ class RegularRateService
             'agent_type'         => $agentType,
             'price_column'       => $priceColumn,
 
-            // Backward-compatible names: these remain rates per kg.
             'customer_price'     => $customerPricePerKg,
             'vendor_price'       => $vendorPricePerKg,
             'publish_price'      => (float) (
                 $tariff['publish_price'] ?? 0
             ),
 
-            // Explicit names for UI/API clarity.
             'customer_price_per_kg' => $customerPricePerKg,
             'vendor_price_per_kg'   => $vendorPricePerKg,
             'customer_freight'      => $customerFreight,
