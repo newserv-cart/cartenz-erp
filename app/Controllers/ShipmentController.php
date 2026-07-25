@@ -865,6 +865,60 @@ SQL;
                 : []
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | NORMALIZE SENDER / RECEIVER NAME
+        |--------------------------------------------------------------------------
+        |
+        | Database dan snapshot menggunakan contact_name.
+        | Form edit mengirim sender_name / receiver_name.
+        | array_merge() bisa membuat nama dari address book tertimpa
+        | oleh snapshot yang nilainya kosong, jadi dipastikan ulang.
+        |
+        */
+
+        $senderSnapshotName = trim(
+            (string) (
+                $senderSnapshot['contact_name']
+                ?? $senderSnapshot['sender_name']
+                ?? ''
+            )
+        );
+
+        $senderAddressName = trim(
+            (string) (
+                $senderAddress['contact_name']
+                ?? $senderAddress['sender_name']
+                ?? ''
+            )
+        );
+
+        $senderForm['contact_name'] =
+            $senderSnapshotName !== ''
+                ? $senderSnapshotName
+                : $senderAddressName;
+
+        $receiverSnapshotName = trim(
+            (string) (
+                $receiverSnapshot['contact_name']
+                ?? $receiverSnapshot['receiver_name']
+                ?? ''
+            )
+        );
+
+        $receiverAddressName = trim(
+            (string) (
+                $receiverAddress['contact_name']
+                ?? $receiverAddress['receiver_name']
+                ?? ''
+            )
+        );
+
+        $receiverForm['contact_name'] =
+            $receiverSnapshotName !== ''
+                ? $receiverSnapshotName
+                : $receiverAddressName;
+
         return view('shipments/edit', [
             'shipment'          => $shipment,
             'packages'          => $packages,

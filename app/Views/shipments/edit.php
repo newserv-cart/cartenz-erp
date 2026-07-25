@@ -385,6 +385,16 @@ $customerOtherCharges =
 
                 <div class="row mt-3">
                     <div class="col-md-6 mb-3">
+                        <?php
+                        $senderName = trim(
+                            (string) (
+                                $senderForm['contact_name']
+                                ?? $senderForm['sender_name']
+                                ?? ''
+                            )
+                        );
+                        ?>
+
                         <label>Name *</label>
                         <input
                             type="text"
@@ -392,10 +402,8 @@ $customerOtherCharges =
                             id="sender_name"
                             class="form-control"
                             value="<?= esc(
-                                $getValue(
-                                    'sender_name',
-                                    $senderForm['contact_name'] ?? ''
-                                )
+                                old('sender_name', $senderName),
+                                'attr'
                             ) ?>"
                             required>
                     </div>
@@ -668,6 +676,16 @@ $customerOtherCharges =
 
                 <div class="row mt-3">
                     <div class="col-md-6 mb-3">
+                        <?php
+                        $receiverName = trim(
+                            (string) (
+                                $receiverForm['contact_name']
+                                ?? $receiverForm['receiver_name']
+                                ?? ''
+                            )
+                        );
+                        ?>
+
                         <label>Name *</label>
                         <input
                             type="text"
@@ -675,10 +693,8 @@ $customerOtherCharges =
                             id="receiver_name"
                             class="form-control"
                             value="<?= esc(
-                                $getValue(
-                                    'receiver_name',
-                                    $receiverForm['contact_name'] ?? ''
-                                )
+                                old('receiver_name', $receiverName),
+                                'attr'
                             ) ?>"
                             required>
                     </div>
