@@ -581,167 +581,93 @@ SQL;
                 ->with('error', $e->getMessage());
         }
 
+        $canChooseAnyOwner = $this->canChooseAnyOwner();
+
+        $ownerType = strtoupper(
+            trim(
+                (string) (
+                    $shipment['owner_type']
+                    ?? ''
+                )
+            )
+        );
+
+        $ownerId = (int) (
+            $shipment['owner_id']
+            ?? $shipment['customer_id']
+            ?? $shipment['agent_id']
+            ?? 0
+        );
+
+        if ($ownerType === '') {
+            $ownerType = !empty($shipment['customer_id'])
+                ? 'CUSTOMER'
+                : 'AGENT';
+        }
+
+        if ($ownerType === 'CUSTOMER' && $ownerId <= 0) {
+            $ownerId = (int) ($shipment['customer_id'] ?? 0);
+        }
+
+        if ($ownerType === 'AGENT' && $ownerId <= 0) {
+            $ownerId = (int) ($shipment['agent_id'] ?? 0);
+        }
+
+        try {
+            $ownerContext = (new ShipmentOwnerContextService())
+                ->resolve(
+                    (int) (auth()->id() ?? 0),
+                    $canChooseAnyOwner,
+                    $ownerType,
+                    $ownerId
+                );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->to(site_url('shipments'))
+                ->with('error', $e->getMessage());
+        }
+
         $addressSelect = implode(', ', [
             'customer_addresses.*',
             'countries.country_code',
             'countries.country_name',
             'express_zones.zone_code AS express_zone_code',
-            'customers.customer_name AS owner_customer_name',
-            'customers.customer_code AS owner_customer_code',
         ]);
 
-        $senderOwnerCustomerId = 1;
-
-        $senderSql = <<<'SQL'
-SELECT
-    ca.*,
-    countries.country_code,
-    countries.country_name,
-    express_zones.zone_code AS express_zone_code,
-    customers.customer_name AS owner_customer_name,
-    customers.customer_code AS owner_customer_code
-
-FROM customer_addresses ca
-
-INNER JOIN (
-    SELECT
-        MAX(x.id) AS selected_id
-
-    FROM customer_addresses x
-
-    WHERE x.customer_id = ?
-      AND x.address_type = 'SENDER'
-      AND x.status = 1
-
-      /* Nama wajib layak */
-      AND CHAR_LENGTH(
-            TRIM(COALESCE(x.contact_name, ''))
-          ) >= 3
-
-      AND x.contact_name REGEXP '[A-Za-z]'
-
-      /* Telepon harus mengandung angka */
-      AND x.phone REGEXP '[0-9]'
-
-      AND CHAR_LENGTH(
-            REPLACE(
-                REPLACE(
-                    REPLACE(
-                        REPLACE(
-                            REPLACE(
-                                TRIM(COALESCE(x.phone, '')),
-                                ' ',
-                                ''
-                            ),
-                            '-',
-                            ''
-                        ),
-                        '+',
-                        ''
-                    ),
-                    '(',
-                    ''
-                ),
-                ')',
-                ''
+        $senderAddresses = (new CustomerAddressModel())
+            ->select($addressSelect)
+            ->join(
+                'countries',
+                'countries.id = customer_addresses.country_id',
+                'left'
             )
-          ) >= 7
-
-      /* Alamat minimal layak */
-      AND CHAR_LENGTH(
-            TRIM(COALESCE(x.address, ''))
-          ) >= 10
-
-      /* Minimal memiliki kota atau kode pos */
-      AND (
-            TRIM(COALESCE(x.city, '')) <> ''
-            OR
-            TRIM(COALESCE(x.postal_code, '')) <> ''
-          )
-
-      /*
-       * Jangan tampilkan nama pengirim apabila salah satu
-       * data duplikatnya sudah masuk invoice.
-       */
-      AND NOT EXISTS (
-          SELECT 1
-
-          FROM customer_addresses used_address
-
-          INNER JOIN shipments s
-              ON s.sender_address_id = used_address.id
-
-          WHERE used_address.customer_id = x.customer_id
-            AND used_address.address_type = 'SENDER'
-
-            AND UPPER(
-                    TRIM(
-                        COALESCE(
-                            used_address.contact_name,
-                            ''
-                        )
-                    )
-                )
-                =
-                UPPER(
-                    TRIM(
-                        COALESCE(
-                            x.contact_name,
-                            ''
-                        )
-                    )
-                )
-
-            AND (
-                s.invoice_id IS NOT NULL
-                OR COALESCE(s.is_invoiced, 0) = 1
+            ->join(
+                'express_zones',
+                'express_zones.id = countries.express_zone_id',
+                'left'
             )
-      )
-
-    /*
-     * Satu nama pengirim hanya satu baris.
-     * MAX(id) mengambil data terbaru.
-     */
-    GROUP BY
-        x.customer_id,
-        UPPER(
-            TRIM(
-                COALESCE(
-                    x.contact_name,
-                    ''
-                )
+            ->where(
+                'customer_addresses.owner_type',
+                $ownerContext['owner_type']
             )
-        )
-
-) clean_sender
-    ON clean_sender.selected_id = ca.id
-
-LEFT JOIN countries
-    ON countries.id = ca.country_id
-
-LEFT JOIN express_zones
-    ON express_zones.id = countries.express_zone_id
-
-INNER JOIN customers
-    ON customers.id = ca.customer_id
-
-WHERE customers.status = 1
-
-ORDER BY
-    ca.contact_name ASC
-SQL;
-
-        $senderAddresses = $db
-            ->query(
-                $senderSql,
-                [$senderOwnerCustomerId]
+            ->where(
+                'customer_addresses.owner_id',
+                $ownerContext['owner_id']
             )
-            ->getResultArray();
+            ->where(
+                'customer_addresses.address_type',
+                'SENDER'
+            )
+            ->where('customer_addresses.status', 1)
+            ->orderBy(
+                'customer_addresses.contact_name',
+                'ASC'
+            )
+            ->findAll();
 
         /*
          * Pastikan alamat sender yang tersimpan di shipment tetap
-         * tersedia di dropdown saat edit, meskipun bukan MAX(id)
-         * untuk contact name-nya.
+         * tersedia di dropdown saat edit.
          */
         $selectedSenderId = (int) (
             $shipment['sender_address_id'] ?? 0
@@ -760,38 +686,18 @@ SQL;
                     'express_zones.id = countries.express_zone_id',
                     'left'
                 )
-                ->join(
-                    'customers',
-                    'customers.id = customer_addresses.customer_id',
-                    'inner'
-                )
                 ->where('customer_addresses.id', $selectedSenderId)
                 ->where('customer_addresses.address_type', 'SENDER')
                 ->where('customer_addresses.status', 1)
-                ->where('customers.status', 1)
                 ->first();
 
             if ($currentSender) {
                 $replaced = false;
-                $currentContact = trim(
-                    (string) ($currentSender['contact_name'] ?? '')
-                );
-                $currentCustomerId = (int) (
-                    $currentSender['customer_id'] ?? 0
-                );
 
                 foreach ($senderAddresses as $key => $sender) {
-                    $senderContact = trim(
-                        (string) ($sender['contact_name'] ?? '')
-                    );
-
                     if (
-                        (int) ($sender['customer_id'] ?? 0)
-                            === $currentCustomerId
-                        && strcasecmp(
-                            $senderContact,
-                            $currentContact
-                        ) === 0
+                        (int) ($sender['id'] ?? 0)
+                            === $selectedSenderId
                     ) {
                         $senderAddresses[$key] = $currentSender;
                         $replaced = true;
@@ -817,17 +723,19 @@ SQL;
                 'express_zones.id = countries.express_zone_id',
                 'left'
             )
-            ->join(
-                'customers',
-                'customers.id = customer_addresses.customer_id',
-                'inner'
+            ->where(
+                'customer_addresses.owner_type',
+                $ownerContext['owner_type']
+            )
+            ->where(
+                'customer_addresses.owner_id',
+                $ownerContext['owner_id']
             )
             ->where(
                 'customer_addresses.address_type',
                 'RECEIVER'
             )
             ->where('customer_addresses.status', 1)
-            ->where('customers.status', 1)
             ->orderBy(
                 'customer_addresses.contact_name',
                 'ASC'
@@ -1039,6 +947,8 @@ SQL;
             'packages'          => $packages,
             'senderForm'        => $senderForm,
             'receiverForm'      => $receiverForm,
+            'canChooseAnyOwner' => $canChooseAnyOwner,
+            'ownerContext'      => $ownerContext,
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
             'countries'         => (new CountryModel())
@@ -1173,8 +1083,6 @@ SQL;
             }
 
             $rules = [
-                'customer_id'       =>
-                    'required|is_natural_no_zero',
                 'sender_address_id' =>
                     'required|is_natural_no_zero',
                 'receiver_id'       =>

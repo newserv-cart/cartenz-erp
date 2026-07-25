@@ -37,9 +37,11 @@ if (
     $formPackages = $packages;
 }
 
-$selectedCustomerId = (int) $getValue(
-    'customer_id',
-    $shipment['customer_id'] ?? 0
+$selectedOwnerId = (int) (
+    $ownerContext['owner_id']
+    ?? $shipment['owner_id']
+    ?? $shipment['customer_id']
+    ?? 0
 );
 
 $selectedSenderId = (int) $getValue(
@@ -198,13 +200,17 @@ $customerOtherCharges =
         type="hidden"
         name="owner_type"
         id="shipment_owner_type"
-        value="<?= esc($initialOwnerType) ?>"
+        value="<?= esc(
+            $ownerContext['owner_type'] ?? $initialOwnerType
+        ) ?>"
     >
     <input
         type="hidden"
         name="owner_id"
         id="shipment_owner_id"
-        value="<?= (int) $initialOwnerId ?>"
+        value="<?= (int) (
+            $ownerContext['owner_id'] ?? $initialOwnerId
+        ) ?>"
     >
 
     <div class="container mt-4 mb-5">
@@ -259,7 +265,7 @@ $customerOtherCharges =
 
         <div class="card mb-3">
             <div class="card-header bg-danger fw-bold">
-                🏢 Customer / Sender
+                🏢 Sender Information
             </div>
 
             <div class="card-body">
@@ -267,102 +273,108 @@ $customerOtherCharges =
                     type="hidden"
                     id="real_customer_id"
                     value="<?= esc(
-                        (string) $selectedCustomerId
+                        (string) $selectedOwnerId
                     ) ?>">
 
-                <label
-                    for="customer_id"
-                    class="form-label fw-bold">
-                    Customer Sender
-                </label>
+                <?php if (!empty($canChooseAnyOwner)): ?>
+                    <label
+                        for="customer_id"
+                        class="form-label fw-bold">
+                        Customer Sender
+                    </label>
 
-                <select
-                    name="customer_id"
-                    id="customer_id"
-                    class="form-select"
-                    required>
+                    <select
+                        name="customer_id"
+                        id="customer_id"
+                        class="form-select"
+                        required>
 
-                    <option value="">
-                        -- Select Customer / Sender --
-                    </option>
-
-                    <?php foreach (
-                        $senderAddresses as $sender
-                    ): ?>
-
-                        <?php
-                            $senderId   = (int) ($sender['id'] ?? 0);
-                            $customerId = (int) ($sender['customer_id'] ?? 0);
-
-                            $contactName = trim(
-                                (string) ($sender['contact_name'] ?? '')
-                            );
-
-                            $companyName = trim(
-                                (string) ($sender['company_name'] ?? '')
-                            );
-
-                            $optionLabel = $contactName;
-
-                            if (
-                                $companyName !== ''
-                                && strcasecmp(
-                                    $companyName,
-                                    $contactName
-                                ) !== 0
-                            ) {
-                                $optionLabel .=
-                                    ' — ' . $companyName;
-                            }
-
-                            $isSelected =
-                                old('sender_address_id', $selectedSenderId)
-                                    == $senderId;
-                        ?>
-
-                        <option
-                            value="<?= $customerId ?>"
-
-                            data-customer-id="<?= $customerId ?>"
-                            data-address-id="<?= $senderId ?>"
-                            data-contact-name="<?= esc($contactName, 'attr') ?>"
-                            data-company="<?= esc($companyName, 'attr') ?>"
-                            data-phone="<?= esc($sender['phone'] ?? '', 'attr') ?>"
-                            data-email="<?= esc($sender['email'] ?? '', 'attr') ?>"
-                            data-identity="<?= esc(
-                                $sender['identity_number'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-address="<?= esc($sender['address'] ?? '', 'attr') ?>"
-                            data-state="<?= esc($sender['state'] ?? '', 'attr') ?>"
-                            data-city="<?= esc($sender['city'] ?? '', 'attr') ?>"
-                            data-postal-code="<?= esc(
-                                $sender['postal_code'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-country-id="<?= (int) (
-                                $sender['country_id'] ?? 0
-                            ) ?>"
-                            data-country-code="<?= esc(
-                                $sender['country_code'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-country-name="<?= esc(
-                                $sender['country_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-country-zone="<?= esc(
-                                $sender['express_zone_code'] ?? '',
-                                'attr'
-                            ) ?>"
-
-                            <?= $isSelected ? 'selected' : '' ?>
-
-                            <?= esc($optionLabel) ?>
+                        <option value="">
+                            -- Select Customer / Sender --
                         </option>
 
-                    <?php endforeach; ?>
-                </select>
+                        <?php foreach (
+                            $senderAddresses as $sender
+                        ): ?>
+
+                            <?php
+                                $senderId   = (int) ($sender['id'] ?? 0);
+                                $ownerId    = (int) (
+                                    $sender['owner_id']
+                                    ?? $sender['customer_id']
+                                    ?? 0
+                                );
+
+                                $contactName = trim(
+                                    (string) ($sender['contact_name'] ?? '')
+                                );
+
+                                $companyName = trim(
+                                    (string) ($sender['company_name'] ?? '')
+                                );
+
+                                $optionLabel = $contactName;
+
+                                if (
+                                    $companyName !== ''
+                                    && strcasecmp(
+                                        $companyName,
+                                        $contactName
+                                    ) !== 0
+                                ) {
+                                    $optionLabel .=
+                                        ' — ' . $companyName;
+                                }
+
+                                $isSelected =
+                                    old('sender_address_id', $selectedSenderId)
+                                        == $senderId;
+                            ?>
+
+                            <option
+                                value="<?= $ownerId ?>"
+
+                                data-customer-id="<?= $ownerId ?>"
+                                data-address-id="<?= $senderId ?>"
+                                data-contact-name="<?= esc($contactName, 'attr') ?>"
+                                data-company="<?= esc($companyName, 'attr') ?>"
+                                data-phone="<?= esc($sender['phone'] ?? '', 'attr') ?>"
+                                data-email="<?= esc($sender['email'] ?? '', 'attr') ?>"
+                                data-identity="<?= esc(
+                                    $sender['identity_number'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-address="<?= esc($sender['address'] ?? '', 'attr') ?>"
+                                data-state="<?= esc($sender['state'] ?? '', 'attr') ?>"
+                                data-city="<?= esc($sender['city'] ?? '', 'attr') ?>"
+                                data-postal-code="<?= esc(
+                                    $sender['postal_code'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-country-id="<?= (int) (
+                                    $sender['country_id'] ?? 0
+                                ) ?>"
+                                data-country-code="<?= esc(
+                                    $sender['country_code'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-country-name="<?= esc(
+                                    $sender['country_name'] ?? '',
+                                    'attr'
+                                ) ?>"
+                                data-country-zone="<?= esc(
+                                    $sender['express_zone_code'] ?? '',
+                                    'attr'
+                                ) ?>"
+
+                                <?= $isSelected ? 'selected' : '' ?>
+
+                                <?= esc($optionLabel) ?>
+                            </option>
+
+                        <?php endforeach; ?>
+                    </select>
+                <?php endif; ?>
 
                 <input
                     type="hidden"
@@ -600,10 +612,10 @@ $customerOtherCharges =
                             value="<?= esc(
                                 (string) $row['id']
                             ) ?>"
-                            data-customer-id="<?= esc(
-                                (string) (
-                                    $row['customer_id'] ?? ''
-                                )
+                            data-customer-id="<?= (int) (
+                                $row['owner_id']
+                                ?? $row['customer_id']
+                                ?? 0
                             ) ?>"
                             data-country-id="<?= esc(
                                 (string) (
@@ -644,14 +656,6 @@ $customerOtherCharges =
                                 === $selectedReceiverId
                                 ? 'selected'
                                 : '' ?>>
-
-                            <?= !empty(
-                                $row['owner_customer_name']
-                            )
-                                ? esc(
-                                    $row['owner_customer_name']
-                                ) . ' — '
-                                : '' ?>
 
                             <?= esc(
                                 $row['contact_name'] ?? '-'
