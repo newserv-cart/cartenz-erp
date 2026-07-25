@@ -7,9 +7,15 @@ Sprint 50.6 — Owner-scoped address history live search
 */
 
 document.addEventListener('DOMContentLoaded', function () {
-    if (!document.getElementById('shipmentCreateForm')) {
+    const shipmentCreateForm =
+        document.getElementById('shipmentCreateForm');
+
+    if (!shipmentCreateForm) {
         return;
     }
+
+    const canChooseAnyOwner =
+        shipmentCreateForm.dataset.canChooseAnyOwner === '1';
 
     // =====================================================
     // ADDRESS SOURCE: NEW / HISTORY
@@ -565,21 +571,23 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // =====================================================
-    // OWNER SYNC
+    // OWNER SYNC (admin only)
     // =====================================================
 
-    const customerSelect = document.getElementById('customer_id');
-    const ownerIdInput = document.getElementById('shipment_owner_id');
+    if (canChooseAnyOwner) {
+        const customerSelect = document.getElementById('customer_id');
+        const ownerIdInput = document.getElementById('shipment_owner_id');
 
-    if (customerSelect && ownerIdInput) {
-        customerSelect.addEventListener('change', function () {
-            const option = this.options[this.selectedIndex];
+        if (customerSelect && ownerIdInput) {
+            customerSelect.addEventListener('change', function () {
+                const option = this.options[this.selectedIndex];
 
-            ownerIdInput.value = option?.value || '';
-        });
+                ownerIdInput.value = option?.value || '';
+            });
 
-        if (customerSelect.value) {
-            ownerIdInput.value = customerSelect.value;
+            if (customerSelect.value) {
+                ownerIdInput.value = customerSelect.value;
+            }
         }
     }
 

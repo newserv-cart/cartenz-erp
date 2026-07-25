@@ -110,12 +110,6 @@ public function testAwb()
 
 public function create()
 {
-    if (!$this->isOperationalUser()) {
-        return redirect()->to(
-            site_url('customer/dashboard')
-        );
-    }
-
     $db = db_connect();
     $acceptanceService = new ShipmentAcceptanceService();
 
@@ -347,6 +341,27 @@ SQL;
                 $inboundIntake
             );
 
+        $canChooseAnyOwner = $this->canChooseAnyOwner();
+
+        try {
+            $ownerContext = (
+                new ShipmentOwnerContextService()
+            )->resolve(
+                (int) (auth()->id() ?? 0),
+                $canChooseAnyOwner,
+                null,
+                0
+            );
+        } catch (\Throwable $e) {
+            return redirect()
+                ->to(site_url('dashboard'))
+                ->with(
+                    'error',
+                    'Akun belum terhubung ke profil owner: ' .
+                    $e->getMessage()
+                );
+        }
+
         return view('shipments/create', [
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
@@ -390,6 +405,8 @@ SQL;
             'automaticReceiving'=> $automaticReceiving,
             'inboundIntake'     => $inboundIntake,
             'intakePackages'    => $intakePackages,
+            'canChooseAnyOwner' => $canChooseAnyOwner,
+            'ownerContext'      => $ownerContext,
         ]);
     }
 
@@ -2542,8 +2559,9 @@ SQL;
                 );
             }
 
+            $canChooseAnyOwner = $this->canChooseAnyOwner();
+
             $rules = [
-                'customer_id'       => 'required|is_natural_no_zero',
                 'service_id'        => 'required|is_natural_no_zero',
                 'package_type_id'   => 'required|is_natural_no_zero',
                 'commodity_type_id' => 'required|is_natural_no_zero',
@@ -2552,6 +2570,14 @@ SQL;
                 'transport_mode_id' => 'required|is_natural_no_zero',
                 'delivery_type_id'  => 'required|is_natural_no_zero',
             ];
+
+            if ($canChooseAnyOwner) {
+                $rules['customer_id'] =
+                    'required|is_natural_no_zero';
+            } else {
+                $rules['customer_id'] =
+                    'permit_empty|is_natural_no_zero';
+            }
 
             if (!$this->validate($rules)) {
                 throw new \RuntimeException(
@@ -2564,42 +2590,47 @@ SQL;
                 throw new \RuntimeException('Data paket belum diinput.');
             }
 
-            $ownerType = strtoupper(
-                trim(
-                    (string) (
-                        $this->request->getPost('owner_type')
-                        ?? ''
+            if ($canChooseAnyOwner) {
+                $ownerType = strtoupper(
+                    trim(
+                        (string) (
+                            $this->request->getPost('owner_type')
+                            ?? ''
+                        )
                     )
-                )
-            );
+                );
 
-            $ownerId = (int) $this->request
-                ->getPost('owner_id');
+                $ownerId = (int) $this->request
+                    ->getPost('owner_id');
 
-            if ($ownerType === '') {
-                if (
-                    (int) $this->request
-                        ->getPost('customer_id') > 0
-                ) {
-                    $ownerType = 'CUSTOMER';
-                    $ownerId = (int) $this->request
-                        ->getPost('customer_id');
-                } elseif (
-                    (int) $this->request
-                        ->getPost('agent_id') > 0
-                ) {
-                    $ownerType = 'AGENT';
-                    $ownerId = (int) $this->request
-                        ->getPost('agent_id');
+                if ($ownerType === '') {
+                    if (
+                        (int) $this->request
+                            ->getPost('customer_id') > 0
+                    ) {
+                        $ownerType = 'CUSTOMER';
+                        $ownerId = (int) $this->request
+                            ->getPost('customer_id');
+                    } elseif (
+                        (int) $this->request
+                            ->getPost('agent_id') > 0
+                    ) {
+                        $ownerType = 'AGENT';
+                        $ownerId = (int) $this->request
+                            ->getPost('agent_id');
+                    }
                 }
+            } else {
+                $ownerType = '';
+                $ownerId = 0;
             }
 
             try {
                 $ownerContext = (new ShipmentOwnerContextService())
                     ->resolve(
                         $actorId,
-                        $this->canChooseAnyOwner(),
-                        $ownerType,
+                        $canChooseAnyOwner,
+                        $ownerType ?: null,
                         $ownerId
                     );
             } catch (\Throwable $e) {

@@ -60,36 +60,31 @@ $receivingLocationValue = old(
     method="post"
     action="<?= site_url('shipments/store') ?>"
     data-base-url="<?= esc(rtrim(base_url(), '/')) ?>"
-    data-user-role="admin">
+    data-user-role="admin"
+    data-can-choose-any-owner="<?= !empty($canChooseAnyOwner) ? '1' : '0' ?>">
     <?= csrf_field() ?>
     <input type="hidden" name="inbound_intake_id" value="<?= (int) ($inboundIntake['id'] ?? 0) ?>">
     <input type="hidden" name="source_agent_id" value="<?= (int) ($inboundIntake['agent_id'] ?? 0) ?>">
-
-    <?php
-        $initialOwnerType = 'CUSTOMER';
-        $initialOwnerId   = 0;
-
-        if (!empty($senderAddresses[0]['customer_id'])) {
-            $initialOwnerId = (int) $senderAddresses[0]['customer_id'];
-        } elseif (
-            !empty(old('customer_id'))
-            && (int) old('customer_id') > 0
-        ) {
-            $initialOwnerId = (int) old('customer_id');
-        }
-    ?>
 
     <input
         type="hidden"
         name="owner_type"
         id="shipment_owner_type"
-        value="<?= esc($initialOwnerType) ?>"
+        value="<?= esc(
+            old(
+                'owner_type',
+                $ownerContext['owner_type'] ?? ''
+            )
+        ) ?>"
     >
     <input
         type="hidden"
         name="owner_id"
         id="shipment_owner_id"
-        value="<?= (int) $initialOwnerId ?>"
+        value="<?= (int) old(
+            'owner_id',
+            $ownerContext['owner_id'] ?? 0
+        ) ?>"
     >
 
 <div class="container mt-4 mb-5">
@@ -123,60 +118,63 @@ $receivingLocationValue = old(
     <?php endif; ?>
 
     <!-- =======================================
-         CUSTOMER / SENDER INFORMATION
+         SENDER INFORMATION
     ======================================= -->
     <div class="card mb-3">
         <div class="card-header bg-danger fw-bold">
-            🏢 CUSTOMER INFORMATION
+            🏢 Sender Information
         </div>
         <div class="card-body">
-            <div class="row align-items-end mb-3">
-                <div class="col-md-9">
-                    <label class="form-label fw-bold">🏢 Account Owner</label>
-                    <select
-                        name="customer_id"
-                        id="customer_id"
-                        class="form-select"
-                        required
-                    >
-                        <option value="">-- Select Account Owner --</option>
 
-                        <?php foreach ($senderAddresses as $sender): ?>
-                            <?php
-                                $senderId   = (int) ($sender['id'] ?? 0);
-                                $customerId = (int) ($sender['customer_id'] ?? 0);
+            <?php if (!empty($canChooseAnyOwner)): ?>
+                <div class="row align-items-end mb-3">
+                    <div class="col-md-9">
+                        <label class="form-label fw-bold">🏢 Account Owner</label>
+                        <select
+                            name="customer_id"
+                            id="customer_id"
+                            class="form-select"
+                            required
+                        >
+                            <option value="">-- Select Account Owner --</option>
 
-                                $contactName = trim(
-                                    (string) ($sender['contact_name'] ?? '')
-                                );
+                            <?php foreach ($senderAddresses as $sender): ?>
+                                <?php
+                                    $senderId   = (int) ($sender['id'] ?? 0);
+                                    $customerId = (int) ($sender['customer_id'] ?? 0);
 
-                                $companyName = trim(
-                                    (string) ($sender['company_name'] ?? '')
-                                );
+                                    $contactName = trim(
+                                        (string) ($sender['contact_name'] ?? '')
+                                    );
 
-                                $optionLabel = $contactName;
+                                    $companyName = trim(
+                                        (string) ($sender['company_name'] ?? '')
+                                    );
 
-                                if (
-                                    $companyName !== ''
-                                    && strcasecmp($companyName, $contactName) !== 0
-                                ) {
-                                    $optionLabel .= ' — ' . $companyName;
-                                }
-                            ?>
+                                    $optionLabel = $contactName;
 
-                            <option
-                                value="<?= $customerId ?>"
-                                data-customer-id="<?= $customerId ?>"
-                                <?= old('customer_id') == $customerId
-                                    ? 'selected'
-                                    : '' ?>
-                            >
-                                <?= esc($optionLabel) ?>
-                            </option>
-                        <?php endforeach ?>
-                    </select>
+                                    if (
+                                        $companyName !== ''
+                                        && strcasecmp($companyName, $contactName) !== 0
+                                    ) {
+                                        $optionLabel .= ' — ' . $companyName;
+                                    }
+                                ?>
+
+                                <option
+                                    value="<?= $customerId ?>"
+                                    data-customer-id="<?= $customerId ?>"
+                                    <?= old('customer_id') == $customerId
+                                        ? 'selected'
+                                        : '' ?>
+                                >
+                                    <?= esc($optionLabel) ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
                 </div>
-            </div>
+            <?php endif ?>
 
             <div class="mb-3">
                 <label class="form-label fw-bold">Sender Source</label>
@@ -384,6 +382,8 @@ $receivingLocationValue = old(
                     ><?= esc(old('sender_address') ?? '') ?></textarea>
                 </div>
             </div>
+        </div>
+    </div>
 
     <!-- =======================================
          RECEIVER INFORMATION
