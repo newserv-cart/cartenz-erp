@@ -180,7 +180,7 @@
 </div>
 
 <script>
-(function (window, document) {
+document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
     if (window.CartenzLifecycleModalsInitialized) {
@@ -204,29 +204,49 @@
     const cancelSubmit =
         document.getElementById("confirmCancelShipment");
 
-    cancelModal?.addEventListener(
-        "show.bs.modal",
-        function (event) {
-            const trigger = event.relatedTarget;
+    const cancelOpenButtons =
+        document.querySelectorAll(".js-cancel-shipment");
 
-            if (!(trigger instanceof HTMLElement)) {
-                event.preventDefault();
+    if (cancelModal && cancelOpenButtons.length > 0) {
+        const cancelModalInstance =
+            bootstrap.Modal.getOrCreateInstance(
+                cancelModal,
+                {
+                    backdrop: "static",
+                    keyboard: false
+                }
+            );
+
+        cancelOpenButtons.forEach(function (button) {
+            if (button.dataset.cancelBound === "1") {
                 return;
             }
 
-            cancelForm.action =
-                trigger.dataset.actionUrl || "";
+            button.dataset.cancelBound = "1";
 
-            cancelAwb.textContent =
-                trigger.dataset.awb || "-";
+            button.addEventListener(
+                "click",
+                function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
 
-            cancelReason.value = "";
+                    cancelForm.action =
+                        button.dataset.actionUrl || "";
 
-            cancelSubmit.disabled = false;
-            cancelSubmit.textContent =
-                "Confirm Cancel";
-        }
-    );
+                    cancelAwb.textContent =
+                        button.dataset.awb || "-";
+
+                    cancelReason.value = "";
+
+                    cancelSubmit.disabled = false;
+                    cancelSubmit.textContent =
+                        "Confirm Cancel";
+
+                    cancelModalInstance.show(button);
+                }
+            );
+        });
+    }
 
     cancelModal?.addEventListener(
         "shown.bs.modal",
@@ -319,5 +339,5 @@
             }
         }
     );
-})(window, document);
+});
 </script>
