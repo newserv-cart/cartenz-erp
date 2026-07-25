@@ -76,7 +76,7 @@ class ShipmentController extends BaseController
                 );
             } catch (\Throwable $e) {
                 return redirect()
-                    ->to(site_url('dashboard'))
+                    ->to(site_url('/'))
                     ->with('error', $e->getMessage());
             }
 
@@ -354,7 +354,7 @@ SQL;
             );
         } catch (\Throwable $e) {
             return redirect()
-                ->to(site_url('dashboard'))
+                ->to(site_url('/'))
                 ->with(
                     'error',
                     'Akun belum terhubung ke profil owner: ' .
