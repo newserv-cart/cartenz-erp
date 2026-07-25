@@ -13,7 +13,6 @@ class ShipmentOwnerContextService
     private const OWNER_TYPES = [
         'CUSTOMER',
         'AGENT',
-        'WHITE_LABEL',
     ];
 
     public function __construct(?BaseConnection $db = null)
@@ -24,16 +23,16 @@ class ShipmentOwnerContextService
     /**
      * Menentukan pemilik shipment/address book.
      *
-     * Operational/admin:
+     * Admin pusat ($canChooseAnyOwner = true):
      * - owner dipilih dari form.
      *
-     * Customer/Agent/White Label:
+     * Customer / Agent / White Label:
      * - owner ditentukan dari profil akun login.
      * - owner_id dari browser tidak dipercaya.
      */
     public function resolve(
         int $userId,
-        bool $isOperationalUser,
+        bool $canChooseAnyOwner,
         ?string $postedOwnerType = null,
         int $postedOwnerId = 0
     ): array {
@@ -43,7 +42,7 @@ class ShipmentOwnerContextService
             );
         }
 
-        if ($isOperationalUser) {
+        if ($canChooseAnyOwner) {
             $ownerType = $this->normalizeOwnerType(
                 $postedOwnerType
             );
@@ -173,16 +172,6 @@ class ShipmentOwnerContextService
                 'userLinkField'=> 'agent_id',
             ],
 
-            'WHITE_LABEL' => [
-                'table'        => 'white_labels',
-                'displayFields'=> [
-                    'white_label_name',
-                    'company_name',
-                    'name',
-                ],
-                'userLinkField'=> 'white_label_id',
-            ],
-
             default => throw new RuntimeException(
                 'Owner type tidak dikenal.'
             ),
@@ -193,6 +182,10 @@ class ShipmentOwnerContextService
         string $ownerType,
         int $userId
     ): int {
+        if ($ownerType === 'AGENT') {
+            return $this->findAgentIdByUser($userId);
+        }
+
         $config = $this->ownerConfiguration(
             $ownerType
         );
@@ -229,8 +222,7 @@ class ShipmentOwnerContextService
 
         /*
          * Pola kedua:
-         * tabel users mempunyai customer_id/agent_id/
-         * white_label_id.
+         * tabel users mempunyai customer_id/agent_id.
          */
         $userLinkField = $config['userLinkField'];
 
@@ -254,6 +246,33 @@ class ShipmentOwnerContextService
         }
 
         return 0;
+    }
+
+    private function findAgentIdByUser(int $userId): int
+    {
+        if (
+            $userId <= 0
+            || !$this->db->tableExists('agent_users')
+        ) {
+            return 0;
+        }
+
+        $row = $this->db
+            ->table('agent_users AS au')
+            ->select('au.agent_id')
+            ->join(
+                'agents AS a',
+                'a.id = au.agent_id',
+                'inner'
+            )
+            ->where('au.user_id', $userId)
+            ->where('au.status', 1)
+            ->where('a.status', 1)
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        return (int) ($row['agent_id'] ?? 0);
     }
 
     private function findActiveOwner(
@@ -309,16 +328,13 @@ class ShipmentOwnerContextService
             }
         }
 
-        return [
+        $context = [
             'owner_type'        => $ownerType,
             'owner_id'          => $ownerId,
             'owner_name'        => $ownerName,
             'created_by_user_id'=> $userId,
             'entry_channel'     => $entryChannel,
 
-            /*
-             * Legacy compatibility.
-             */
             'customer_id' => $ownerType === 'CUSTOMER'
                 ? $ownerId
                 : null,
@@ -331,5 +347,17 @@ class ShipmentOwnerContextService
                 ? $ownerId
                 : null,
         ];
+
+        if ($ownerType === 'AGENT') {
+            $isWhiteLabel = (int) (
+                $owner['white_label_enabled'] ?? 0
+            ) === 1;
+
+            $context['account_class'] = $isWhiteLabel
+                ? 'WHITE_LABEL'
+                : 'AGENT';
+        }
+
+        return $context;
     }
 }

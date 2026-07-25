@@ -332,7 +332,7 @@ class CustomerAddressController extends BaseController
             $ownerContext = (new ShipmentOwnerContextService())
                 ->resolve(
                     $userId,
-                    $this->isOperationalUser(),
+                    $this->canChooseAnyOwner(),
                     $postedOwnerType,
                     $postedOwnerId
                 );
@@ -745,7 +745,7 @@ class CustomerAddressController extends BaseController
                 new ShipmentOwnerContextService()
             )->resolve(
                 (int) (auth()->id() ?? 0),
-                $this->isOperationalUser(),
+                $this->canChooseAnyOwner(),
                 $postedOwnerType,
                 $postedOwnerId
             );

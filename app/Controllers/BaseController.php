@@ -42,4 +42,21 @@ abstract class BaseController extends Controller
         // Preload any models, libraries, etc, here.
         // $this->session = service('session');
     }
+
+    /**
+     * Admin pusat saja yang boleh memilih account owner
+     * secara bebas. Agent, white label, dan customer harus
+     * terkunci ke profil masing-masing.
+     */
+    protected function canChooseAnyOwner(): bool
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->inGroup('superadmin')
+            || $user->inGroup('admin');
+    }
 }

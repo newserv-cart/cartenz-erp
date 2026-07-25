@@ -1121,7 +1121,7 @@ SQL;
                 $ownerContext = (new ShipmentOwnerContextService())
                     ->resolve(
                         $actorId,
-                        $this->isOperationalUser(),
+                        $this->canChooseAnyOwner(),
                         $existingOwnerType,
                         $existingOwnerId
                     );
@@ -2538,7 +2538,7 @@ SQL;
                 $ownerContext = (new ShipmentOwnerContextService())
                     ->resolve(
                         $actorId,
-                        $this->isOperationalUser(),
+                        $this->canChooseAnyOwner(),
                         $ownerType,
                         $ownerId
                     );
