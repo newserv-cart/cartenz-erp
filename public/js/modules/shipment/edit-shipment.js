@@ -74,18 +74,17 @@ Sprint 49.12A
         },
 
         hydrateSender() {
+            const select =
+                document.getElementById("customer_id");
+
+            if (!select) {
+                return;
+            }
+
             const option =
                 this.selectedOption("customer_id");
 
             if (!option || !option.value) {
-                if (
-                    window.ShipmentSender
-                    && typeof window.ShipmentSender.clear
-                        === "function"
-                ) {
-                    window.ShipmentSender.clear();
-                }
-
                 return;
             }
 
