@@ -17,6 +17,22 @@
         </div>
     <?php endif; ?>
 
+    <?php
+        $detailStatus = strtoupper(
+            trim(
+                (string) (
+                    $shipment['shipment_status'] ?? ''
+                )
+            )
+        );
+    ?>
+
+    <?php if ($detailStatus === 'CANCELLED'): ?>
+        <div class="alert alert-secondary">
+            Shipment telah dibatalkan dan seluruh datanya dikunci.
+        </div>
+    <?php endif ?>
+
     <?= $this->include('shipments/partials/header') ?>
 
     <?= $this->include('shipments/partials/tabs') ?>

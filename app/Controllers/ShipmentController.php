@@ -425,6 +425,36 @@ SQL;
                 );
         }
 
+        $status = strtoupper(
+            trim(
+                (string) (
+                    $shipment['shipment_status'] ?? ''
+                )
+            )
+        );
+
+        $editableStatuses = [
+            'DRAFT',
+            'RECEIVED_AT_ORIGIN_BRANCH',
+            'RECEIVED_AT_MAIN_WAREHOUSE',
+        ];
+
+        if (!in_array($status, $editableStatuses, true)) {
+            return redirect()
+                ->to(
+                    site_url(
+                        'shipments/detail/' .
+                        (int) $shipment['id']
+                    )
+                )
+                ->with(
+                    'error',
+                    'Shipment dengan status ' .
+                    $status .
+                    ' tidak dapat diedit.'
+                );
+        }
+
         try {
             $this->assertShipmentEditable(
                 $shipment,
@@ -895,17 +925,68 @@ SQL;
         $itemModel     = new ShipmentPackageItemModel();
         $costModel     = new ShipmentCostDetailModel();
 
+        $shipment = $shipmentModel->find($shipmentId);
+
+        if (!$shipment) {
+            if ($this->request->isAJAX()) {
+                return $this->response
+                    ->setStatusCode(404)
+                    ->setJSON([
+                        'status'  => 'error',
+                        'message' => 'Shipment tidak ditemukan.',
+                    ]);
+            }
+
+            return redirect()
+                ->to(site_url('shipments'))
+                ->with(
+                    'error',
+                    'Shipment tidak ditemukan.'
+                );
+        }
+
+        $status = strtoupper(
+            trim(
+                (string) (
+                    $shipment['shipment_status'] ?? ''
+                )
+            )
+        );
+
+        $editableStatuses = [
+            'DRAFT',
+            'RECEIVED_AT_ORIGIN_BRANCH',
+            'RECEIVED_AT_MAIN_WAREHOUSE',
+        ];
+
+        if (!in_array($status, $editableStatuses, true)) {
+            $message =
+                'Shipment dengan status ' .
+                $status .
+                ' tidak dapat diperbarui.';
+
+            if ($this->request->isAJAX()) {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'status'  => 'error',
+                        'message' => $message,
+                    ]);
+            }
+
+            return redirect()
+                ->to(
+                    site_url(
+                        'shipments/detail/' .
+                        (int) $shipment['id']
+                    )
+                )
+                ->with('error', $message);
+        }
+
         $db->transBegin();
 
         try {
-            $shipment = $shipmentModel->find($shipmentId);
-
-            if (!$shipment) {
-                throw new \RuntimeException(
-                    'Shipment tidak ditemukan.'
-                );
-            }
-
             $this->assertShipmentEditable(
                 $shipment,
                 $db

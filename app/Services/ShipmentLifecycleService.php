@@ -41,7 +41,19 @@ class ShipmentLifecycleService
             true
         );
 
-        $canEdit = !$terminal
+        $editableStatuses = [
+            'DRAFT',
+            'RECEIVED_AT_ORIGIN_BRANCH',
+            'RECEIVED_AT_MAIN_WAREHOUSE',
+        ];
+
+        $isEditableStatus = in_array(
+            $status,
+            $editableStatuses,
+            true
+        );
+
+        $canEdit = $isEditableStatus
             && !$invoiceLinked
             && !$vendorSubmitted;
 
@@ -58,7 +70,7 @@ class ShipmentLifecycleService
             'can_cancel'           => $canCancel,
             'can_delete'           => $canDelete,
             'edit_block_reason'    => $this->editBlockReason(
-                $terminal,
+                $isEditableStatus,
                 $invoiceLinked,
                 $vendorSubmitted,
                 $status
@@ -607,12 +619,12 @@ class ShipmentLifecycleService
     }
 
     private function editBlockReason(
-        bool $terminal,
+        bool $isEditableStatus,
         bool $invoiceLinked,
         bool $vendorSubmitted,
         string $status
     ): string {
-        if ($terminal) {
+        if (!$isEditableStatus) {
             return 'Shipment status ' .
                 $status .
                 ' tidak dapat diedit.';
