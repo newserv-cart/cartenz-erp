@@ -703,6 +703,299 @@ class CustomerAddressController extends BaseController
         }
     }
 
+    public function search()
+    {
+        $queryText = trim(
+            (string) $this->request->getGet('q')
+        );
+
+        $addressType = strtoupper(
+            trim(
+                (string) $this->request
+                    ->getGet('address_type')
+            )
+        );
+
+        if (!in_array(
+            $addressType,
+            ['SENDER', 'RECEIVER'],
+            true
+        )) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Address type tidak valid.',
+                    'data'    => [],
+                ]);
+        }
+
+        $postedOwnerType = strtoupper(
+            trim(
+                (string) $this->request
+                    ->getGet('owner_type')
+            )
+        );
+
+        $postedOwnerId = (int) $this->request
+            ->getGet('owner_id');
+
+        try {
+            $ownerContext = (
+                new ShipmentOwnerContextService()
+            )->resolve(
+                (int) (auth()->id() ?? 0),
+                $this->isOperationalUser(),
+                $postedOwnerType,
+                $postedOwnerId
+            );
+        } catch (\Throwable $e) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status'  => 'error',
+                    'message' => $e->getMessage(),
+                    'data'    => [],
+                ]);
+        }
+
+        $builder = db_connect()
+            ->table('customer_addresses AS ca')
+            ->select([
+                'ca.id',
+                'ca.owner_type',
+                'ca.owner_id',
+                'ca.customer_id',
+                'ca.address_type',
+                'ca.contact_name',
+                'ca.company_name',
+                'ca.phone',
+                'ca.email',
+                'ca.identity_number',
+                'ca.country_id',
+                'ca.state',
+                'ca.city',
+                'ca.postal_code',
+                'ca.address',
+                'ca.is_primary',
+                'ca.source',
+                'countries.country_name',
+            ])
+            ->join(
+                'countries',
+                'countries.id = ca.country_id',
+                'left'
+            )
+            ->where(
+                'ca.owner_type',
+                $ownerContext['owner_type']
+            )
+            ->where(
+                'ca.owner_id',
+                $ownerContext['owner_id']
+            )
+            ->where(
+                'ca.address_type',
+                $addressType
+            )
+            ->where('ca.status', 1);
+
+        /*
+         * Kosong:
+         * tampilkan riwayat terbaru.
+         *
+         * Ada keyword:
+         * cari nama, perusahaan, telepon,
+         * kota, kode pos, dan alamat.
+         */
+        if ($queryText !== '') {
+            $builder
+                ->groupStart()
+                    ->like(
+                        'ca.contact_name',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.company_name',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.phone',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.email',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.city',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.state',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.postal_code',
+                        $queryText
+                    )
+                    ->orLike(
+                        'ca.address',
+                        $queryText
+                    )
+                ->groupEnd();
+
+            $builder
+                ->orderBy(
+                    'ca.contact_name',
+                    'ASC'
+                );
+        } else {
+            $builder
+                ->orderBy(
+                    'ca.is_primary',
+                    'DESC'
+                )
+                ->orderBy(
+                    'ca.updated_at',
+                    'DESC'
+                )
+                ->orderBy(
+                    'ca.id',
+                    'DESC'
+                );
+        }
+
+        $addresses = $builder
+            ->limit(20)
+            ->get()
+            ->getResultArray();
+
+        $results = array_map(
+            static function (array $address): array {
+                $contactName = trim(
+                    (string) (
+                        $address['contact_name'] ?? ''
+                    )
+                );
+
+                $companyName = trim(
+                    (string) (
+                        $address['company_name'] ?? ''
+                    )
+                );
+
+                $city = trim(
+                    (string) (
+                        $address['city'] ?? ''
+                    )
+                );
+
+                $phone = trim(
+                    (string) (
+                        $address['phone'] ?? ''
+                    )
+                );
+
+                $labelParts = [];
+
+                if ($contactName !== '') {
+                    $labelParts[] = $contactName;
+                }
+
+                if (
+                    $companyName !== ''
+                    && strcasecmp(
+                        $companyName,
+                        $contactName
+                    ) !== 0
+                ) {
+                    $labelParts[] = $companyName;
+                }
+
+                if ($city !== '') {
+                    $labelParts[] = $city;
+                }
+
+                if ($phone !== '') {
+                    $labelParts[] = $phone;
+                }
+
+                return [
+                    'id' => (int) (
+                        $address['id'] ?? 0
+                    ),
+
+                    'label' => implode(
+                        ' · ',
+                        $labelParts
+                    ),
+
+                    'contact_name' =>
+                        $contactName,
+
+                    'company_name' =>
+                        $companyName,
+
+                    'phone' => $phone,
+
+                    'email' => (string) (
+                        $address['email'] ?? ''
+                    ),
+
+                    'identity_number' => (string) (
+                        $address['identity_number']
+                        ?? ''
+                    ),
+
+                    'country_id' => (int) (
+                        $address['country_id'] ?? 0
+                    ),
+
+                    'country_name' => (string) (
+                        $address['country_name'] ?? ''
+                    ),
+
+                    'state' => (string) (
+                        $address['state'] ?? ''
+                    ),
+
+                    'city' => $city,
+
+                    'postal_code' => (string) (
+                        $address['postal_code'] ?? ''
+                    ),
+
+                    'address' => (string) (
+                        $address['address'] ?? ''
+                    ),
+
+                    'is_primary' => (int) (
+                        $address['is_primary'] ?? 0
+                    ),
+
+                    'source' => (string) (
+                        $address['source'] ?? ''
+                    ),
+                ];
+            },
+            $addresses
+        );
+
+        return $this->response->setJSON([
+            'status' => 'success',
+
+            'owner' => [
+                'type' => $ownerContext['owner_type'],
+                'id'   => $ownerContext['owner_id'],
+                'name' => $ownerContext['owner_name'],
+            ],
+
+            'address_type' => $addressType,
+            'data'         => $results,
+        ]);
+    }
+
     private function countryOptions(): array
     {
         $db = db_connect();

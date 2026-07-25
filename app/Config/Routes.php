@@ -568,6 +568,11 @@ $routes->post(
     'CustomerAddressController::saveAddress'
 );
 
+$routes->get(
+    'customer-addresses/search',
+    'CustomerAddressController::search'
+);
+
 $routes->post(
     'shipments/calculate-rate',
     'ShipmentController::calculateRate'

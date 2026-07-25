@@ -2,7 +2,7 @@
 =========================================================
 CARTENZ ERP
 Create Shipment — Sender / Receiver Source Toggle
-Sprint 50.4
+Sprint 50.6 — Owner-scoped address history live search
 =========================================================
 */
 
@@ -52,8 +52,12 @@ document.addEventListener('DOMContentLoaded', function () {
             config.historySectionId
         );
 
-        const historySelect = document.getElementById(
-            config.historySelectId
+        const addressIdInput = document.getElementById(
+            config.addressIdInputId
+        );
+
+        const searchInput = document.getElementById(
+            config.searchInputId
         );
 
         function refresh() {
@@ -70,11 +74,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 useHistory
             );
 
-            /*
-             * Field yang tersembunyi dinonaktifkan agar
-             * tidak ikut terkirim dan tidak mengganggu
-             * validasi HTML required.
-             */
             setFieldsDisabled(
                 newSection,
                 useHistory
@@ -85,8 +84,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 !useHistory
             );
 
-            if (!useHistory && historySelect) {
-                historySelect.value = '';
+            if (!useHistory) {
+                if (addressIdInput) {
+                    addressIdInput.value = '';
+                }
+
+                if (searchInput) {
+                    searchInput.value = '';
+                }
             }
         }
 
@@ -108,7 +113,8 @@ document.addEventListener('DOMContentLoaded', function () {
         historyRadioId: 'sender_source_history',
         newSectionId: 'senderNewSection',
         historySectionId: 'senderHistorySection',
-        historySelectId: 'sender_address_id',
+        addressIdInputId: 'sender_address_id',
+        searchInputId: 'sender_history_search',
     });
 
     initializeAddressSource({
@@ -116,87 +122,447 @@ document.addEventListener('DOMContentLoaded', function () {
         historyRadioId: 'receiver_source_history',
         newSectionId: 'receiverNewSection',
         historySectionId: 'receiverHistorySection',
-        historySelectId: 'receiver_address_id',
+        addressIdInputId: 'receiver_address_id',
+        searchInputId: 'receiver_history_search',
     });
 
     // =====================================================
-    // DROPDOWN RIWAYAT MENGISI FORM
+    // OWNER-SCOPED ADDRESS HISTORY LIVE SEARCH
     // =====================================================
 
-    function fillFieldsFromAddress(
-        selectId,
-        fieldPrefix
-    ) {
-        const select =
-            document.getElementById(selectId);
+    function debounce(callback, delay) {
+        delay = delay ?? 300;
 
-        if (!select) {
+        let timer = null;
+
+        return function (...args) {
+            window.clearTimeout(timer);
+
+            timer = window.setTimeout(
+                function () {
+                    callback.apply(this, args);
+                },
+                delay
+            );
+        };
+    }
+
+    function setValueByPossibleIds(ids, value) {
+        for (const id of ids) {
+            const field = document.getElementById(id);
+
+            if (!field) {
+                continue;
+            }
+
+            field.value = value ?? '';
+
+            field.dispatchEvent(
+                new Event('change', {
+                    bubbles: true,
+                })
+            );
+
+            return;
+        }
+    }
+
+    function fillAddressFields(prefix, address) {
+        setValueByPossibleIds(
+            [prefix + '_name'],
+            address.contact_name
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_company'],
+            address.company_name
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_phone'],
+            address.phone
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_email'],
+            address.email
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_identity'],
+            address.identity_number
+        );
+
+        setValueByPossibleIds(
+            [
+                prefix + '_country',
+                prefix + '_country_id',
+            ],
+            address.country_id
+        );
+
+        setValueByPossibleIds(
+            [
+                prefix + '_province',
+                prefix + '_state',
+            ],
+            address.state
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_city'],
+            address.city
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_postal'],
+            address.postal_code
+        );
+
+        setValueByPossibleIds(
+            [prefix + '_address'],
+            address.address
+        );
+    }
+
+    function setupAddressHistorySearch(config) {
+        const searchInput = document.getElementById(
+            config.searchInputId
+        );
+
+        const resultsContainer = document.getElementById(
+            config.resultsContainerId
+        );
+
+        const selectedContainer = document.getElementById(
+            config.selectedContainerId
+        );
+
+        const addressIdInput = document.getElementById(
+            config.addressIdInputId
+        );
+
+        if (
+            !searchInput
+            || !resultsContainer
+            || !addressIdInput
+        ) {
             return;
         }
 
-        select.addEventListener('change', function () {
-            const option =
-                this.options[this.selectedIndex];
+        let abortController = null;
 
-            if (!option || !this.value) {
+        function hideResults() {
+            resultsContainer.classList.add('d-none');
+            resultsContainer.innerHTML = '';
+        }
+
+        function showMessage(message) {
+            resultsContainer.innerHTML = '';
+
+            const item = document.createElement('div');
+
+            item.className =
+                'list-group-item text-muted';
+
+            item.textContent = message;
+
+            resultsContainer.appendChild(item);
+            resultsContainer.classList.remove('d-none');
+        }
+
+        function renderResults(addresses) {
+            resultsContainer.innerHTML = '';
+
+            if (
+                !Array.isArray(addresses)
+                || addresses.length === 0
+            ) {
+                showMessage('Riwayat tidak ditemukan.');
                 return;
             }
 
-            const mapping = {
-                name: option.dataset.contactName,
-                company: option.dataset.company,
-                phone: option.dataset.phone,
-                email: option.dataset.email,
-                identity: option.dataset.identity,
-                country: option.dataset.countryId,
-                province: option.dataset.state,
-                city: option.dataset.city,
-                postal: option.dataset.postal,
-                address: option.dataset.address,
-            };
+            addresses.forEach(function (address) {
+                const button =
+                    document.createElement('button');
 
-            Object.entries(mapping).forEach(
-                function ([suffix, value]) {
-                    const field =
-                        document.getElementById(
-                            fieldPrefix + '_' + suffix
+                button.type = 'button';
+
+                button.className =
+                    'list-group-item ' +
+                    'list-group-item-action';
+
+                const title =
+                    document.createElement('div');
+
+                title.className = 'fw-semibold';
+
+                title.textContent =
+                    address.contact_name ||
+                    address.company_name ||
+                    '-';
+
+                const description =
+                    document.createElement('small');
+
+                description.className =
+                    'text-muted d-block';
+
+                const details = [
+                    address.company_name,
+                    address.phone,
+                    address.city,
+                    address.postal_code,
+                ].filter(Boolean);
+
+                description.textContent =
+                    details.join(' · ');
+
+                button.appendChild(title);
+                button.appendChild(description);
+
+                button.addEventListener(
+                    'click',
+                    function () {
+                        addressIdInput.value =
+                            String(address.id || '');
+
+                        searchInput.value =
+                            address.label ||
+                            address.contact_name ||
+                            '';
+
+                        fillAddressFields(
+                            config.prefix,
+                            address
                         );
 
-                    if (field) {
-                        field.value = value || '';
+                        if (selectedContainer) {
+                            selectedContainer.innerHTML = '';
+
+                            const selectedTitle =
+                                document.createElement('strong');
+
+                            selectedTitle.textContent =
+                                address.contact_name || '-';
+
+                            const selectedDetails =
+                                document.createElement('div');
+
+                            selectedDetails.className =
+                                'small text-muted mt-1';
+
+                            selectedDetails.textContent = [
+                                address.company_name,
+                                address.phone,
+                                address.address,
+                                address.city,
+                                address.postal_code,
+                                address.country_name,
+                            ]
+                                .filter(Boolean)
+                                .join(' · ');
+
+                            selectedContainer.appendChild(
+                                selectedTitle
+                            );
+
+                            selectedContainer.appendChild(
+                                selectedDetails
+                            );
+
+                            selectedContainer.classList.remove(
+                                'd-none'
+                            );
+                        }
+
+                        hideResults();
+
+                        console.log(
+                            config.prefix.toUpperCase() +
+                            ' HISTORY SELECTED:',
+                            address
+                        );
                     }
-                }
+                );
+
+                resultsContainer.appendChild(button);
+            });
+
+            resultsContainer.classList.remove('d-none');
+        }
+
+        async function performSearch() {
+            const ownerTypeInput = document
+                .getElementById('shipment_owner_type');
+
+            const ownerIdInput = document
+                .getElementById('shipment_owner_id');
+
+            const ownerType = ownerTypeInput?.value || '';
+            const ownerId = ownerIdInput?.value || '';
+
+            if (!ownerType || !ownerId) {
+                showMessage(
+                    'Pilih account owner terlebih dahulu.'
+                );
+
+                return;
+            }
+
+            if (!window.addressHistorySearchUrl) {
+                showMessage(
+                    'URL pencarian riwayat belum tersedia.'
+                );
+
+                return;
+            }
+
+            if (abortController) {
+                abortController.abort();
+            }
+
+            abortController = new AbortController();
+
+            const url = new URL(
+                window.addressHistorySearchUrl,
+                window.location.origin
             );
 
-            /*
-             * Trigger country change untuk pricing.
-             */
-            if (fieldPrefix === 'receiver') {
-                const countrySelect =
-                    document.getElementById(
-                        'receiver_country'
-                    );
+            url.searchParams.set(
+                'q',
+                searchInput.value.trim()
+            );
 
-                if (countrySelect) {
-                    countrySelect.value =
-                        option.dataset.countryId || '';
-                    countrySelect.dispatchEvent(
-                        new Event('change')
+            url.searchParams.set(
+                'address_type',
+                config.addressType
+            );
+
+            url.searchParams.set(
+                'owner_type',
+                ownerType
+            );
+
+            url.searchParams.set(
+                'owner_id',
+                ownerId
+            );
+
+            showMessage('Mencari riwayat...');
+
+            try {
+                const response = await fetch(
+                    url.toString(),
+                    {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With':
+                                'XMLHttpRequest',
+                        },
+                        signal: abortController.signal,
+                    }
+                );
+
+                const rawResponse = await response.text();
+
+                let result = {};
+
+                try {
+                    result = rawResponse
+                        ? JSON.parse(rawResponse)
+                        : {};
+                } catch (error) {
+                    result = {
+                        message: rawResponse,
+                    };
+                }
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.message ||
+                        'Server error: ' + response.status
                     );
                 }
+
+                renderResults(result.data || []);
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    return;
+                }
+
+                console.error(
+                    'ADDRESS HISTORY SEARCH FAILED:',
+                    error
+                );
+
+                showMessage(
+                    error.message ||
+                    'Riwayat gagal dimuat.'
+                );
             }
-        });
+        }
+
+        const debouncedSearch = debounce(
+            performSearch,
+            300
+        );
+
+        searchInput.addEventListener(
+            'input',
+            function () {
+                addressIdInput.value = '';
+
+                selectedContainer?.classList.add(
+                    'd-none'
+                );
+
+                debouncedSearch();
+            }
+        );
+
+        searchInput.addEventListener(
+            'focus',
+            function () {
+                performSearch();
+            }
+        );
+
+        document.addEventListener(
+            'click',
+            function (event) {
+                if (
+                    event.target === searchInput
+                    || resultsContainer.contains(
+                        event.target
+                    )
+                ) {
+                    return;
+                }
+
+                hideResults();
+            }
+        );
     }
 
-    fillFieldsFromAddress(
-        'sender_address_id',
-        'sender'
-    );
+    setupAddressHistorySearch({
+        prefix: 'sender',
+        addressType: 'SENDER',
+        searchInputId: 'sender_history_search',
+        resultsContainerId: 'sender_history_results',
+        selectedContainerId: 'sender_history_selected',
+        addressIdInputId: 'sender_address_id',
+    });
 
-    fillFieldsFromAddress(
-        'receiver_address_id',
-        'receiver'
-    );
+    setupAddressHistorySearch({
+        prefix: 'receiver',
+        addressType: 'RECEIVER',
+        searchInputId: 'receiver_history_search',
+        resultsContainerId: 'receiver_history_results',
+        selectedContainerId: 'receiver_history_selected',
+        addressIdInputId: 'receiver_address_id',
+    });
 
     // =====================================================
     // OWNER SYNC

@@ -216,74 +216,46 @@ $receivingLocationValue = old(
             </div>
 
             <div id="senderHistorySection" class="d-none">
-                <label class="form-label fw-bold">Cari Riwayat Pengirim</label>
-                <select
-                    id="sender_address_id"
-                    name="sender_address_id"
-                    class="form-select"
+                <label
+                    for="sender_history_search"
+                    class="form-label fw-bold"
                 >
-                    <option value="">-- Cari / Pilih Pengirim --</option>
+                    Cari Riwayat Pengirim
+                </label>
 
-                    <?php foreach ($senderAddresses as $sender): ?>
-                        <option
-                            value="<?= (int) ($sender['id'] ?? 0) ?>"
-                            data-contact-name="<?= esc(
-                                $sender['contact_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-company="<?= esc(
-                                $sender['company_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-phone="<?= esc(
-                                $sender['phone'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-email="<?= esc(
-                                $sender['email'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-identity="<?= esc(
-                                $sender['identity_number'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-country-id="<?= (int) (
-                                $sender['country_id'] ?? 0
-                            ) ?>"
-                            data-country-name="<?= esc(
-                                $sender['country_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-state="<?= esc(
-                                $sender['state'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-city="<?= esc(
-                                $sender['city'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-postal="<?= esc(
-                                $sender['postal_code'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-address="<?= esc(
-                                $sender['address'] ?? '',
-                                'attr'
-                            ) ?>"
-                        >
-                            <?= esc($sender['contact_name'] ?? '-') ?>
-                            <?php if (
-                                !empty($sender['company_name'])
-                                && strcasecmp(
-                                    trim((string) $sender['company_name']),
-                                    trim((string) $sender['contact_name'])
-                                ) !== 0
-                            ): ?>
-                                — <?= esc($sender['company_name']) ?>
-                            <?php endif ?>
-                        </option>
-                    <?php endforeach ?>
-                </select>
+                <div class="position-relative">
+                    <input
+                        type="search"
+                        id="sender_history_search"
+                        class="form-control"
+                        placeholder="Ketik nama, perusahaan, telepon, kota, atau alamat..."
+                        autocomplete="off"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="sender_address_id"
+                        id="sender_address_id"
+                        value="<?= esc(
+                            old('sender_address_id', '')
+                        ) ?>"
+                    >
+
+                    <div
+                        id="sender_history_results"
+                        class="list-group position-absolute w-100 shadow d-none"
+                        style="
+                            z-index: 1050;
+                            max-height: 320px;
+                            overflow-y: auto;
+                        "
+                    ></div>
+                </div>
+
+                <div
+                    id="sender_history_selected"
+                    class="alert alert-light border mt-2 d-none"
+                ></div>
             </div>
 
             <div id="senderNewSection">
@@ -454,73 +426,46 @@ $receivingLocationValue = old(
             </div>
 
             <div id="receiverHistorySection" class="d-none">
-                <label class="form-label fw-bold">Cari Riwayat Penerima</label>
-                <select
-                    id="receiver_address_id"
-                    name="receiver_address_id"
-                    class="form-select"
+                <label
+                    for="receiver_history_search"
+                    class="form-label fw-bold"
                 >
-                    <option value="">-- Cari / Pilih Penerima --</option>
-                    <?php foreach ($receiverAddresses as $row): ?>
-                        <option
-                            value="<?= (int) ($row['id'] ?? 0) ?>"
-                            data-contact-name="<?= esc(
-                                $row['contact_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-company="<?= esc(
-                                $row['company_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-phone="<?= esc(
-                                $row['phone'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-email="<?= esc(
-                                $row['email'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-identity="<?= esc(
-                                $row['identity_number'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-country-id="<?= (int) (
-                                $row['country_id'] ?? 0
-                            ) ?>"
-                            data-country-name="<?= esc(
-                                $row['country_name'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-state="<?= esc(
-                                $row['state'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-city="<?= esc(
-                                $row['city'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-postal="<?= esc(
-                                $row['postal_code'] ?? '',
-                                'attr'
-                            ) ?>"
-                            data-address="<?= esc(
-                                $row['address'] ?? '',
-                                'attr'
-                            ) ?>"
-                        >
-                            <?= esc($row['contact_name'] ?? '-') ?>
-                            <?php if (
-                                !empty($row['company_name'])
-                                && strcasecmp(
-                                    trim((string) $row['company_name']),
-                                    trim((string) $row['contact_name'])
-                                ) !== 0
-                            ): ?>
-                                — <?= esc($row['company_name']) ?>
-                            <?php endif ?>
-                        </option>
-                    <?php endforeach ?>
-                </select>
+                    Cari Riwayat Penerima
+                </label>
+
+                <div class="position-relative">
+                    <input
+                        type="search"
+                        id="receiver_history_search"
+                        class="form-control"
+                        placeholder="Ketik nama, perusahaan, telepon, kota, atau alamat..."
+                        autocomplete="off"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="receiver_address_id"
+                        id="receiver_address_id"
+                        value="<?= esc(
+                            old('receiver_address_id', '')
+                        ) ?>"
+                    >
+
+                    <div
+                        id="receiver_history_results"
+                        class="list-group position-absolute w-100 shadow d-none"
+                        style="
+                            z-index: 1050;
+                            max-height: 320px;
+                            overflow-y: auto;
+                        "
+                    ></div>
+                </div>
+
+                <div
+                    id="receiver_history_selected"
+                    class="alert alert-light border mt-2 d-none"
+                ></div>
             </div>
 
             <div id="receiverNewSection">
@@ -1409,7 +1354,15 @@ $receivingLocationValue = old(
 <script src="<?= base_url('js/modules/shipment/charges.js?v=49.7.3') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/profit.js?v=49.7.3') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
-<script src="<?= base_url('js/create-shipment.js?v=50.4') ?>"></script>
+
+<script>
+window.addressHistorySearchUrl =
+    <?= json_encode(
+        site_url('customer-addresses/search')
+    ) ?>;
+</script>
+
+<script src="<?= base_url('js/create-shipment.js?v=50.6') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js?v=49.7.4') ?>"></script>
 
 <?php if (!empty($intakePackages)): ?>
