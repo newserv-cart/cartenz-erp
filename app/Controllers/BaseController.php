@@ -47,6 +47,9 @@ abstract class BaseController extends Controller
      * Admin pusat saja yang boleh memilih account owner
      * secara bebas. Agent, white label, dan customer harus
      * terkunci ke profil masing-masing.
+     *
+     * User yang punya grup admin tetapi juga terhubung ke
+     * profil agent dianggap staf/agent, bukan admin pusat.
      */
     protected function canChooseAnyOwner(): bool
     {
@@ -56,7 +59,43 @@ abstract class BaseController extends Controller
             return false;
         }
 
-        return $user->inGroup('superadmin')
-            || $user->inGroup('admin');
+        if ($user->inGroup('superadmin')) {
+            return true;
+        }
+
+        if (!$user->inGroup('admin')) {
+            return false;
+        }
+
+        $userId = (int) (auth()->id() ?? 0);
+
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $db = db_connect();
+
+        if ($db->tableExists('agent_users')) {
+            $agentLink = $db
+                ->table('agent_users AS au')
+                ->select('au.id')
+                ->join(
+                    'agents AS a',
+                    'a.id = au.agent_id',
+                    'inner'
+                )
+                ->where('au.user_id', $userId)
+                ->where('au.status', 1)
+                ->where('a.status', 1)
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+
+            if ($agentLink) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -110,8 +110,96 @@ public function testAwb()
 
 public function create()
 {
+    if (!auth()->loggedIn()) {
+        return redirect()
+            ->to(site_url('login'));
+    }
+
     $db = db_connect();
-    $acceptanceService = new ShipmentAcceptanceService();
+
+    $acceptanceService =
+        new ShipmentAcceptanceService();
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHIPMENT OWNER CONTEXT
+    |--------------------------------------------------------------------------
+    |
+    | Admin pusat:
+    | - boleh memilih Account Owner.
+    |
+    | Customer / Agent / White Label:
+    | - owner otomatis dari akun login.
+    |
+    */
+    $canChooseAnyOwner =
+        $this->canChooseAnyOwner();
+
+    $ownerContext = null;
+
+    try {
+        if ($canChooseAnyOwner) {
+            /*
+             * Admin boleh membuka halaman Create dahulu
+             * walaupun Account Owner belum dipilih.
+             */
+            $postedOwnerType = strtoupper(
+                trim(
+                    (string) $this->request
+                        ->getGet('owner_type')
+                )
+            );
+
+            $postedOwnerId = (int) $this->request
+                ->getGet('owner_id');
+
+            if (
+                $postedOwnerType !== ''
+                && $postedOwnerId > 0
+            ) {
+                $ownerContext = (
+                    new ShipmentOwnerContextService()
+                )->resolve(
+                    (int) (auth()->id() ?? 0),
+                    true,
+                    $postedOwnerType,
+                    $postedOwnerId
+                );
+            }
+        } else {
+            /*
+             * Agent / customer / white label:
+             * ambil owner langsung dari akun login.
+             */
+            $ownerContext = (
+                new ShipmentOwnerContextService()
+            )->resolve(
+                (int) (auth()->id() ?? 0),
+                false,
+                null,
+                0
+            );
+        }
+    } catch (\Throwable $e) {
+        log_message(
+            'error',
+            'CREATE SHIPMENT OWNER ERROR: {message}',
+            [
+                'message' => $e->getMessage(),
+            ]
+        );
+
+        return redirect()
+            ->to(site_url('shipments'))
+            ->with(
+                'error',
+                $e->getMessage()
+            );
+    }
+
+    /*
+     * Kode Inbound Intake lama lanjut di bawah sini.
+     */
 
     $inboundIntake  = null;
     $intakePackages = [];
@@ -340,27 +428,6 @@ SQL;
                 (int) (auth()->id() ?? 0),
                 $inboundIntake
             );
-
-        $canChooseAnyOwner = $this->canChooseAnyOwner();
-
-        try {
-            $ownerContext = (
-                new ShipmentOwnerContextService()
-            )->resolve(
-                (int) (auth()->id() ?? 0),
-                $canChooseAnyOwner,
-                null,
-                0
-            );
-        } catch (\Throwable $e) {
-            return redirect()
-                ->to(site_url('/'))
-                ->with(
-                    'error',
-                    'Akun belum terhubung ke profil owner: ' .
-                    $e->getMessage()
-                );
-        }
 
         return view('shipments/create', [
             'senderAddresses'   => $senderAddresses,
