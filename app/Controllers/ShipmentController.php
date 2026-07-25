@@ -41,28 +41,57 @@ class ShipmentController extends BaseController
 {
     public function index()
     {
-        if (!$this->isOperationalUser()) {
-            return redirect()->to(site_url('customer/dashboard'));
-        }
-
         $shipmentModel = new ShipmentModel();
         $lifecycle     = new ShipmentLifecycleService();
-        $access        = $this->shipmentAccessContext();
 
-        if (!$access['is_head_office']) {
-            $agentId = (int) ($access['agent_id'] ?? 0);
+        $builder = $shipmentModel
+            ->select('shipments.*')
+            ->orderBy('shipments.id', 'DESC');
 
-            if ($agentId <= 0) {
-                return redirect()->to(site_url('agent/dashboard'))
-                    ->with('error', 'User belum terhubung ke agent aktif.');
+        /*
+         * Admin pusat boleh melihat seluruh shipment.
+         *
+         * Agent dan direct customer hanya melihat shipment
+         * milik account login.
+         *
+         * Jangan memakai isOperationalUser() sebagai izin
+         * melihat semua, karena user agent juga merupakan
+         * user operasional.
+         */
+        if (!$this->canChooseAnyOwner()) {
+            try {
+                $ownerContext = (
+                    new ShipmentOwnerContextService()
+                )->resolve(
+                    (int) (auth()->id() ?? 0),
+
+                    /*
+                     * FALSE memaksa resolver membaca profil
+                     * dari akun login dan mengabaikan owner
+                     * yang dikirim browser.
+                     */
+                    false,
+                    null,
+                    0
+                );
+            } catch (\Throwable $e) {
+                return redirect()
+                    ->to(site_url('dashboard'))
+                    ->with('error', $e->getMessage());
             }
 
-            $shipmentModel->where('agent_id', $agentId);
+            $builder
+                ->where(
+                    'shipments.owner_type',
+                    $ownerContext['owner_type']
+                )
+                ->where(
+                    'shipments.owner_id',
+                    $ownerContext['owner_id']
+                );
         }
 
-        $shipments = $shipmentModel
-            ->orderBy('id', 'DESC')
-            ->findAll();
+        $shipments = $builder->findAll();
 
         foreach ($shipments as &$shipment) {
             $shipment['_actions'] =
@@ -424,6 +453,8 @@ SQL;
                     'Shipment tidak ditemukan atau sudah dihapus.'
                 );
         }
+
+        $this->assertShipmentReadable($shipment);
 
         $status = strtoupper(
             trim(
@@ -998,6 +1029,8 @@ SQL;
                     'Shipment tidak ditemukan.'
                 );
         }
+
+        $this->assertShipmentReadable($shipment);
 
         $status = strtoupper(
             trim(
@@ -2066,6 +2099,16 @@ SQL;
 
     public function delete($id)
     {
+        $shipment = (new ShipmentModel())->find($id);
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $this->assertShipmentReadable($shipment);
+
         $reason = (string) $this->request->getPost(
             'delete_reason'
         );
@@ -2102,6 +2145,16 @@ SQL;
 
     public function cancel($id)
     {
+        $shipment = (new ShipmentModel())->find($id);
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $this->assertShipmentReadable($shipment);
+
         $reason = (string) $this->request->getPost(
             'cancel_reason'
         );
@@ -2144,7 +2197,14 @@ SQL;
         $itemModel     = new ShipmentPackageItemModel();
 
         $shipment = $shipmentModel->find($id);
-        if (!$shipment) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $this->assertShipmentReadable($shipment);
 
         $packages = $packageModel->where('shipment_id', $id)->findAll();
         foreach ($packages as &$package) {
@@ -3176,6 +3236,16 @@ SQL;
     }
     public function directReceive($id)
     {
+        $shipment = (new ShipmentModel())->find($id);
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $this->assertShipmentReadable($shipment);
+
         try {
             (new ShipmentAcceptanceService())->receiveDirect(
                 (int) $id,
@@ -3561,6 +3631,8 @@ SQL;
                 throw new \RuntimeException('Shipment tidak ditemukan.');
             }
 
+            $this->assertShipmentReadable($shipment);
+
             $targetMaster = $statusModel->getByCode($targetStatus);
 
             if (!$targetMaster) {
@@ -3763,13 +3835,30 @@ SQL;
     public function printLabel($id)
     {
         $shipment = (new \App\Models\ShipmentModel())->find($id);
-        if (!$shipment) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $this->assertShipmentReadable($shipment);
+
         return view('shipments/label', ['shipment' => $shipment]);
     }
 
     public function label($id)
     {
         $shipment = (new \App\Models\ShipmentModel())->find($id);
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $this->assertShipmentReadable($shipment);
+
         return view('shipments/label', ['shipment' => $shipment]);
     }
 
@@ -4325,19 +4414,50 @@ private function addressSnapshot(array $address): string
     );
 }
 
-private function assertShipmentReadable(array $shipment): void
-{
-    $access = $this->shipmentAccessContext();
-
-    if ($access['is_head_office']) {
-        return;
+private function canAccessShipment(
+    array $shipment
+): bool {
+    /*
+     * Admin pusat boleh membuka semua shipment.
+     */
+    if ($this->canChooseAnyOwner()) {
+        return true;
     }
 
-    $agentId = (int) ($access['agent_id'] ?? 0);
+    try {
+        $ownerContext = (
+            new ShipmentOwnerContextService()
+        )->resolve(
+            (int) (auth()->id() ?? 0),
+            false,
+            null,
+            0
+        );
+    } catch (\Throwable $e) {
+        return false;
+    }
 
-    if ($agentId <= 0 || (int) ($shipment['agent_id'] ?? 0) !== $agentId) {
+    return
+        strtoupper(
+            trim(
+                (string) (
+                    $shipment['owner_type'] ?? ''
+                )
+            )
+        ) === $ownerContext['owner_type']
+
+        &&
+
+        (int) ($shipment['owner_id'] ?? 0)
+            === (int) $ownerContext['owner_id'];
+}
+
+private function assertShipmentReadable(
+    array $shipment
+): void {
+    if (!$this->canAccessShipment($shipment)) {
         throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
-            'Shipment tidak ditemukan untuk agent yang sedang login.'
+            'Shipment tidak ditemukan.'
         );
     }
 }
