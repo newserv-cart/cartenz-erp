@@ -610,6 +610,9 @@ $customerOtherCharges =
                                     $row['country_id'] ?? ''
                                 )
                             ) ?>"
+                            data-contact-name="<?= esc(
+                                $row['contact_name'] ?? ''
+                            ) ?>"
                             data-company="<?= esc(
                                 $row['company_name'] ?? ''
                             ) ?>"
