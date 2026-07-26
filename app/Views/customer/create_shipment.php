@@ -300,43 +300,177 @@
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-white section-title">🤝 Handover Method</div>
             <div class="card-body">
+                <div class="mb-3">
+                    <label for="handover_method" class="form-label">
+                        Handover Method *
+                    </label>
+
+                    <select
+                        name="handover_method"
+                        id="handover_method"
+                        class="form-select"
+                        required
+                    >
+                        <option value="">
+                            -- Select Handover Method --
+                        </option>
+
+                        <option
+                            value="CUSTOMER_DROP_OFF_BRANCH"
+                            <?= old('handover_method') === 'CUSTOMER_DROP_OFF_BRANCH'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Drop-off ke Cabang CARTENZ
+                        </option>
+
+                        <option
+                            value="CUSTOMER_PICKUP_REQUEST"
+                            <?= old('handover_method') === 'CUSTOMER_PICKUP_REQUEST'
+                                ? 'selected'
+                                : '' ?>
+                        >
+                            Minta Pickup CARTENZ
+                        </option>
+                    </select>
+                </div>
+
+                <div
+                    id="dropoffBranchSection"
+                    class="d-none"
+                >
+                    <label class="form-label required">
+                        Planned Drop-off Location
+                    </label>
+
+                    <select
+                        name="planned_dropoff_branch_id"
+                        id="planned_dropoff_branch_id"
+                        class="form-select"
+                    >
+                        <option value="">
+                            -- Select CARTENZ Location --
+                        </option>
+
+                        <?php foreach ($dropoffBranches as $option): ?>
+                            <option
+                                value="<?= (int) $option['id'] ?>"
+                                <?= (string) old('planned_dropoff_branch_id') === (string) $option['id'] ? 'selected' : '' ?>
+                            >
+                                <?= esc($option['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div
+            id="pickupRequestSection"
+            class="card border-primary mb-4 d-none"
+        >
+            <div class="card-header bg-light">
+                <strong>🚚 Pickup Request</strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="alert alert-info">
+                    Pickup akan dilakukan dari alamat sender yang dipilih
+                    pada shipment ini.
+                </div>
+
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="form-check border rounded p-3 ps-5 h-100">
-                            <input class="form-check-input" type="radio" name="planned_handover_method" id="handoverPickup" value="COURIER_PICKUP" <?= $oldHandover === 'COURIER_PICKUP' ? 'checked' : '' ?>>
-                            <label class="form-check-label fw-semibold" for="handoverPickup">🚚 Courier Pickup</label>
-                            <div class="text-muted small">Kurir mengubah status menjadi PICKED_UP saat AWB dipindai.</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-check border rounded p-3 ps-5 h-100">
-                            <input class="form-check-input" type="radio" name="planned_handover_method" id="handoverDropoff" value="CUSTOMER_DROP_OFF_BRANCH" <?= $oldHandover === 'CUSTOMER_DROP_OFF_BRANCH' ? 'checked' : '' ?>>
-                            <label class="form-check-label fw-semibold" for="handoverDropoff">🏢 Drop-off at CARTENZ Location</label>
-                            <div class="text-muted small">Lokasi aktual tetap mengikuti branch petugas yang melakukan scan.</div>
-                        </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            Requested Pickup Date *
+                        </label>
+
+                        <input
+                            type="date"
+                            name="requested_pickup_date"
+                            id="requested_pickup_date"
+                            class="form-control"
+                            value="<?= esc(old('requested_pickup_date')) ?>"
+                            min="<?= date('Y-m-d') ?>"
+                        >
                     </div>
 
-                    <div class="col-md-6" id="pickupFields">
-                        <label class="form-label">Preferred Pickup Date</label>
-                        <input type="date" name="pickup_date" class="form-control" value="<?= esc(old('pickup_date') ?: date('Y-m-d')) ?>">
-                    </div>
-                    <div class="col-md-6" id="pickupTimeField">
-                        <label class="form-label">Preferred Pickup Time</label>
-                        <input type="time" name="pickup_time" class="form-control" value="<?= esc(old('pickup_time')) ?>">
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            Time Window Start
+                        </label>
+
+                        <input
+                            type="time"
+                            name="requested_time_start"
+                            id="requested_time_start"
+                            class="form-control"
+                            value="<?= esc(old('requested_time_start')) ?>"
+                        >
                     </div>
 
-                    <div class="col-12" id="dropoffFields">
-                        <label class="form-label required">Planned Drop-off Location</label>
-                        <select name="planned_dropoff_branch_id" id="dropoffBranch" class="form-select">
-                            <option value="">-- Select CARTENZ Location --</option>
-                            <?php foreach ($dropoffBranches as $option): ?>
-                                <option
-                                    value="<?= (int) $option['id'] ?>"
-                                    <?= (string) old('planned_dropoff_branch_id') === (string) $option['id'] ? 'selected' : '' ?>
-                                ><?= esc($option['label']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            Time Window End
+                        </label>
+
+                        <input
+                            type="time"
+                            name="requested_time_end"
+                            id="requested_time_end"
+                            class="form-control"
+                            value="<?= esc(old('requested_time_end')) ?>"
+                        >
                     </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            Pickup Contact Name *
+                        </label>
+
+                        <input
+                            type="text"
+                            name="pickup_contact_name"
+                            id="pickup_contact_name"
+                            class="form-control"
+                            value="<?= esc(old('pickup_contact_name')) ?>"
+                            maxlength="150"
+                            placeholder="Nama PIC yang dapat dihubungi"
+                        >
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            Pickup Contact Phone *
+                        </label>
+
+                        <input
+                            type="text"
+                            name="pickup_contact_phone"
+                            id="pickup_contact_phone"
+                            class="form-control"
+                            value="<?= esc(old('pickup_contact_phone')) ?>"
+                            maxlength="50"
+                            placeholder="Nomor telepon PIC pickup"
+                        >
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">
+                            Pickup Remarks
+                        </label>
+
+                        <textarea
+                            name="pickup_remarks"
+                            class="form-control"
+                            rows="3"
+                            maxlength="1000"
+                            placeholder="Contoh: barang tersedia di loading dock lantai 1"
+                        ><?= esc(old('pickup_remarks')) ?></textarea>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -416,5 +550,77 @@
     refreshHandover();
 })();
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const handoverSelect = document.getElementById(
+        'handover_method'
+    );
+
+    const pickupSection = document.getElementById(
+        'pickupRequestSection'
+    );
+
+    const dropoffSection = document.getElementById(
+        'dropoffBranchSection'
+    );
+
+    const dropoffBranch = document.getElementById(
+        'planned_dropoff_branch_id'
+    );
+
+    const requiredPickupFields = [
+        document.getElementById('requested_pickup_date'),
+        document.getElementById('pickup_contact_name'),
+        document.getElementById('pickup_contact_phone')
+    ];
+
+    function updateHandoverSections() {
+        const value = handoverSelect
+            ? handoverSelect.value
+            : '';
+
+        const isPickup =
+            value === 'CUSTOMER_PICKUP_REQUEST';
+
+        const isDropoff =
+            value === 'CUSTOMER_DROP_OFF_BRANCH';
+
+        if (pickupSection) {
+            pickupSection.classList.toggle(
+                'd-none',
+                !isPickup
+            );
+        }
+
+        if (dropoffSection) {
+            dropoffSection.classList.toggle(
+                'd-none',
+                !isDropoff
+            );
+        }
+
+        if (dropoffBranch) {
+            dropoffBranch.required = isDropoff;
+        }
+
+        requiredPickupFields.forEach(function (field) {
+            if (field) {
+                field.required = isPickup;
+            }
+        });
+    }
+
+    if (handoverSelect) {
+        handoverSelect.addEventListener(
+            'change',
+            updateHandoverSections
+        );
+    }
+
+    updateHandoverSections();
+});
+</script>
+
 </body>
 </html>

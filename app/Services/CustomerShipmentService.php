@@ -11,7 +11,7 @@ use CodeIgniter\Database\BaseConnection;
 
 class CustomerShipmentService
 {
-    public const HANDOVER_PICKUP = 'COURIER_PICKUP';
+    public const HANDOVER_PICKUP = 'CUSTOMER_PICKUP_REQUEST';
     public const HANDOVER_DROPOFF = 'CUSTOMER_DROP_OFF_BRANCH';
 
     protected BaseConnection $db;
@@ -145,7 +145,11 @@ class CustomerShipmentService
             (string) ($post['item_description'] ?? '')
         );
         $handoverMethod = strtoupper(trim(
-            (string) ($post['planned_handover_method'] ?? '')
+            (string) (
+                $post['handover_method']
+                ?? $post['planned_handover_method']
+                ?? ''
+            )
         ));
         $dropoffBranchId = (int) (
             $post['planned_dropoff_branch_id'] ?? 0
@@ -231,6 +235,8 @@ class CustomerShipmentService
         $shipmentDate = date('Y-m-d');
 
         $pricing = (new RegularCalculationService())->calculate([
+            'owner_type'        => 'CUSTOMER',
+            'owner_id'          => $customerId,
             'customer_id'       => $customerId,
             'country_id'        => $countryId,
             'service_id'        => $serviceId,
@@ -251,6 +257,10 @@ class CustomerShipmentService
             $pricing['customer_total'] ?? 0
         );
 
+        $pricingStatus = $customerTotal > 0
+            ? 'ESTIMATED'
+            : 'PENDING_VERIFICATION';
+
         $this->db->transBegin();
 
         try {
@@ -269,15 +279,19 @@ class CustomerShipmentService
                 ),
                 'shipment_date' => $shipmentDate,
                 'customer_id' => $customerId,
+                'owner_type' => 'CUSTOMER',
+                'owner_id' => $customerId,
+                'created_by_user_id' => $actorId,
+                'entry_channel' => 'SELF_SERVICE',
                 'sender_address_id' => $senderId,
                 'sender_country_id' => (int) (
                     $sender['country_id'] ?? 0
                 ) ?: null,
                 'receiver_address_id' => $receiverId,
-                'agent_id' => (int) ($customer['agent_id'] ?? 0)
-                    ?: null,
+                'agent_id' => null,
                 'acceptance_method' =>
                     ShipmentAcceptanceService::DATA_ENTRY_ONLY,
+                'handover_method' => $handoverMethod,
                 'planned_handover_method' => $handoverMethod,
                 'planned_dropoff_branch_id' =>
                     $dropoffBranchId > 0
@@ -315,6 +329,7 @@ class CustomerShipmentService
                 'vendor_freight' => $vendorTotal,
                 'vendor_total' => $vendorTotal,
                 'total_charge' => $customerTotal,
+                'pricing_status' => $pricingStatus,
                 'profit_amount' => (float) (
                     $pricing['profit'] ?? 0
                 ),
@@ -324,7 +339,7 @@ class CustomerShipmentService
                 'markup_percent' => (float) (
                     $pricing['markup'] ?? 0
                 ),
-                'shipment_status' => 'DRAFT',
+                'shipment_status' => 'CREATED',
                 'public_tracking_status' => 'CREATED',
                 'remarks' => $this->nullableText(
                     $post['remarks'] ?? null,
@@ -434,8 +449,12 @@ class CustomerShipmentService
             if ($handoverMethod === self::HANDOVER_PICKUP) {
                 $this->savePickupRequest(
                     (int) $shipmentId,
+                    $awbNo,
+                    $customerId,
+                    (int) $senderId,
                     $sender,
                     $post,
+                    $actorId,
                     $now
                 );
             }
@@ -765,8 +784,9 @@ class CustomerShipmentService
             $this->insertFiltered('shipment_tracking', [
                 'shipment_id' => $shipmentId,
                 'tracking_code' => $awbNo,
-                'tracking_status' => 'DRAFT',
+                'tracking_status' => 'CREATED',
                 'public_status' => 'CREATED',
+                'event_code' => 'CREATED',
                 'tracking_location' => 'Customer Portal',
                 'tracking_notes' => $description,
                 'event_time' => $now,
@@ -786,7 +806,7 @@ class CustomerShipmentService
                 'event_title' => 'Customer Self-Service Shipment Created',
                 'description' => $description,
                 'changed_fields' => json_encode([
-                    'shipment_status' => 'DRAFT',
+                    'shipment_status' => 'CREATED',
                     'public_status' => 'CREATED',
                     'planned_handover_method' => $handoverMethod,
                     'planned_dropoff_branch_id' =>
@@ -802,37 +822,129 @@ class CustomerShipmentService
 
     private function savePickupRequest(
         int $shipmentId,
+        string $awbNo,
+        int $customerId,
+        int $senderId,
         array $sender,
         array $post,
+        int $actorId,
         string $now
     ): void {
-        if (!$this->db->tableExists('pickup_requests')) {
+        if (!$this->db->tableExists('shipment_pickup_requests')) {
             return;
         }
 
-        $pickupDate = trim((string) (
-            $post['pickup_date'] ?? date('Y-m-d')
-        ));
-        $pickupTime = trim((string) (
-            $post['pickup_time'] ?? ''
-        ));
+        $pickupData = $post['pickup_request'] ?? [];
 
-        $this->insertFiltered('pickup_requests', [
+        $pickupDate = trim(
+            (string) ($pickupData['requested_pickup_date'] ?? '')
+        );
+
+        if ($pickupDate === '' || strtotime($pickupDate) === false) {
+            $pickupDate = date('Y-m-d');
+        }
+
+        $timeStart = trim(
+            (string) ($pickupData['requested_time_start'] ?? '')
+        );
+
+        $timeEnd = trim(
+            (string) ($pickupData['requested_time_end'] ?? '')
+        );
+
+        $contactName = trim(
+            (string) (
+                $pickupData['pickup_contact_name']
+                ?? $sender['contact_name']
+                ?? ''
+            )
+        );
+
+        $contactPhone = trim(
+            (string) (
+                $pickupData['pickup_contact_phone']
+                ?? $sender['phone']
+                ?? ''
+            )
+        );
+
+        $remarks = trim(
+            (string) ($pickupData['pickup_remarks'] ?? '')
+        );
+
+        $pickupAddressId = $senderId > 0 ? $senderId : null;
+
+        $pickupInserted = $this->db
+            ->table('shipment_pickup_requests')
+            ->insert([
+                'shipment_id'          => $shipmentId,
+                'customer_id'          => $customerId,
+                'pickup_address_id'    => $pickupAddressId,
+                'pickup_contact_name'  => $contactName,
+                'pickup_contact_phone' => $contactPhone,
+                'requested_pickup_date' => $pickupDate,
+                'requested_time_start' =>
+                    $timeStart !== '' ? $timeStart : null,
+                'requested_time_end' =>
+                    $timeEnd !== '' ? $timeEnd : null,
+                'pickup_remarks' =>
+                    $remarks !== '' ? $remarks : null,
+                'pickup_status'       => 'REQUESTED',
+                'created_by'          => $actorId,
+                'created_at'          => $now,
+                'updated_at'          => $now,
+            ]);
+
+        if ($pickupInserted === false) {
+            $error = $this->db->error();
+
+            throw new \RuntimeException(
+                'Gagal membuat pickup request: '
+                . ($error['message'] ?? 'Unknown database error')
+            );
+        }
+
+        $tracking = new \App\Models\ShipmentTrackingModel();
+
+        if (!$tracking->insert([
+            'shipment_id'       => $shipmentId,
+            'tracking_code'     => $awbNo,
+            'tracking_status'   => 'CREATED',
+            'public_status'     => 'PICKUP_REQUESTED',
+            'event_code'        => 'PICKUP_REQUESTED',
+            'event_type'        => 'PICKUP_REQUESTED',
+            'source_reference'  => $awbNo,
+            'tracking_location' => 'Customer Pickup Address',
+            'tracking_notes'    =>
+                'Customer meminta penjemputan shipment oleh CARTENZ.',
+            'event_time'        => $now,
+            'created_by'        => $actorId,
+            'created_at'        => $now,
+        ])) {
+            throw new \RuntimeException(
+                'Gagal menyimpan tracking pickup request.'
+            );
+        }
+
+        $history = new \App\Models\ShipmentHistoryModel();
+
+        if (!$history->insert([
             'shipment_id' => $shipmentId,
-            'pickup_date' => $pickupDate !== ''
-                ? $pickupDate
-                : date('Y-m-d'),
-            'pickup_time' => $pickupTime !== ''
-                ? $pickupTime
-                : null,
-            'pickup_address' => $sender['address'] ?? null,
-            'contact_name' => $sender['contact_name'] ?? null,
-            'contact_phone' => $sender['phone'] ?? null,
-            'pickup_status' => 'REQUESTED',
-            'notes' => 'Dibuat otomatis dari customer self-service.',
+            'event_type'  => 'PICKUP_REQUESTED',
+            'event_title' => 'Pickup Requested',
+            'description' =>
+                'Customer meminta penjemputan shipment oleh CARTENZ.',
+            'changed_fields' => json_encode([
+                'handover_method' => self::HANDOVER_PICKUP,
+                'pickup_status'   => 'REQUESTED',
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'created_by' => $actorId,
             'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        ])) {
+            throw new \RuntimeException(
+                'Gagal menyimpan history pickup request.'
+            );
+        }
     }
 
     private function insertFiltered(
