@@ -6,6 +6,10 @@ use App\Controllers\BaseController;
 use App\Models\AgentModel;
 use App\Models\InboundIntakeModel;
 use App\Models\InboundIntakePackageModel;
+use App\Models\ShipmentHistoryModel;
+use App\Models\ShipmentModel;
+use App\Models\ShipmentTrackingModel;
+use App\Services\BranchOperationalContextService;
 use App\Services\ShipmentAcceptanceService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
@@ -238,6 +242,165 @@ class InboundIntakeController extends BaseController
         }
 
         return redirect()->back()->with('success', 'Inbound Intake dibatalkan.');
+    }
+
+    public function receivePickup(int $shipmentId)
+    {
+        $context = new BranchOperationalContextService();
+        $actorId = $this->requireActorId();
+        $profile = $context->requireProfile($actorId);
+
+        $db    = db_connect();
+        $now   = date('Y-m-d H:i:s');
+        $userId = $actorId;
+
+        $db->transBegin();
+
+        try {
+            $shipment = $db->query(
+                'SELECT * FROM shipments WHERE id = ? FOR UPDATE',
+                [$shipmentId]
+            )->getRowArray();
+
+            if (!$shipment) {
+                throw PageNotFoundException::forPageNotFound(
+                    'Shipment tidak ditemukan.'
+                );
+            }
+
+            if (
+                strtoupper(
+                    (string) ($shipment['shipment_status'] ?? '')
+                ) !== 'PICKED_UP'
+            ) {
+                throw new \RuntimeException(
+                    'Shipment tidak berstatus PICKED_UP.'
+                );
+            }
+
+            if (
+                strtoupper(
+                    (string) ($shipment['handover_method'] ?? '')
+                ) !== 'CUSTOMER_PICKUP_REQUEST'
+            ) {
+                throw new \RuntimeException(
+                    'Shipment bukan berasal dari customer pickup request.'
+                );
+            }
+
+            $branchId = (int) ($profile['branch_id'] ?? 0);
+            $branch   = $context->branchById($branchId);
+
+            if (!$branch) {
+                throw new \RuntimeException(
+                    'Branch user tidak valid.'
+                );
+            }
+
+            if ($context->isMainBranch($branch)) {
+                throw new \RuntimeException(
+                    'Penerimaan pickup hanya boleh dilakukan di origin branch.'
+                );
+            }
+
+            $location = $context->locationLabel($branch);
+
+            $shipmentModel = new ShipmentModel();
+
+            if (!$shipmentModel->update($shipmentId, [
+                'shipment_status'        => 'RECEIVED_AT_ORIGIN_BRANCH',
+                'public_tracking_status' => 'PICKED_UP',
+                'pricing_status'         => 'FINAL',
+                'acceptance_method'      => ShipmentAcceptanceService::COURIER_PICKUP,
+                'acceptance_branch_id'   => $branchId,
+                'receiving_branch_id'    => $branchId,
+                'current_branch_id'      => $branchId,
+                'receiving_location'     => $location,
+                'received_at'            => $now,
+                'received_by'            => $userId,
+                'last_scan_branch_id'    => $branchId,
+                'last_scan_type'         => 'PICKUP_RECEIVE',
+                'last_scan_at'           => $now,
+                'last_scan_by'           => $userId,
+                'updated_at'             => $now,
+            ])) {
+                throw new \RuntimeException(
+                    'Status shipment gagal diperbarui.'
+                );
+            }
+
+            $tracking = new ShipmentTrackingModel();
+
+            if (!$tracking->insert([
+                'shipment_id'       => $shipmentId,
+                'branch_id'         => $branchId,
+                'tracking_code'     => $shipment['awb_no'],
+                'tracking_status'   => 'RECEIVED_AT_ORIGIN_BRANCH',
+                'public_status'     => 'PICKED_UP',
+                'event_code'        => 'RECEIVED_AT_ORIGIN_BRANCH',
+                'event_type'        => 'RECEIVED_AT_ORIGIN_BRANCH',
+                'scan_type'         => 'PICKUP_RECEIVE',
+                'source_reference'  => $shipment['awb_no'],
+                'tracking_location' => $location,
+                'tracking_notes'    => 'Shipment dari customer pickup request diterima di origin branch. Verifikasi operasional selesai, pricing status FINAL.',
+                'event_time'        => $now,
+                'created_by'        => $userId,
+                'created_at'        => $now,
+            ])) {
+                throw new \RuntimeException(
+                    'Tracking penerimaan origin branch gagal disimpan.'
+                );
+            }
+
+            $history = new ShipmentHistoryModel();
+
+            if (!$history->insert([
+                'shipment_id'    => $shipmentId,
+                'event_type'     => 'RECEIVED_AT_ORIGIN_BRANCH',
+                'event_title'    => 'Received at Origin Branch',
+                'description'    => 'Shipment dari customer pickup request diterima di origin branch. Verifikasi operasional selesai, pricing status FINAL.',
+                'changed_fields' => json_encode([
+                    'previous_status' => $shipment['shipment_status'],
+                    'new_status'      => 'RECEIVED_AT_ORIGIN_BRANCH',
+                    'pricing_status'  => 'FINAL',
+                    'branch_id'       => $branchId,
+                    'location'        => $location,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'created_by' => $userId,
+                'created_at' => $now,
+            ])) {
+                throw new \RuntimeException(
+                    'History penerimaan origin branch gagal disimpan.'
+                );
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException(
+                    'Transaksi penerimaan pickup gagal.'
+                );
+            }
+
+            $db->transCommit();
+
+            return redirect()
+                ->to(site_url('shipments/detail/' . $shipmentId))
+                ->with(
+                    'success',
+                    'Shipment '
+                        . ($shipment['awb_no'] ?? '')
+                        . ' berhasil diterima di origin branch.'
+                );
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            if ($e instanceof PageNotFoundException) {
+                throw $e;
+            }
+
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
     }
 
     private function generateIntakeNumber(): string

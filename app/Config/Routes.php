@@ -936,6 +936,12 @@ $routes->group(
     }
 );
 
+$routes->post(
+    'inbound-intakes/receive-pickup/(:num)',
+    'InboundIntakeController::receivePickup/$1',
+    ['filter' => 'session']
+);
+
 // Sprint 49.15B.3 — Branch-aware acceptance, scan, and manifest origin
 $routes->group(
     'admin/operational-profiles',
