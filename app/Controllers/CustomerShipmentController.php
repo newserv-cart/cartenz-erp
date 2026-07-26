@@ -40,11 +40,145 @@ class CustomerShipmentController extends BaseController
                 );
             }
 
+            $handoverMethod = strtoupper(
+                trim(
+                    (string) $this->request->getPost(
+                        'handover_method'
+                    )
+                )
+            );
+
+            $allowedHandoverMethods = [
+                'CUSTOMER_DROP_OFF_BRANCH',
+                'CUSTOMER_PICKUP_REQUEST',
+            ];
+
+            if (!in_array(
+                $handoverMethod,
+                $allowedHandoverMethods,
+                true
+            )) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with(
+                        'error',
+                        'Handover Method tidak valid.'
+                    );
+            }
+
+            $input = $this->request->getPost();
+            $input['handover_method'] = $handoverMethod;
+
+            if ($handoverMethod === 'CUSTOMER_PICKUP_REQUEST') {
+                $requestedPickupDate = trim(
+                    (string) $this->request->getPost(
+                        'requested_pickup_date'
+                    )
+                );
+
+                $pickupContactName = trim(
+                    (string) $this->request->getPost(
+                        'pickup_contact_name'
+                    )
+                );
+
+                $pickupContactPhone = trim(
+                    (string) $this->request->getPost(
+                        'pickup_contact_phone'
+                    )
+                );
+
+                if ($requestedPickupDate === '') {
+                    return redirect()->back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'Tanggal pickup wajib diisi.'
+                        );
+                }
+
+                if (
+                    strtotime($requestedPickupDate) <
+                    strtotime(date('Y-m-d'))
+                ) {
+                    return redirect()->back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'Tanggal pickup tidak boleh berada di masa lalu.'
+                        );
+                }
+
+                if ($pickupContactName === '') {
+                    return redirect()->back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'Nama PIC pickup wajib diisi.'
+                        );
+                }
+
+                if ($pickupContactPhone === '') {
+                    return redirect()->back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'Nomor telepon PIC pickup wajib diisi.'
+                        );
+                }
+
+                $input['pickup_request'] = [
+                    'requested_pickup_date' =>
+                        $this->request->getPost(
+                            'requested_pickup_date'
+                        ),
+
+                    'requested_time_start' =>
+                        $this->request->getPost(
+                            'requested_time_start'
+                        ),
+
+                    'requested_time_end' =>
+                        $this->request->getPost(
+                            'requested_time_end'
+                        ),
+
+                    'pickup_contact_name' =>
+                        $this->request->getPost(
+                            'pickup_contact_name'
+                        ),
+
+                    'pickup_contact_phone' =>
+                        $this->request->getPost(
+                            'pickup_contact_phone'
+                        ),
+
+                    'pickup_remarks' =>
+                        $this->request->getPost(
+                            'pickup_remarks'
+                        ),
+                ];
+            }
+
             $result = (new CustomerShipmentService())->create(
                 $customer,
-                $this->request->getPost(),
+                $input,
                 $actorId
             );
+
+            if ($handoverMethod === 'CUSTOMER_PICKUP_REQUEST') {
+                $successMessage =
+                    'Shipment '
+                    . $result['awb_no']
+                    . ' berhasil dibuat dan pickup request telah dikirim. '
+                    . 'Tim CARTENZ akan menghubungi PIC pickup.';
+            } else {
+                $successMessage =
+                    'Shipment '
+                    . $result['awb_no']
+                    . ' berhasil dibuat. '
+                    . 'Silakan drop-off barang ke cabang CARTENZ.';
+            }
 
             return redirect()
                 ->to(
