@@ -57,6 +57,18 @@ class AuthGroups extends ShieldAuthGroups
             'title'       => 'User',
             'description' => 'General users of the site. Often customers.',
         ],
+        'courier' => [
+            'title'       => 'Courier',
+            'description' => 'Petugas pickup dan delivery.',
+        ],
+        'driver' => [
+            'title'       => 'Driver',
+            'description' => 'Driver pengantar.',
+        ],
+        'operations' => [
+            'title'       => 'Operations',
+            'description' => 'Staff operasional.',
+        ],
         'beta' => [
             'title'       => 'Beta User',
             'description' => 'Has access to beta-level features.',
