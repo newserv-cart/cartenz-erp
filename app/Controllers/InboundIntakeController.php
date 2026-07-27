@@ -394,18 +394,12 @@ class InboundIntakeController extends BaseController
             $packingCharge    = (float) ($pricing['packing'] ?? $pricing['packing_charge'] ?? 0);
             $additionalCharge = (float) ($pricing['additional'] ?? $pricing['additional_charge'] ?? 0);
             $discountAmount   = (float) ($pricing['discount'] ?? $pricing['discount_amount'] ?? 0);
-            $customerTotal    = (float) (
-                $pricing['customer_total']
-                ?? $pricing['total_charge']
-                ?? $pricing['grand_total']
-                ?? 0
-            );
+            $finalTotal       = (float) ($pricing['customer_total'] ?? 0);
             $vendorTotal      = (float) ($pricing['vendor_total'] ?? 0);
 
-            if ($customerTotal <= 0) {
+            if ($finalTotal <= 0) {
                 throw new \RuntimeException(
-                    'Tarif final tidak ditemukan. '
-                    . 'Shipment belum dapat diselesaikan untuk billing.'
+                    'Tarif final tidak ditemukan. Pricing belum dapat difinalkan.'
                 );
             }
 
@@ -429,9 +423,7 @@ class InboundIntakeController extends BaseController
                 'packing_charge'         => $packingCharge,
                 'additional_charge'      => $additionalCharge,
                 'discount_amount'        => $discountAmount,
-                'customer_total'         => $customerTotal,
-                'total_charge'           => $customerTotal,
-                'grand_total'            => $customerTotal,
+                'total_charge'           => $finalTotal,
                 'selling_amount'         => $freightCharge,
                 'vendor_cost'            => $vendorTotal,
                 'vendor_freight'         => $vendorTotal,
