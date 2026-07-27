@@ -415,7 +415,7 @@ $routes->group(
     ['filter' => 'auth'],
     static function ($routes) {
         $routes->get(
-            '/',
+            '',
             'Finance\InvoiceQueueController::index'
         );
 
