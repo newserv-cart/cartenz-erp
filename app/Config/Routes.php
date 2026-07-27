@@ -410,6 +410,22 @@ $routes->get(
     'AgingReportController::index'
 );
 
+$routes->group(
+    'finance/invoice-queue',
+    ['filter' => 'auth'],
+    static function ($routes) {
+        $routes->get(
+            '/',
+            'Finance\InvoiceQueueController::index'
+        );
+
+        $routes->post(
+            'create',
+            'Finance\InvoiceQueueController::createInvoice'
+        );
+    }
+);
+
 $routes->get(
     'admin/dashboard',
    'Admin\DashboardController::index'
