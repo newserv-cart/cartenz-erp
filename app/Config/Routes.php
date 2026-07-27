@@ -964,6 +964,12 @@ $routes->post(
     ['filter' => 'group:superadmin,admin']
 );
 
+$routes->post(
+    'inbound-intake/reprice/(:num)',
+    'InboundIntakeController::reprice/$1',
+    ['filter' => 'auth']
+);
+
 // Sprint 49.15B.3 — Branch-aware acceptance, scan, and manifest origin
 $routes->group(
     'admin/operational-profiles',

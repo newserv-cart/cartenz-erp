@@ -548,6 +548,151 @@ class InboundIntakeController extends BaseController
         }
     }
 
+    public function reprice(int $shipmentId)
+    {
+        $db = db_connect();
+
+        $shipment = $db
+            ->table('shipments')
+            ->where('id', $shipmentId)
+            ->get()
+            ->getRowArray();
+
+        if (!$shipment) {
+            return redirect()->back()->with(
+                'error',
+                'Shipment tidak ditemukan.'
+            );
+        }
+
+        $allowedStatuses = [
+            'RECEIVED_AT_ORIGIN_BRANCH',
+            'SENT_TO_MAIN_WAREHOUSE',
+            'RECEIVED_AT_MAIN_WAREHOUSE',
+            'ASSIGNED_TO_VENDOR',
+            'HANDED_OVER_TO_VENDOR',
+            'BOOKED_WITH_VENDOR',
+            'IN_TRANSIT_INTERNATIONAL',
+            'ARRIVED_HUB',
+            'IN_TRANSIT_HUB',
+            'HANDED_TO_LAST_MILE',
+            'DELIVERED',
+        ];
+
+        $status = strtoupper(
+            trim((string) ($shipment['shipment_status'] ?? ''))
+        );
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            return redirect()->back()->with(
+                'error',
+                'Shipment belum dapat dihitung ulang. Status: ' . $status
+            );
+        }
+
+        try {
+            $pricing = (new \App\Services\RegularCalculationService())
+                ->calculate([
+                    'owner_type' => strtoupper(
+                        (string) ($shipment['owner_type'] ?? 'CUSTOMER')
+                    ),
+
+                    'owner_id' => (int) (
+                        $shipment['owner_id']
+                        ?? $shipment['customer_id']
+                        ?? 0
+                    ),
+
+                    'customer_id' => (int) (
+                        $shipment['customer_id'] ?? 0
+                    ),
+
+                    'country_id' => (int) (
+                        $shipment['country_id'] ?? 0
+                    ),
+
+                    'service_id' => (int) (
+                        $shipment['service_id'] ?? 0
+                    ),
+
+                    'actual_weight' => (float) (
+                        $shipment['actual_weight'] ?? 0
+                    ),
+
+                    'volume_weight' => (float) (
+                        $shipment['volume_weight'] ?? 0
+                    ),
+
+                    'chargeable_weight' => (float) (
+                        $shipment['chargeable_weight'] ?? 0
+                    ),
+
+                    'total_colly' => (int) (
+                        $shipment['total_colly'] ?? 1
+                    ),
+                ]);
+
+            $finalTotal = (float) (
+                $pricing['total_charge']
+                ?? $pricing['customer_total']
+                ?? $pricing['selling_amount']
+                ?? $pricing['customer_freight']
+                ?? 0
+            );
+
+            if ($finalTotal <= 0) {
+                log_message(
+                    'error',
+                    '[SHIPMENT REPRICE ZERO] AWB: '
+                    . ($shipment['awb_no'] ?? '-')
+                    . ' | Pricing keys: '
+                    . implode(',', array_keys($pricing))
+                );
+
+                return redirect()->back()->with(
+                    'error',
+                    'Tarif masih menghasilkan Rp0. Periksa master tarif.'
+                );
+            }
+
+            $updated = $db
+                ->table('shipments')
+                ->where('id', $shipmentId)
+                ->update([
+                    'total_charge'  => $finalTotal,
+                    'pricing_status'=> 'FINAL',
+                    'updated_at'    => date('Y-m-d H:i:s'),
+                ]);
+
+            if ($updated === false) {
+                throw new \RuntimeException(
+                    'Gagal menyimpan hasil repricing.'
+                );
+            }
+
+            return redirect()
+                ->to(site_url('finance/invoice-queue'))
+                ->with(
+                    'success',
+                    'Shipment '
+                    . ($shipment['awb_no'] ?? '')
+                    . ' berhasil dihitung ulang.'
+                );
+
+        } catch (\Throwable $e) {
+            log_message(
+                'error',
+                '[SHIPMENT REPRICE FAILED] '
+                . $e->getMessage()
+            );
+
+            return redirect()->back()->with(
+                'error',
+                'Repricing gagal: ' . $e->getMessage()
+            );
+        }
+    }
+
     public function repricePickup(int $shipmentId)
     {
         $db = db_connect();
