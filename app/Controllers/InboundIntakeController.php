@@ -10,6 +10,7 @@ use App\Models\ShipmentHistoryModel;
 use App\Models\ShipmentModel;
 use App\Models\ShipmentTrackingModel;
 use App\Services\BranchOperationalContextService;
+use App\Services\RegularCalculationService;
 use App\Services\ShipmentAcceptanceService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
@@ -305,6 +306,109 @@ class InboundIntakeController extends BaseController
 
             $location = $context->locationLabel($branch);
 
+            $verifiedActualWeight = (float) $this->request->getPost('verified_actual_weight');
+
+            if ($verifiedActualWeight <= 0) {
+                throw new \RuntimeException(
+                    'Berat actual terverifikasi harus lebih dari 0 Kg.'
+                );
+            }
+
+            $verifiedLength = (float) $this->request->getPost('verified_length_cm');
+            $verifiedWidth  = (float) $this->request->getPost('verified_width_cm');
+            $verifiedHeight = (float) $this->request->getPost('verified_height_cm');
+
+            if ($verifiedLength > 0 && $verifiedWidth > 0 && $verifiedHeight > 0) {
+                $verifiedVolumeWeight = round(
+                    ($verifiedLength * $verifiedWidth * $verifiedHeight) / 5000,
+                    2
+                );
+            } else {
+                $verifiedVolumeWeight = (float) ($shipment['volume_weight'] ?? 0);
+            }
+
+            $verifiedChargeableWeight = max(
+                $verifiedActualWeight,
+                $verifiedVolumeWeight
+            );
+
+            if ($verifiedChargeableWeight <= 0) {
+                throw new \RuntimeException(
+                    'Chargeable weight terverifikasi tidak valid.'
+                );
+            }
+
+            $verifiedColly = (int) $this->request->getPost('verified_total_colly');
+
+            if ($verifiedColly <= 0) {
+                $verifiedColly = (int) ($shipment['total_colly'] ?? 1);
+
+                if ($verifiedColly <= 0) {
+                    $verifiedColly = 1;
+                }
+            }
+
+            $ownerType = strtoupper(
+                trim((string) ($shipment['owner_type'] ?? 'CUSTOMER'))
+            );
+
+            $ownerId = (int) (
+                $shipment['owner_id']
+                ?? (
+                    $ownerType === 'AGENT'
+                        ? ($shipment['agent_id'] ?? 0)
+                        : ($shipment['customer_id'] ?? 0)
+                )
+            );
+
+            $pricing = (new RegularCalculationService())->calculate([
+                'owner_type'         => $ownerType,
+                'owner_id'           => $ownerId,
+                'customer_id'        =>
+                    $ownerType === 'CUSTOMER'
+                        ? (int) ($shipment['customer_id'] ?? 0)
+                        : null,
+                'agent_id'           =>
+                    $ownerType === 'AGENT'
+                        ? (int) ($shipment['agent_id'] ?? 0)
+                        : null,
+                'country_id'         => (int) ($shipment['country_id'] ?? 0),
+                'service_id'         => (int) ($shipment['service_id'] ?? 0),
+                'transport_mode_id'  => (int) ($shipment['transport_mode_id'] ?? 0),
+                'delivery_type_id'   => (int) ($shipment['delivery_type_id'] ?? 0),
+                'package_type_id'    => (int) ($shipment['package_type_id'] ?? 0),
+                'commodity_type_id'  => (int) ($shipment['commodity_type_id'] ?? 0),
+                'actual_weight'      => $verifiedActualWeight,
+                'volume_weight'      => $verifiedVolumeWeight,
+                'chargeable_weight'  => $verifiedChargeableWeight,
+                'total_colly'        => $verifiedColly,
+                'shipment_date'      => $shipment['shipment_date'] ?? date('Y-m-d'),
+                'insurance_amount'   => (float) ($shipment['insurance_amount'] ?? 0),
+                'packing_charge'     => (float) ($shipment['packing_charge'] ?? 0),
+                'additional_charge'  => (float) ($shipment['additional_charge'] ?? 0),
+                'discount_amount'    => (float) ($shipment['discount_amount'] ?? 0),
+            ]);
+
+            $freightCharge    = (float) ($pricing['freight'] ?? $pricing['freight_charge'] ?? $pricing['selling_amount'] ?? 0);
+            $remoteCharge     = (float) ($pricing['remote_charge'] ?? $pricing['remote'] ?? 0);
+            $packingCharge    = (float) ($pricing['packing'] ?? $pricing['packing_charge'] ?? 0);
+            $additionalCharge = (float) ($pricing['additional'] ?? $pricing['additional_charge'] ?? 0);
+            $discountAmount   = (float) ($pricing['discount'] ?? $pricing['discount_amount'] ?? 0);
+            $customerTotal    = (float) (
+                $pricing['customer_total']
+                ?? $pricing['total_charge']
+                ?? $pricing['grand_total']
+                ?? 0
+            );
+            $vendorTotal      = (float) ($pricing['vendor_total'] ?? 0);
+
+            if ($customerTotal <= 0) {
+                throw new \RuntimeException(
+                    'Tarif final tidak ditemukan. '
+                    . 'Shipment belum dapat diselesaikan untuk billing.'
+                );
+            }
+
             $shipmentModel = new ShipmentModel();
 
             if (!$shipmentModel->update($shipmentId, [
@@ -316,6 +420,25 @@ class InboundIntakeController extends BaseController
                 'receiving_branch_id'    => $branchId,
                 'current_branch_id'      => $branchId,
                 'receiving_location'     => $location,
+                'actual_weight'          => $verifiedActualWeight,
+                'volume_weight'          => $verifiedVolumeWeight,
+                'chargeable_weight'      => $verifiedChargeableWeight,
+                'total_colly'            => $verifiedColly,
+                'freight_charge'         => $freightCharge,
+                'remote_charge'          => $remoteCharge,
+                'packing_charge'         => $packingCharge,
+                'additional_charge'      => $additionalCharge,
+                'discount_amount'        => $discountAmount,
+                'customer_total'         => $customerTotal,
+                'total_charge'           => $customerTotal,
+                'grand_total'            => $customerTotal,
+                'selling_amount'         => $freightCharge,
+                'vendor_cost'            => $vendorTotal,
+                'vendor_freight'         => $vendorTotal,
+                'vendor_total'           => $vendorTotal,
+                'profit_amount'          => (float) ($pricing['profit'] ?? 0),
+                'margin_percent'         => (float) ($pricing['margin'] ?? 0),
+                'markup_percent'         => (float) ($pricing['markup'] ?? 0),
                 'received_at'            => $now,
                 'received_by'            => $userId,
                 'last_scan_branch_id'    => $branchId,
