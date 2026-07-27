@@ -24,6 +24,21 @@
         </div>
     <?php endif; ?>
 
+    <form
+        method="post"
+        action="<?= site_url('inbound-intake/reprice/79') ?>"
+        class="mb-3"
+    >
+        <?= csrf_field() ?>
+
+        <button
+            type="submit"
+            class="btn btn-warning"
+        >
+            Recalculate Pricing CTZ260700039
+        </button>
+    </form>
+
     <?php if (empty($groups)): ?>
 
         <div class="alert alert-info">
