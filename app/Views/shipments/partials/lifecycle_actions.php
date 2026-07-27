@@ -6,6 +6,26 @@ $actionState = $actionState
 
 $shipmentId = (int) ($actionShipment['id'] ?? 0);
 $awbNo = (string) ($actionShipment['awb_no'] ?? '');
+
+$repriceStatus = strtoupper(
+    trim((string) ($actionShipment['shipment_status'] ?? ''))
+);
+
+$repriceStatuses = [
+    'RECEIVED_AT_ORIGIN_BRANCH',
+    'SENT_TO_MAIN_WAREHOUSE',
+    'RECEIVED_AT_MAIN_WAREHOUSE',
+    'ASSIGNED_TO_VENDOR',
+    'HANDED_OVER_TO_VENDOR',
+    'BOOKED_WITH_VENDOR',
+    'IN_TRANSIT_INTERNATIONAL',
+    'ARRIVED_HUB',
+    'IN_TRANSIT_HUB',
+    'HANDED_TO_LAST_MILE',
+    'DELIVERED',
+];
+
+$canReprice = in_array($repriceStatus, $repriceStatuses, true);
 ?>
 
 <div class="d-flex flex-wrap gap-2">
@@ -54,5 +74,21 @@ $awbNo = (string) ($actionShipment['awb_no'] ?? '');
             ) ?>">
             🗑 Delete
         </button>
+    <?php endif; ?>
+
+    <?php if ($canReprice): ?>
+        <form
+            method="post"
+            action="<?= site_url(
+                'inbound-intake/reprice/' . $shipmentId
+            ) ?>"
+            class="d-inline"
+        >
+            <?= csrf_field() ?>
+
+            <button type="submit" class="btn btn-sm btn-warning">
+                Recalculate Pricing
+            </button>
+        </form>
     <?php endif; ?>
 </div>
