@@ -397,6 +397,7 @@ class InboundIntakeController extends BaseController
                 $finalTotal = (float) (
                     $pricing['total_charge']
                     ?? $pricing['customer_total']
+                    ?? $pricing['selling_amount']
                     ?? 0
                 );
             } catch (\Throwable $e) {
@@ -406,6 +407,19 @@ class InboundIntakeController extends BaseController
                     . ($shipment['awb_no'] ?? '')
                     . ': '
                     . $e->getMessage()
+                );
+            }
+
+            if ($finalTotal <= 0) {
+                log_message(
+                    'warning',
+                    '[INBOUND ZERO PRICING] '
+                    . 'awb=' . ($shipment['awb_no'] ?? '')
+                    . ' customer=' . $customerId
+                    . ' country=' . (int) ($shipment['country_id'] ?? 0)
+                    . ' service=' . (int) ($shipment['service_id'] ?? 0)
+                    . ' chargeable=' . $verifiedChargeableWeight
+                    . ' pricing_keys=' . implode(',', array_keys($pricing))
                 );
             }
 
