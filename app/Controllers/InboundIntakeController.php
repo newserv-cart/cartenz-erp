@@ -548,6 +548,214 @@ class InboundIntakeController extends BaseController
         }
     }
 
+    public function repricePickup(int $shipmentId)
+    {
+        $db = db_connect();
+        $db->transBegin();
+
+        try {
+            $this->requireActorId();
+
+            $shipmentModel = new ShipmentModel();
+            $shipment      = $shipmentModel->find($shipmentId);
+
+            if (!$shipment) {
+                throw new PageNotFoundException(
+                    'Shipment tidak ditemukan.'
+                );
+            }
+
+            if (
+                strtoupper((string) $shipment['shipment_status'])
+                !== 'RECEIVED_AT_ORIGIN_BRANCH'
+            ) {
+                throw new \RuntimeException(
+                    'Repricing hanya tersedia setelah shipment diterima.'
+                );
+            }
+
+            $verifiedActualWeight = (float) (
+                $this->request->getPost('verified_actual_weight')
+                ?: ($shipment['actual_weight'] ?? 0)
+            );
+
+            if ($verifiedActualWeight <= 0) {
+                throw new \RuntimeException(
+                    'Berat actual terverifikasi harus lebih dari 0 Kg.'
+                );
+            }
+
+            $verifiedLength = (float) (
+                $this->request->getPost('verified_length_cm')
+                ?: 0
+            );
+            $verifiedWidth  = (float) (
+                $this->request->getPost('verified_width_cm')
+                ?: 0
+            );
+            $verifiedHeight = (float) (
+                $this->request->getPost('verified_height_cm')
+                ?: 0
+            );
+
+            if (
+                $verifiedLength > 0
+                && $verifiedWidth > 0
+                && $verifiedHeight > 0
+            ) {
+                $verifiedVolumeWeight = round(
+                    ($verifiedLength * $verifiedWidth * $verifiedHeight) / 5000,
+                    2
+                );
+            } else {
+                $verifiedVolumeWeight = (float) (
+                    $shipment['volume_weight'] ?? 0
+                );
+            }
+
+            $verifiedChargeableWeight = max(
+                $verifiedActualWeight,
+                $verifiedVolumeWeight
+            );
+
+            if ($verifiedChargeableWeight <= 0) {
+                throw new \RuntimeException(
+                    'Chargeable weight tidak valid.'
+                );
+            }
+
+            $verifiedColly = (int) $this->request
+                ->getPost('verified_total_colly');
+
+            if ($verifiedColly <= 0) {
+                $verifiedColly = (int) ($shipment['total_colly'] ?? 1);
+            }
+
+            $ownerType = strtoupper(
+                trim((string) ($shipment['owner_type'] ?? 'CUSTOMER'))
+            );
+
+            $ownerId = (int) (
+                $shipment['owner_id']
+                ?? (
+                    $ownerType === 'AGENT'
+                        ? ($shipment['agent_id'] ?? 0)
+                        : ($shipment['customer_id'] ?? 0)
+                )
+            );
+
+            $customerId = $ownerType === 'CUSTOMER'
+                ? (int) ($shipment['customer_id'] ?? 0)
+                : 0;
+
+            $pricing    = [];
+            $finalTotal = 0.0;
+
+            try {
+                $pricing = (new RegularCalculationService())->calculate([
+                    'owner_type'         => $ownerType,
+                    'owner_id'           => $ownerId,
+                    'customer_id'        => $customerId,
+                    'agent_id'           =>
+                        $ownerType === 'AGENT'
+                            ? (int) ($shipment['agent_id'] ?? 0)
+                            : null,
+                    'country_id'         => (int) ($shipment['country_id'] ?? 0),
+                    'service_id'         => (int) ($shipment['service_id'] ?? 0),
+                    'transport_mode_id'  => (int) ($shipment['transport_mode_id'] ?? 0),
+                    'delivery_type_id'   => (int) ($shipment['delivery_type_id'] ?? 0),
+                    'package_type_id'    => (int) ($shipment['package_type_id'] ?? 0),
+                    'commodity_type_id'  => (int) ($shipment['commodity_type_id'] ?? 0),
+                    'actual_weight'      => $verifiedActualWeight,
+                    'volume_weight'      => $verifiedVolumeWeight,
+                    'chargeable_weight'  => $verifiedChargeableWeight,
+                    'total_colly'        => $verifiedColly,
+                    'shipment_date'      => $shipment['shipment_date'] ?? date('Y-m-d'),
+                    'insurance_amount'   => (float) ($shipment['insurance_amount'] ?? 0),
+                    'packing_charge'     => (float) ($shipment['packing_charge'] ?? 0),
+                    'additional_charge'  => (float) ($shipment['additional_charge'] ?? 0),
+                    'discount_amount'    => (float) ($shipment['discount_amount'] ?? 0),
+                ]);
+
+                $finalTotal = (float) (
+                    $pricing['total_charge']
+                    ?? $pricing['customer_total']
+                    ?? $pricing['selling_amount']
+                    ?? 0
+                );
+            } catch (\Throwable $e) {
+                log_message(
+                    'error',
+                    '[REPRICE PICKUP] '
+                    . ($shipment['awb_no'] ?? '')
+                    . ': '
+                    . $e->getMessage()
+                );
+            }
+
+            if ($finalTotal <= 0) {
+                log_message(
+                    'warning',
+                    '[REPRICE ZERO] '
+                    . 'awb=' . ($shipment['awb_no'] ?? '')
+                    . ' customer=' . $customerId
+                    . ' country=' . (int) ($shipment['country_id'] ?? 0)
+                    . ' service=' . (int) ($shipment['service_id'] ?? 0)
+                    . ' chargeable=' . $verifiedChargeableWeight
+                    . ' pricing_keys=' . implode(',', array_keys($pricing))
+                );
+            }
+
+            $pricingStatus = $finalTotal > 0
+                ? 'FINAL'
+                : 'PENDING_VERIFICATION';
+
+            $now = date('Y-m-d H:i:s');
+
+            if (!$shipmentModel->update($shipmentId, [
+                'actual_weight'     => $verifiedActualWeight,
+                'volume_weight'     => $verifiedVolumeWeight,
+                'chargeable_weight' => $verifiedChargeableWeight,
+                'total_colly'       => $verifiedColly,
+                'total_charge'      => $finalTotal > 0 ? $finalTotal : 0,
+                'pricing_status'    => $pricingStatus,
+                'updated_at'        => $now,
+            ])) {
+                throw new \RuntimeException(
+                    'Gagal update tarif shipment.'
+                );
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException(
+                    'Transaksi repricing gagal.'
+                );
+            }
+
+            $db->transCommit();
+
+            return redirect()
+                ->to(site_url('shipments/detail/' . $shipmentId))
+                ->with(
+                    'success',
+                    'Repricing selesai. Status: '
+                    . $pricingStatus
+                    . '. Total charge: Rp '
+                    . number_format($finalTotal, 0, ',', '.')
+                );
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            if ($e instanceof PageNotFoundException) {
+                throw $e;
+            }
+
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+    }
+
     private function generateIntakeNumber(): string
     {
         for ($attempt = 0; $attempt < 30; $attempt++) {

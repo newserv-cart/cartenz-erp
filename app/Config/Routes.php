@@ -958,6 +958,12 @@ $routes->post(
     ['filter' => 'session']
 );
 
+$routes->post(
+    'inbound-intakes/reprice-pickup/(:num)',
+    'InboundIntakeController::repricePickup/$1',
+    ['filter' => 'group:superadmin,admin']
+);
+
 // Sprint 49.15B.3 — Branch-aware acceptance, scan, and manifest origin
 $routes->group(
     'admin/operational-profiles',
