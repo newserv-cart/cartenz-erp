@@ -361,54 +361,69 @@ class InboundIntakeController extends BaseController
                 )
             );
 
-            $pricing = (new RegularCalculationService())->calculate([
-                'owner_type'         => $ownerType,
-                'owner_id'           => $ownerId,
-                'customer_id'        =>
-                    $ownerType === 'CUSTOMER'
-                        ? (int) ($shipment['customer_id'] ?? 0)
-                        : null,
-                'agent_id'           =>
-                    $ownerType === 'AGENT'
-                        ? (int) ($shipment['agent_id'] ?? 0)
-                        : null,
-                'country_id'         => (int) ($shipment['country_id'] ?? 0),
-                'service_id'         => (int) ($shipment['service_id'] ?? 0),
-                'transport_mode_id'  => (int) ($shipment['transport_mode_id'] ?? 0),
-                'delivery_type_id'   => (int) ($shipment['delivery_type_id'] ?? 0),
-                'package_type_id'    => (int) ($shipment['package_type_id'] ?? 0),
-                'commodity_type_id'  => (int) ($shipment['commodity_type_id'] ?? 0),
-                'actual_weight'      => $verifiedActualWeight,
-                'volume_weight'      => $verifiedVolumeWeight,
-                'chargeable_weight'  => $verifiedChargeableWeight,
-                'total_colly'        => $verifiedColly,
-                'shipment_date'      => $shipment['shipment_date'] ?? date('Y-m-d'),
-                'insurance_amount'   => (float) ($shipment['insurance_amount'] ?? 0),
-                'packing_charge'     => (float) ($shipment['packing_charge'] ?? 0),
-                'additional_charge'  => (float) ($shipment['additional_charge'] ?? 0),
-                'discount_amount'    => (float) ($shipment['discount_amount'] ?? 0),
-            ]);
+            $customerId = $ownerType === 'CUSTOMER'
+                ? (int) ($shipment['customer_id'] ?? 0)
+                : 0;
+
+            $pricing    = [];
+            $finalTotal = 0.0;
+
+            try {
+                $pricing = (new RegularCalculationService())->calculate([
+                    'owner_type'         => $ownerType,
+                    'owner_id'           => $ownerId,
+                    'customer_id'        => $customerId,
+                    'agent_id'           =>
+                        $ownerType === 'AGENT'
+                            ? (int) ($shipment['agent_id'] ?? 0)
+                            : null,
+                    'country_id'         => (int) ($shipment['country_id'] ?? 0),
+                    'service_id'         => (int) ($shipment['service_id'] ?? 0),
+                    'transport_mode_id'  => (int) ($shipment['transport_mode_id'] ?? 0),
+                    'delivery_type_id'   => (int) ($shipment['delivery_type_id'] ?? 0),
+                    'package_type_id'    => (int) ($shipment['package_type_id'] ?? 0),
+                    'commodity_type_id'  => (int) ($shipment['commodity_type_id'] ?? 0),
+                    'actual_weight'      => $verifiedActualWeight,
+                    'volume_weight'      => $verifiedVolumeWeight,
+                    'chargeable_weight'  => $verifiedChargeableWeight,
+                    'total_colly'        => $verifiedColly,
+                    'shipment_date'      => $shipment['shipment_date'] ?? date('Y-m-d'),
+                    'insurance_amount'   => (float) ($shipment['insurance_amount'] ?? 0),
+                    'packing_charge'     => (float) ($shipment['packing_charge'] ?? 0),
+                    'additional_charge'  => (float) ($shipment['additional_charge'] ?? 0),
+                    'discount_amount'    => (float) ($shipment['discount_amount'] ?? 0),
+                ]);
+
+                $finalTotal = (float) (
+                    $pricing['total_charge']
+                    ?? $pricing['customer_total']
+                    ?? 0
+                );
+            } catch (\Throwable $e) {
+                log_message(
+                    'error',
+                    '[INBOUND FINAL PRICING] '
+                    . ($shipment['awb_no'] ?? '')
+                    . ': '
+                    . $e->getMessage()
+                );
+            }
+
+            $pricingStatus = $finalTotal > 0 ? 'FINAL' : 'PENDING_VERIFICATION';
 
             $freightCharge    = (float) ($pricing['freight'] ?? $pricing['freight_charge'] ?? $pricing['selling_amount'] ?? 0);
             $remoteCharge     = (float) ($pricing['remote_charge'] ?? $pricing['remote'] ?? 0);
             $packingCharge    = (float) ($pricing['packing'] ?? $pricing['packing_charge'] ?? 0);
             $additionalCharge = (float) ($pricing['additional'] ?? $pricing['additional_charge'] ?? 0);
             $discountAmount   = (float) ($pricing['discount'] ?? $pricing['discount_amount'] ?? 0);
-            $finalTotal       = (float) ($pricing['customer_total'] ?? 0);
             $vendorTotal      = (float) ($pricing['vendor_total'] ?? 0);
-
-            if ($finalTotal <= 0) {
-                throw new \RuntimeException(
-                    'Tarif final tidak ditemukan. Pricing belum dapat difinalkan.'
-                );
-            }
 
             $shipmentModel = new ShipmentModel();
 
             if (!$shipmentModel->update($shipmentId, [
                 'shipment_status'        => 'RECEIVED_AT_ORIGIN_BRANCH',
                 'public_tracking_status' => 'PICKED_UP',
-                'pricing_status'         => 'FINAL',
+                'pricing_status'         => $pricingStatus,
                 'acceptance_method'      => ShipmentAcceptanceService::COURIER_PICKUP,
                 'acceptance_branch_id'   => $branchId,
                 'receiving_branch_id'    => $branchId,
@@ -423,7 +438,7 @@ class InboundIntakeController extends BaseController
                 'packing_charge'         => $packingCharge,
                 'additional_charge'      => $additionalCharge,
                 'discount_amount'        => $discountAmount,
-                'total_charge'           => $finalTotal,
+                'total_charge'           => $finalTotal > 0 ? $finalTotal : 0,
                 'selling_amount'         => $freightCharge,
                 'vendor_cost'            => $vendorTotal,
                 'vendor_freight'         => $vendorTotal,
@@ -457,7 +472,7 @@ class InboundIntakeController extends BaseController
                 'scan_type'         => 'PICKUP_RECEIVE',
                 'source_reference'  => $shipment['awb_no'],
                 'tracking_location' => $location,
-                'tracking_notes'    => 'Shipment dari customer pickup request diterima di origin branch. Verifikasi operasional selesai, pricing status FINAL.',
+                'tracking_notes'    => 'Shipment dari customer pickup request diterima di origin branch. Verifikasi operasional selesai, pricing status ' . $pricingStatus . '.',
                 'event_time'        => $now,
                 'created_by'        => $userId,
                 'created_at'        => $now,
@@ -473,11 +488,12 @@ class InboundIntakeController extends BaseController
                 'shipment_id'    => $shipmentId,
                 'event_type'     => 'RECEIVED_AT_ORIGIN_BRANCH',
                 'event_title'    => 'Received at Origin Branch',
-                'description'    => 'Shipment dari customer pickup request diterima di origin branch. Verifikasi operasional selesai, pricing status FINAL.',
+                'description'    => 'Shipment dari customer pickup request diterima di origin branch. Verifikasi operasional selesai, pricing status ' . $pricingStatus . '.',
                 'changed_fields' => json_encode([
                     'previous_status' => $shipment['shipment_status'],
                     'new_status'      => 'RECEIVED_AT_ORIGIN_BRANCH',
-                    'pricing_status'  => 'FINAL',
+                    'pricing_status'  => $pricingStatus,
+                    'total_charge'    => $finalTotal > 0 ? $finalTotal : 0,
                     'branch_id'       => $branchId,
                     'location'        => $location,
                 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),

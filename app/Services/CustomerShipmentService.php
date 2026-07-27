@@ -81,7 +81,7 @@ class CustomerShipmentService
                 'branches',
                 ['branch_name', 'branch_code', 'city']
             ),
-            'paymentType'       => $this->resolvePaymentType($customer),
+            'paymentType'       => $this->resolvePaymentType([], $customer),
         ];
     }
 
@@ -309,6 +309,7 @@ class CustomerShipmentService
                 'delivery_type_id' => $deliveryId,
                 'package_type_id' => $packageTypeId,
                 'payment_type' => $this->resolvePaymentType(
+                    $post,
                     $customer
                 ),
                 'commodity_type_id' => $commodityId,
@@ -715,23 +716,25 @@ class CustomerShipmentService
         }
     }
 
-    private function resolvePaymentType(array $customer): string
-    {
-        $source = strtoupper(trim((string) (
-            $customer['billing_type']
+    private function resolvePaymentType(
+        array $post,
+        array $customer
+    ): string {
+        $paymentType = strtoupper(trim((string) (
+            $post['payment_type']
+            ?? $customer['default_payment_type']
+            ?? $customer['billing_type']
             ?? $customer['customer_type']
             ?? 'CASH'
         )));
 
-        if (str_contains($source, 'INVOICE')) {
-            return 'INVOICE';
+        if (!in_array($paymentType, ['CASH', 'DEPOSIT', 'INVOICE'], true)) {
+            throw new \RuntimeException(
+                'Payment type shipment tidak valid.'
+            );
         }
 
-        if (str_contains($source, 'DEPOSIT')) {
-            return 'DEPOSIT';
-        }
-
-        return 'CASH';
+        return $paymentType;
     }
 
     private function saveCostBreakdown(
