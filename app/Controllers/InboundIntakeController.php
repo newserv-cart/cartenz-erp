@@ -579,14 +579,15 @@ class InboundIntakeController extends BaseController
             'DELIVERED',
         ];
 
-        $status = strtoupper(
+        $shipmentStatus = strtoupper(
             trim((string) ($shipment['shipment_status'] ?? ''))
         );
 
-        if (!in_array($status, $allowedStatuses, true)) {
+        if (!in_array($shipmentStatus, $allowedStatuses, true)) {
             return redirect()->back()->with(
                 'error',
-                'Shipment belum dapat dihitung ulang. Status: ' . $status
+                'Shipment belum dapat dihitung ulang. Status: '
+                . ($shipmentStatus ?: '-')
             );
         }
 
@@ -594,7 +595,9 @@ class InboundIntakeController extends BaseController
             $pricing = (new \App\Services\RegularCalculationService())
                 ->calculate([
                     'owner_type' => strtoupper(
-                        (string) ($shipment['owner_type'] ?? 'CUSTOMER')
+                        trim((string) (
+                            $shipment['owner_type'] ?? 'CUSTOMER'
+                        ))
                     ),
 
                     'owner_id' => (int) (
@@ -615,6 +618,14 @@ class InboundIntakeController extends BaseController
                         $shipment['service_id'] ?? 0
                     ),
 
+                    'package_type_id' => (int) (
+                        $shipment['package_type_id'] ?? 0
+                    ),
+
+                    'commodity_type_id' => (int) (
+                        $shipment['commodity_type_id'] ?? 0
+                    ),
+
                     'actual_weight' => (float) (
                         $shipment['actual_weight'] ?? 0
                     ),
@@ -627,8 +638,9 @@ class InboundIntakeController extends BaseController
                         $shipment['chargeable_weight'] ?? 0
                     ),
 
-                    'total_colly' => (int) (
-                        $shipment['total_colly'] ?? 1
+                    'total_colly' => max(
+                        1,
+                        (int) ($shipment['total_colly'] ?? 1)
                     ),
                 ]);
 
@@ -643,15 +655,16 @@ class InboundIntakeController extends BaseController
             if ($finalTotal <= 0) {
                 log_message(
                     'error',
-                    '[SHIPMENT REPRICE ZERO] AWB: '
+                    '[SHIPMENT REPRICE ZERO] AWB='
                     . ($shipment['awb_no'] ?? '-')
-                    . ' | Pricing keys: '
+                    . ' keys='
                     . implode(',', array_keys($pricing))
                 );
 
                 return redirect()->back()->with(
                     'error',
-                    'Tarif masih menghasilkan Rp0. Periksa master tarif.'
+                    'Tarif masih menghasilkan Rp0. '
+                    . 'Periksa harga pada master regular tariff.'
                 );
             }
 
@@ -665,8 +678,11 @@ class InboundIntakeController extends BaseController
                 ]);
 
             if ($updated === false) {
+                $error = $db->error();
+
                 throw new \RuntimeException(
-                    'Gagal menyimpan hasil repricing.'
+                    'Gagal menyimpan hasil repricing: '
+                    . ($error['message'] ?? 'Unknown error')
                 );
             }
 
@@ -676,7 +692,8 @@ class InboundIntakeController extends BaseController
                     'success',
                     'Shipment '
                     . ($shipment['awb_no'] ?? '')
-                    . ' berhasil dihitung ulang.'
+                    . ' berhasil dihitung ulang. Total: Rp '
+                    . number_format($finalTotal, 0, ',', '.')
                 );
 
         } catch (\Throwable $e) {
