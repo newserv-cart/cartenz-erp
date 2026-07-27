@@ -36,9 +36,7 @@ class InvoiceQueueController extends BaseController
                 's.payment_type',
                 's.pricing_status',
                 's.chargeable_weight',
-                's.customer_total',
                 's.total_charge',
-                's.grand_total',
                 's.is_invoiced',
                 's.invoice_id',
                 'c.customer_name',
@@ -52,11 +50,7 @@ class InvoiceQueueController extends BaseController
             ->where('s.invoice_id IS NULL', null, false)
             ->where('s.customer_id IS NOT NULL', null, false)
             ->whereIn('s.shipment_status', $this->eligibleStatuses)
-            ->groupStart()
-                ->where('s.customer_total >', 0)
-                ->orWhere('s.total_charge >', 0)
-                ->orWhere('s.grand_total >', 0)
-            ->groupEnd()
+            ->where('s.total_charge >', 0)
             ->orderBy('c.customer_name', 'ASC')
             ->orderBy('s.shipment_date', 'ASC')
             ->orderBy('s.id', 'ASC')
@@ -76,12 +70,7 @@ class InvoiceQueueController extends BaseController
         foreach ($query->getResultArray() as $shipment) {
             $customerId = (int) $shipment['customer_id'];
 
-            $amount = (float) (
-                $shipment['customer_total']
-                ?: $shipment['total_charge']
-                ?: $shipment['grand_total']
-                ?: 0
-            );
+            $amount = (float) ($shipment['total_charge'] ?? 0);
 
             $shipment['billable_amount'] = $amount;
 
@@ -201,18 +190,13 @@ class InvoiceQueueController extends BaseController
             $total      = 0;
 
             foreach ($shipments as $shipment) {
-                $amount = (float) (
-                    $shipment['customer_total']
-                    ?: $shipment['total_charge']
-                    ?: $shipment['grand_total']
-                    ?: 0
-                );
+                $amount = (float) ($shipment['total_charge'] ?? 0);
 
                 if ($amount <= 0) {
                     throw new \RuntimeException(
                         'Shipment '
                         . ($shipment['awb_no'] ?? '')
-                        . ' belum memiliki total final.'
+                        . ' belum memiliki total charge final.'
                     );
                 }
 
@@ -236,7 +220,6 @@ class InvoiceQueueController extends BaseController
                 'due'            => $dueDate,
                 'total_amount'   => $total,
                 'total'          => $total,
-                'grand_total'    => $total,
                 'paid_amount'    => 0,
                 'paid'           => 0,
                 'balance_amount' => $total,
@@ -275,12 +258,7 @@ class InvoiceQueueController extends BaseController
             }
 
             foreach ($shipments as $shipment) {
-                $amount = (float) (
-                    $shipment['customer_total']
-                    ?: $shipment['total_charge']
-                    ?: $shipment['grand_total']
-                    ?: 0
-                );
+                $amount = (float) ($shipment['total_charge'] ?? 0);
 
                 $itemData = $this->filterExistingColumns('invoice_items', [
                     'invoice_id'  => $invoiceId,
