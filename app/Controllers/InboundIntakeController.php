@@ -550,5 +550,43 @@ class InboundIntakeController extends BaseController
 
    
 
-   
+    private function generateIntakeNumber(): string
+    {
+        for ($attempt = 0; $attempt < 30; $attempt++) {
+            $number = sprintf(
+                'INB%s%03d',
+                date('ymdHis'),
+                random_int(1, 999)
+            );
+
+            if (!$this->intakeModel->where('intake_no', $number)->first()) {
+                return $number;
+            }
+        }
+
+        throw new \RuntimeException('Nomor Inbound Intake unik gagal dibuat.');
+    }
+
+    private function requireActorId(): int
+    {
+        $actorId = auth()->id();
+
+        if (!$actorId) {
+            throw new \RuntimeException('Sesi admin tidak ditemukan. Silakan login ulang.');
+        }
+
+        return (int) $actorId;
+    }
+
+    private function nullablePositiveInt($value): ?int
+    {
+        $value = (int) $value;
+        return $value > 0 ? $value : null;
+    }
+
+    private function nullableText($value): ?string
+    {
+        $value = trim((string) $value);
+        return $value !== '' ? $value : null;
+    }
 }
