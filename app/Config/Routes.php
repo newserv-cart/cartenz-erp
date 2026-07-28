@@ -410,21 +410,6 @@ $routes->get(
     'AgingReportController::index'
 );
 
-$routes->group(
-    'finance/invoice-queue',
-    ['filter' => 'auth'],
-    static function ($routes) {
-        $routes->get(
-            '',
-            'Finance\InvoiceQueueController::index'
-        );
-
-        $routes->post(
-            'create',
-            'Finance\InvoiceQueueController::createInvoice'
-        );
-    }
-);
 
 $routes->get(
     'admin/dashboard',
@@ -958,17 +943,6 @@ $routes->post(
     ['filter' => 'session']
 );
 
-$routes->post(
-    'inbound-intakes/reprice-pickup/(:num)',
-    'InboundIntakeController::repricePickup/$1',
-    ['filter' => 'group:superadmin,admin']
-);
-
-$routes->post(
-    'inbound-intake/reprice/(:num)',
-    'InboundIntakeController::reprice/$1',
-    ['filter' => 'auth']
-);
 
 // Sprint 49.15B.3 — Branch-aware acceptance, scan, and manifest origin
 $routes->group(
