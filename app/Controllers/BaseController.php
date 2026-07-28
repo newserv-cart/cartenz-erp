@@ -39,6 +39,42 @@ abstract class BaseController extends Controller
         // Caution: Do not edit this line.
         parent::initController($request, $response, $logger);
 
+        // Set owner type once per session for global UI use.
+        if (
+            auth()->loggedIn()
+            && ! session()->has('owner_type')
+        ) {
+            $userId = (int) (auth()->id() ?? 0);
+
+            if ($userId > 0) {
+                $db = db_connect();
+
+                $agentLink = null;
+
+                if ($db->tableExists('agent_users')) {
+                    $agentLink = $db
+                        ->table('agent_users AS au')
+                        ->select('au.id')
+                        ->join(
+                            'agents AS a',
+                            'a.id = au.agent_id',
+                            'inner'
+                        )
+                        ->where('au.user_id', $userId)
+                        ->where('au.status', 1)
+                        ->where('a.status', 1)
+                        ->limit(1)
+                        ->get()
+                        ->getRowArray();
+                }
+
+                session()->set(
+                    'owner_type',
+                    $agentLink ? 'AGENT' : 'ADMINISTRATOR'
+                );
+            }
+        }
+
         // Preload any models, libraries, etc, here.
         // $this->session = service('session');
     }

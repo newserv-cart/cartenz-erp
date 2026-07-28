@@ -20,6 +20,7 @@ class ShipmentTrackingModel extends Model
         'tracking_status',
         'public_status',
         'event_type',
+        'event_code',
         'scan_type',
         'source_reference',
         'source_system',

@@ -2,9 +2,15 @@
 
 <div>
 
+<?php
+$panelTitle = strtoupper((string) session('owner_type')) === 'AGENT'
+    ? 'Agent Panel'
+    : 'Administrator Panel';
+?>
+
 <h5 class="mb-0">
 
-Administrator Panel
+<?= esc($panelTitle) ?>
 
 </h5>
 

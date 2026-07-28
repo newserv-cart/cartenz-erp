@@ -394,6 +394,16 @@ $routes->group(
         );
 
         $routes->get(
+            'shipments/(:num)/pod/(:segment)',
+            'CustomerShipmentController::podFile/$1/$2'
+        );
+
+        $routes->get(
+            'shipments/(:num)/pod/pdf',
+            'CustomerShipmentController::podPdf/$1'
+        );
+
+        $routes->get(
             'addresses',
             'CustomerAddressController::index'
         );
@@ -592,6 +602,7 @@ $routes->get(
     'AgingReportController::index'
 );
 
+
 $routes->get(
     'admin/dashboard',
    'Admin\DashboardController::index'
@@ -650,6 +661,16 @@ $routes->post(
 $routes->get(
     'agent/shipment/(:num)',
     'AgentShipmentController::detail/$1'
+);
+
+$routes->get(
+    'agent/shipments/(:num)/pod/(:segment)',
+    'AgentShipmentController::podFile/$1/$2'
+);
+
+$routes->get(
+    'agent/shipments/(:num)/pod/pdf',
+    'AgentShipmentController::podPdf/$1'
 );
 
 $routes->get(
@@ -1105,18 +1126,29 @@ $routes->post(
     ['filter' => 'group:superadmin,admin']
 );
 
-$routes->group(
-    'inbound-intakes',
-    ['filter' => 'group:superadmin,admin'],
-    static function ($routes) {
-        $routes->get('', 'InboundIntakeController::index');
-        $routes->get('create', 'InboundIntakeController::create');
-        $routes->post('store', 'InboundIntakeController::store');
-        $routes->get('(:num)', 'InboundIntakeController::show/$1');
-        $routes->get('(:num)/start-shipment', 'InboundIntakeController::startShipment/$1');
-        $routes->post('(:num)/cancel', 'InboundIntakeController::cancel/$1');
-    }
+
+
+// Sprint 9.1 — Inbound Intake AWB Scan (operational scan page)
+$routes->get(
+    'inbound-intake',
+    'InboundIntakeController::scanIndex',
+    ['filter' => 'auth']
 );
+
+$routes->post(
+    'inbound-intake/scan',
+    'InboundIntakeController::scan',
+    ['filter' => 'auth']
+);
+
+$routes->post(
+    'inbound-intake/receive',
+    'InboundIntakeController::receive',
+    ['filter' => 'auth']
+);
+
+
+
 
 // Sprint 49.15B.3 — Branch-aware acceptance, scan, and manifest origin
 $routes->group(
@@ -1175,32 +1207,5 @@ $routes->group(
         $routes->get('', 'Finance\\AgentSelfBillingApprovalController::index');
         $routes->post('approve/(:num)', 'Finance\\AgentSelfBillingApprovalController::approve/$1');
         $routes->post('reject/(:num)', 'Finance\\AgentSelfBillingApprovalController::reject/$1');
-    }
-);
-
-
-$routes->group(
-    'operations/pickups',
-    ['filter' => 'session'],
-    static function ($routes) {
-        $routes->get(
-            '/',
-            'PickupOperationsController::index'
-        );
-
-        $routes->post(
-            '(:num)/schedule',
-            'PickupOperationsController::schedule/$1'
-        );
-
-        $routes->post(
-            '(:num)/assign',
-            'PickupOperationsController::assign/$1'
-        );
-
-        $routes->post(
-            '(:num)/picked-up',
-            'PickupOperationsController::markPickedUp/$1'
-        );
     }
 );

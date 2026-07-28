@@ -10,6 +10,14 @@ $statusClass = match ($status) {
 
 $profitValue = (float) ($profit ?? $shipment['profit_amount'] ?? 0);
 $profitClass = $profitValue < 0 ? 'text-danger' : 'text-success';
+
+$ownerType = strtoupper(
+    (string) ($shipment['owner_type'] ?? 'CUSTOMER')
+);
+
+$totalLabel = $ownerType === 'AGENT'
+    ? 'Agent Total'
+    : 'Customer Total';
 ?>
 
 <div class="card shadow-sm border-0 mb-4">
@@ -33,12 +41,9 @@ $profitClass = $profitValue < 0 ? 'text-danger' : 'text-success';
             </div>
 
             <div class="text-lg-end">
-                <div class="small text-muted">Customer</div>
+                <div class="small text-muted">Shipment Owner</div>
                 <div class="fw-bold">
-                    <?= esc($shipment['customer_name'] ?? '-') ?>
-                </div>
-                <div class="small text-muted">
-                    <?= esc($shipment['customer_company'] ?? '') ?>
+                    <?= $ownerType === 'AGENT' ? 'Agent' : 'Customer' ?>
                 </div>
             </div>
         </div>
@@ -75,7 +80,7 @@ $profitClass = $profitValue < 0 ? 'text-danger' : 'text-success';
             </div>
 
             <div class="col-6 col-md-3 col-xl-2">
-                <div class="small text-muted">Customer Total</div>
+                <div class="small text-muted"><?= esc($totalLabel) ?></div>
                 <div class="fw-semibold">
                     Rp <?= number_format((float) ($customerTotal ?? $shipment['total_charge'] ?? 0), 0, ',', '.') ?>
                 </div>

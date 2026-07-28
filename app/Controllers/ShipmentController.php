@@ -1545,7 +1545,7 @@ SQL;
                 ], JSON_UNESCAPED_SLASHES));
 
                 throw new \RuntimeException(
-                    'Tarif customer tidak ditemukan. ' .
+                    'Tarif tidak ditemukan. ' .
                     'Periksa master tariff.'
                 );
             }
@@ -1865,8 +1865,10 @@ SQL;
 
             log_message(
                 'error',
-                'Shipment update failed: {message}',
-                ['message' => $e->getMessage()]
+                '[UPDATE SHIPMENT FAILED] '
+                . $e->getMessage()
+                . PHP_EOL
+                . $e->getTraceAsString()
             );
 
             return redirect()
@@ -2541,35 +2543,14 @@ SQL;
 
             $canChooseAnyOwner = $this->canChooseAnyOwner();
 
-            $rules = [
-                'service_id'        => 'required|is_natural_no_zero',
-                'package_type_id'   => 'required|is_natural_no_zero',
-                'commodity_type_id' => 'required|is_natural_no_zero',
-                'payment_type'      => 'required|in_list[CASH,DEPOSIT,INVOICE]',
-                'shipment_date'     => 'required|valid_date[Y-m-d]',
-                'transport_mode_id' => 'required|is_natural_no_zero',
-                'delivery_type_id'  => 'required|is_natural_no_zero',
-            ];
-
-            if ($canChooseAnyOwner) {
-                $rules['customer_id'] =
-                    'required|is_natural_no_zero';
-            } else {
-                $rules['customer_id'] =
-                    'permit_empty|is_natural_no_zero';
-            }
-
-            if (!$this->validate($rules)) {
-                throw new \RuntimeException(
-                    'Validasi gagal: ' .
-                    implode(', ', $this->validator->getErrors())
-                );
-            }
-
-            if (empty($post['packages']) || !is_array($post['packages'])) {
-                throw new \RuntimeException('Data paket belum diinput.');
-            }
-
+            /*
+             * ------------------------------------------------------------------
+             * RESOLVE SHIPMENT OWNER FIRST
+             * ------------------------------------------------------------------
+             *
+             * Admin pusat boleh memilih owner dari form.
+             * Agent / customer / white label memakai owner dari akun login.
+             */
             if ($canChooseAnyOwner) {
                 $ownerType = strtoupper(
                     trim(
@@ -2617,6 +2598,35 @@ SQL;
                 throw new \RuntimeException(
                     $e->getMessage()
                 );
+            }
+
+            /*
+             * ------------------------------------------------------------------
+             * COMMON VALIDATION
+             * ------------------------------------------------------------------
+             *
+             * customer_id tidak divalidasi di sini karena nilainya bergantung
+             * pada owner context (CUSTOMER punya customer_id, AGENT NULL).
+             */
+            $rules = [
+                'service_id'        => 'required|is_natural_no_zero',
+                'package_type_id'   => 'required|is_natural_no_zero',
+                'commodity_type_id' => 'required|is_natural_no_zero',
+                'payment_type'      => 'required|in_list[CASH,DEPOSIT,INVOICE]',
+                'shipment_date'     => 'required|valid_date[Y-m-d]',
+                'transport_mode_id' => 'required|is_natural_no_zero',
+                'delivery_type_id'  => 'required|is_natural_no_zero',
+            ];
+
+            if (!$this->validate($rules)) {
+                throw new \RuntimeException(
+                    'Validasi gagal: ' .
+                    implode(', ', $this->validator->getErrors())
+                );
+            }
+
+            if (empty($post['packages']) || !is_array($post['packages'])) {
+                throw new \RuntimeException('Data paket belum diinput.');
             }
 
             $ownerType = strtoupper(
@@ -3056,7 +3066,7 @@ SQL;
                 ], JSON_UNESCAPED_SLASHES));
 
                 throw new \RuntimeException(
-                    'Tarif customer tidak ditemukan. Periksa master tariff.'
+                    'Tarif tidak ditemukan. Periksa master tariff.'
                 );
             }
 
@@ -3286,8 +3296,10 @@ SQL;
 
             log_message(
                 'error',
-                'Shipment store failed: {message}',
-                ['message' => $e->getMessage()]
+                '[CREATE SHIPMENT FAILED] '
+                . $e->getMessage()
+                . PHP_EOL
+                . $e->getTraceAsString()
             );
 
             return redirect()
@@ -4133,6 +4145,42 @@ $vendorTrackingEvents = $vendorTrackingEventModel
 
     $actionState = $lifecycle->getActionState($shipment);
 
+    $db = db_connect();
+
+    $podQuery = $db
+        ->table('shipment_proof_of_delivery pod')
+        ->select([
+            'pod.id',
+            'pod.shipment_id',
+            'pod.delivered_at',
+            'pod.delivered_to',
+            'pod.delivery_relation',
+            'pod.delivery_notes',
+            'pod.pod_photo_path',
+            'pod.pod_signature_path',
+            'pod.recorded_by',
+            'pod.created_at',
+            'u.username AS recorded_by_username',
+        ])
+        ->join(
+            'users u',
+            'u.id = pod.recorded_by',
+            'left'
+        )
+        ->where('pod.shipment_id', $shipmentId)
+        ->get();
+
+    if ($podQuery === false) {
+        $error = $db->error();
+
+        throw new \RuntimeException(
+            'Query Proof of Delivery gagal: '
+            . ($error['message'] ?? 'Unknown database error')
+        );
+    }
+
+    $pod = $podQuery->getRowArray();
+
     if (!$canViewInternalCommercials) {
         $shipment['vendor_name'] = '-';
         $shipment['vendor_cost'] = 0;
@@ -4169,6 +4217,7 @@ $vendorTrackingEvents = $vendorTrackingEventModel
         'vendorActionState'           => $vendorActionState,
         'vendorTrackingEvents'        => $vendorTrackingEvents,
         'vendorTrackingStatusOptions' => $vendorTrackingStatusOptions,
+        'pod'                         => $pod,
     ]);
 }
 // Taruh ini di dalam isi class-nya

@@ -187,11 +187,7 @@ class CustomerShipmentController extends BaseController
                         (int) $result['shipment_id']
                     )
                 )
-                ->with(
-                    'success',
-                    'Shipment ' . $result['awb_no'] .
-                    ' berhasil dibuat. Status masih CREATED sampai barang dipindai oleh petugas CARTENZ.'
-                );
+                ->with('success', $successMessage);
         } catch (\Throwable $e) {
             log_message(
                 'error',
@@ -204,6 +200,173 @@ class CustomerShipmentController extends BaseController
                 ->withInput()
                 ->with('error', $e->getMessage());
         }
+    }
+
+    public function podFile(int $shipmentId, string $type)
+    {
+        try {
+            $customer = $this->requireCustomer();
+        } catch (\RuntimeException $e) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Proof of Delivery tidak ditemukan.'
+            );
+        }
+
+        $customerId = (int) (
+            $customer['id']
+            ?? $customer->id
+            ?? 0
+        );
+
+        if ($customerId <= 0) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Customer tidak ditemukan.'
+            );
+        }
+
+        $db = db_connect();
+
+        $query = $db
+            ->table('shipment_proof_of_delivery pod')
+            ->select([
+                'pod.id',
+                'pod.pod_photo_path',
+                'pod.pod_signature_path',
+                's.id AS shipment_id',
+                's.customer_id',
+                's.owner_type',
+            ])
+            ->join(
+                'shipments s',
+                's.id = pod.shipment_id'
+            )
+            ->where('s.id', $shipmentId)
+            ->where('s.customer_id', $customerId)
+            ->where('s.owner_type', 'CUSTOMER')
+            ->get();
+
+        if ($query === false) {
+            $error = $db->error();
+
+            throw new \RuntimeException(
+                'Query file POD gagal: '
+                . ($error['message'] ?? 'Unknown database error')
+            );
+        }
+
+        $pod = $query->getRowArray();
+
+        if (!$pod) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Proof of Delivery tidak ditemukan.'
+            );
+        }
+
+        $filename = match ($type) {
+            'photo' =>
+                $pod['pod_photo_path'] ?? null,
+
+            'signature' =>
+                $pod['pod_signature_path'] ?? null,
+
+            default => null,
+        };
+
+        if (empty($filename)) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'File Proof of Delivery tidak tersedia.'
+            );
+        }
+
+        $filename = basename((string) $filename);
+
+        $fullPath =
+            WRITEPATH
+            . 'uploads'
+            . DIRECTORY_SEPARATOR
+            . 'pod'
+            . DIRECTORY_SEPARATOR
+            . $filename;
+
+        if (!is_file($fullPath)) {
+            log_message(
+                'error',
+                '[CUSTOMER POD FILE NOT FOUND] ' . $fullPath
+            );
+
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'File Proof of Delivery tidak ditemukan.'
+            );
+        }
+
+        $mimeType = mime_content_type($fullPath)
+            ?: 'application/octet-stream';
+
+        return $this->response
+            ->setHeader('Content-Type', $mimeType)
+            ->setHeader(
+                'Content-Disposition',
+                'inline; filename="' . $filename . '"'
+            )
+            ->setHeader(
+                'Content-Length',
+                (string) filesize($fullPath)
+            )
+            ->setBody(file_get_contents($fullPath));
+    }
+
+    public function podPdf(int $shipmentId)
+    {
+        try {
+            $customer = $this->requireCustomer();
+        } catch (\RuntimeException $e) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Proof of Delivery tidak ditemukan.'
+            );
+        }
+
+        $customerId = (int) ($customer['id'] ?? 0);
+
+        $db = db_connect();
+
+        $shipment = $db->table('shipments')
+            ->select([
+                'id',
+                'awb_no',
+                'customer_id',
+                'owner_type',
+            ])
+            ->where('id', $shipmentId)
+            ->where('customer_id', $customerId)
+            ->where('owner_type', 'CUSTOMER')
+            ->get()
+            ->getRowArray();
+
+        if (!$shipment) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                'Proof of Delivery tidak ditemukan.'
+            );
+        }
+
+        $service = new \App\Services\PodPdfService();
+
+        $document = $service->generate($shipmentId);
+
+        $filename = 'POD-'
+            . preg_replace(
+                '/[^A-Z0-9\-]/i',
+                '',
+                $document['awb_no']
+            )
+            . '.pdf';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader(
+                'Content-Disposition',
+                'inline; filename="' . $filename . '"'
+            )
+            ->setBody($document['pdf']);
     }
 
     private function requireCustomer(): array

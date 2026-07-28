@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
+use RuntimeException;
 
 class RegularTariffModel extends Model
 {
@@ -30,11 +31,10 @@ class RegularTariffModel extends Model
     ];
 
     /**
-     * Return one active customer tariff row for a shipment.
+     * Return one active tariff row for a shipment.
      *
-     * regular_tariffs does not contain transport_mode_id or
-     * delivery_type_id in the current CARTENZ schema. Those dimensions
-     * belong to vendor_rates and must not be queried here.
+     * The date filters treat NULL / empty / '0000-00-00' as "no limit",
+     * so rows with blank effective dates still match.
      */
     public function findApplicableRate(
         int $countryId,
@@ -42,7 +42,7 @@ class RegularTariffModel extends Model
         float $chargeableWeight,
         string $pricingDate
     ): ?array {
-        return $this
+        $builder = $this->db->table($this->table)
             ->where('country_id', $countryId)
             ->where('service_id', $serviceId)
             ->where('weight_from <=', $chargeableWeight)
@@ -50,15 +50,44 @@ class RegularTariffModel extends Model
             ->where('status', 1)
             ->groupStart()
                 ->where('effective_from IS NULL', null, false)
+                ->orWhere('effective_from', '')
+                ->orWhere('effective_from', '0000-00-00')
                 ->orWhere('effective_from <=', $pricingDate)
             ->groupEnd()
             ->groupStart()
                 ->where('effective_until IS NULL', null, false)
+                ->orWhere('effective_until', '')
+                ->orWhere('effective_until', '0000-00-00')
                 ->orWhere('effective_until >=', $pricingDate)
             ->groupEnd()
             ->orderBy('weight_from', 'DESC')
             ->orderBy('effective_from', 'DESC')
-            ->orderBy('id', 'DESC')
-            ->first();
+            ->orderBy('id', 'DESC');
+
+        $sql = $builder->getCompiledSelect(false);
+        log_message('error', '[REGULAR TARIFF SQL] ' . $sql);
+
+        $query = $builder->get();
+
+        if ($query === false) {
+            $dbError = $this->db->error();
+
+            log_message(
+                'error',
+                '[REGULAR TARIFF QUERY FAILED] Code: '
+                . ($dbError['code'] ?? '-')
+                . ' Message: '
+                . ($dbError['message'] ?? 'Unknown database error')
+            );
+
+            throw new RuntimeException(
+                'Query tarif gagal: '
+                . ($dbError['message'] ?? 'Unknown database error')
+            );
+        }
+
+        $row = $query->getFirstRow('array');
+
+        return $row ?: null;
     }
 }

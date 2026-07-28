@@ -38,6 +38,7 @@ if ($isHeadOffice) {
         'billing'    => ['💳 Billing', 'shipments/partials/billing'],
         'history'    => ['📝 History', 'shipments/partials/history'],
         'attachment' => ['📎 Attachment', 'shipments/partials/attachment'],
+        'pod'        => ['📸 Proof of Delivery', 'shipments/partials/pod'],
         'api'        => ['🔗 API Log', 'shipments/partials/api_log'],
     ];
 } else {

@@ -104,10 +104,10 @@ class RegularRateService
                 );
             }
 
-            $agentRecord = $this->db
+            $query = $this->db
                 ->table('agents AS a')
                 ->select(
-                    'a.*, agent_types.agent_type_name'
+                    'a.*, agent_types.agent_type_code, agent_types.agent_type_name'
                 )
                 ->join(
                     'agent_types',
@@ -116,8 +116,18 @@ class RegularRateService
                 )
                 ->where('a.id', $agentId)
                 ->where('a.status', 1)
-                ->get()
-                ->getRowArray();
+                ->get();
+
+            if ($query === false) {
+                $dbError = $this->db->error();
+
+                throw new RuntimeException(
+                    'Query data agent gagal: '
+                    . ($dbError['message'] ?? 'Unknown database error')
+                );
+            }
+
+            $agentRecord = $query->getRowArray();
 
             if (!$agentRecord) {
                 throw new RuntimeException(
@@ -125,20 +135,21 @@ class RegularRateService
                 );
             }
 
-            $agentTypeName = strtoupper(
+            $agentTypeCode = strtoupper(
                 trim(
                     (string) (
-                        $agentRecord['agent_type_name']
+                        $agentRecord['agent_type_code']
+                        ?? $agentRecord['agent_type_name']
                         ?? 'A'
                     )
                 )
             );
 
-            $agentType = match ($agentTypeName) {
-                'A', 'AGENT A' => 'A',
-                'B', 'AGENT B' => 'B',
-                'C', 'AGENT C' => 'C',
-                default        => 'A',
+            $agentType = match ($agentTypeCode) {
+                'B', 'AGENT TYPE B' => 'B',
+                'C', 'AGENT TYPE C' => 'C',
+                'PUBLISH'           => 'PUBLISH',
+                default             => 'A',
             };
 
             return $this->doCalculateRate(

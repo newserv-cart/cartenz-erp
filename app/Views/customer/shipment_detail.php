@@ -11,8 +11,9 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
             <h3 class="mb-1">📦 <?= esc($shipment['awb_no'] ?? '-') ?></h3>
-            <span class="badge bg-secondary"><?= esc($shipment['shipment_status'] ?? '-') ?></span>
-            <span class="badge bg-light text-dark border"><?= esc($shipment['public_tracking_status'] ?? '-') ?></span>
+            <span class="badge bg-primary">
+                <?= esc($shipment['shipment_status'] ?? '-') ?>
+            </span>
         </div>
         <div class="d-flex gap-2">
             <a href="<?= site_url('customer/my-shipments') ?>" class="btn btn-outline-secondary">My Shipments</a>
@@ -31,10 +32,32 @@
                 <div class="fs-4 fw-bold"><?= number_format((float) ($shipment['chargeable_weight'] ?? 0), 2, ',', '.') ?> Kg</div>
             </div></div>
         </div>
+        <?php
+        $pricingStatus = strtoupper(
+            (string) ($shipment['pricing_status'] ?? '')
+        );
+
+        $totalCharge = (float) ($shipment['total_charge'] ?? 0);
+        ?>
+
         <div class="col-md-4">
             <div class="card shadow-sm h-100"><div class="card-body">
-                <div class="text-muted">Customer Total</div>
-                <div class="fs-4 fw-bold">Rp <?= number_format((float) ($shipment['total_charge'] ?? 0), 0, ',', '.') ?></div>
+                <?php if (
+                    $pricingStatus === 'PENDING_VERIFICATION'
+                    || $totalCharge <= 0
+                ): ?>
+                    <div class="text-muted">Estimated Total</div>
+                    <strong>Menunggu verifikasi operasional</strong>
+                <?php else: ?>
+                    <div class="text-muted">
+                        <?= $pricingStatus === 'ESTIMATED'
+                            ? 'Estimated Total'
+                            : 'Customer Total' ?>
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        Rp <?= number_format($totalCharge, 0, ',', '.') ?>
+                    </div>
+                <?php endif; ?>
             </div></div>
         </div>
         <div class="col-md-4">
@@ -100,15 +123,187 @@
             <?php else: ?>
                 <?php foreach ($tracking as $row): ?>
                     <div class="border-start border-4 border-primary ps-3 py-2 mb-3 bg-light rounded-end">
-                        <div class="fw-bold"><?= esc($row['tracking_status'] ?? '-') ?></div>
-                        <div class="small text-muted"><?= esc($row['public_status'] ?? '-') ?> · <?= esc($row['tracking_location'] ?? '-') ?></div>
-                        <div><?= esc($row['tracking_notes'] ?? '') ?></div>
-                        <div class="small text-muted mt-1"><?= esc($row['event_time'] ?? '-') ?></div>
+                        <?php
+                        $timelineLabel = trim(
+                            (string) ($row['event_code'] ?? '')
+                        );
+
+                        if ($timelineLabel === '') {
+                            $timelineLabel = trim(
+                                (string) (
+                                    $row['public_status']
+                                    ?? $row['tracking_status']
+                                    ?? $row['status']
+                                    ?? '-'
+                                )
+                            );
+                        }
+                        ?>
+
+                        <div class="fw-bold">
+                            <?= esc($timelineLabel) ?>
+                        </div>
+                        <div class="small text-muted"><?= esc($row['display_location'] ?? ($row['tracking_location'] ?? '-')) ?> · <?= esc($row['event_time'] ?? '-') ?></div>
+                        <div><?= esc($row['display_description'] ?? ($row['tracking_notes'] ?? '')) ?></div>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if (
+        strtoupper(
+            (string) ($shipment['shipment_status'] ?? '')
+        ) === 'DELIVERED'
+    ): ?>
+
+        <div class="card shadow-sm mt-4">
+
+            <div class="card-header bg-success text-white">
+                <strong>📸 Proof of Delivery</strong>
+            </div>
+
+            <div class="card-body">
+
+                <?php if (empty($pod)): ?>
+
+                    <div class="alert alert-warning mb-0">
+                        Shipment sudah berstatus DELIVERED,
+                        tetapi Proof of Delivery belum tersedia.
+                    </div>
+
+                <?php else: ?>
+
+                    <div class="row g-4">
+
+                        <div class="col-md-5">
+
+                            <div class="mb-3">
+                                <div class="text-muted">
+                                    Delivered To
+                                </div>
+
+                                <strong>
+                                    <?= esc($pod['delivered_to'] ?? '-') ?>
+                                </strong>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted">
+                                    Delivery Relation
+                                </div>
+
+                                <strong>
+                                    <?= esc(
+                                        $pod['delivery_relation'] ?? '-'
+                                    ) ?>
+                                </strong>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted">
+                                    Delivered At
+                                </div>
+
+                                <strong>
+                                    <?= esc($pod['delivered_at'] ?? '-') ?>
+                                </strong>
+                            </div>
+
+                            <div>
+                                <div class="text-muted">
+                                    Delivery Notes
+                                </div>
+
+                                <div>
+                                    <?= nl2br(
+                                        esc($pod['delivery_notes'] ?? '-')
+                                    ) ?>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-7">
+
+                            <div class="text-muted mb-2">
+                                Proof of Delivery Photo
+                            </div>
+
+                            <a
+                                href="<?= site_url(
+                                    'customer/shipments/'
+                                    . (int) $shipment['id']
+                                    . '/pod/photo'
+                                ) ?>"
+                                target="_blank"
+                            >
+                                <img
+                                    src="<?= site_url(
+                                        'customer/shipments/'
+                                        . (int) $shipment['id']
+                                        . '/pod/photo'
+                                    ) ?>"
+                                    alt="Proof of Delivery"
+                                    class="img-fluid rounded border"
+                                    style="max-height: 500px;"
+                                >
+                            </a>
+
+                            <?php if (
+                                !empty($pod['pod_signature_path'])
+                            ): ?>
+
+                                <div class="text-muted mt-4 mb-2">
+                                    Receiver Signature
+                                </div>
+
+                                <a
+                                    href="<?= site_url(
+                                        'customer/shipments/'
+                                        . (int) $shipment['id']
+                                        . '/pod/signature'
+                                    ) ?>"
+                                    target="_blank"
+                                >
+                                    <img
+                                        src="<?= site_url(
+                                            'customer/shipments/'
+                                            . (int) $shipment['id']
+                                            . '/pod/signature'
+                                        ) ?>"
+                                        alt="Receiver Signature"
+                                        class="img-fluid rounded border"
+                                        style="max-height: 220px;"
+                                    >
+                                </a>
+
+                            <?php endif; ?>
+
+                            <div class="mt-4">
+                                <a
+                                    href="<?= site_url(
+                                        'customer/shipments/'
+                                        . (int) $shipment['id']
+                                        . '/pod/pdf'
+                                    ) ?>"
+                                    target="_blank"
+                                    class="btn btn-danger"
+                                >
+                                    📄 Download POD Certificate
+                                </a>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+        </div>
+
+    <?php endif; ?>
 </div>
 </body>
 </html>

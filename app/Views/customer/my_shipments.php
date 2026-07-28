@@ -50,7 +50,23 @@
                                 <td><strong><?= esc($shipment['awb_no'] ?? '-') ?></strong></td>
                                 <td><?= esc($shipment['shipment_date'] ?? '-') ?></td>
                                 <td><?= number_format((float) ($shipment['chargeable_weight'] ?? 0), 2, ',', '.') ?> Kg</td>
-                                <td><span class="badge bg-secondary"><?= esc($shipment['shipment_status'] ?? 'DRAFT') ?></span></td>
+                                <td>
+                                    <span class="badge bg-secondary"><?= esc($shipment['shipment_status'] ?? 'DRAFT') ?></span>
+                                    <?php if (!empty($shipment['pod_id'])): ?>
+                                        <br>
+                                        <span class="badge bg-success">POD Available</span>
+                                    <?php elseif (
+                                        strtoupper(
+                                            (string) (
+                                                $shipment['shipment_status']
+                                                ?? ''
+                                            )
+                                        ) === 'DELIVERED'
+                                    ): ?>
+                                        <br>
+                                        <span class="badge bg-warning text-dark">POD Pending</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><span class="badge bg-light text-dark border"><?= esc($shipment['public_tracking_status'] ?? 'CREATED') ?></span></td>
                                 <td><?= esc($shipment['planned_handover_method'] ?? '-') ?></td>
                                 <td class="text-end"><a href="<?= site_url('customer/shipment/' . (int) $shipment['id']) ?>" class="btn btn-sm btn-primary">📍 Detail</a></td>

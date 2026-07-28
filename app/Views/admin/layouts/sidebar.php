@@ -90,8 +90,32 @@ Express Rate
             <i class="bi bi-truck"></i> Manifest
         </a>
 
-        <a href="<?= site_url('pickups') ?>">
-            <i class="bi bi-bicycle"></i> Pickup
+        <a href="<?= site_url('operations/pickups') ?>">
+            <i class="bi bi-bicycle"></i> Pickup Operations
+        </a>
+
+        <a href="<?= site_url('warehouse/vendor-assignment') ?>">
+            <i class="bi bi-truck"></i> Vendor Assignment
+        </a>
+
+        <a href="<?= site_url('warehouse/vendor-manifests') ?>">
+            <i class="bi bi-file-earmark-text"></i> Vendor Manifests
+        </a>
+
+        <a href="<?= site_url('warehouse/vendor-bookings') ?>">
+            <i class="bi bi-link-45deg"></i> Vendor Booking
+        </a>
+
+        <a href="<?= site_url('warehouse/international-transit') ?>">
+            <i class="bi bi-airplane"></i> International Transit
+        </a>
+
+        <a href="<?= site_url('warehouse/vendor-tracking') ?>">
+            <i class="bi bi-geo-alt"></i> Vendor Tracking
+        </a>
+
+        <a href="<?= site_url('warehouse/pod') ?>">
+            <i class="bi bi-camera"></i> Proof of Delivery
         </a>
 
         <div class="menu-title">FINANCE</div>
