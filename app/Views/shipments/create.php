@@ -1,5 +1,7 @@
-<!DOCTYPE html>
-<html lang="id">
+<?= $this->extend('admin/layouts/app') ?>
+<?= $this->section('content') ?>
+
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1390,5 +1392,4 @@ window.addEventListener('load', function () {
 <?php endif; ?>
 
 
-</body>
-</html>
+<?= $this->endSection() ?>

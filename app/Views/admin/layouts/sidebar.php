@@ -38,15 +38,17 @@ try {
     </div>
 
     <div class="py-3">
+<div class="menu-title">MAIN</div>
 
-        <div class="menu-title">MAIN</div>
+<a href="<?= site_url('admin/dashboard') ?>">
+    <i class="bi bi-speedometer2"></i> Dashboard
+</a>
 
-        <a href="<?= site_url('admin/dashboard') ?>">
-            <i class="bi bi-speedometer2"></i> Dashboard
-        </a>
+<a href="<?= site_url('shipments/create') ?>">
+    <i class="bi bi-plus-circle"></i> Create Resi
+</a>
 
-        <div class="menu-title">MASTER DATA</div>
-
+<div class="menu-title">MASTER DATA</div>
         <a href="#"><i class="bi bi-building"></i> Company</a>
         <a href="#"><i class="bi bi-diagram-3"></i> Branch</a>
         <a href="#"><i class="bi bi-people"></i> Department</a>
@@ -82,17 +84,17 @@ Express Rate
 
         <div class="menu-title">OPERATIONS</div>
 
-        <a href="<?= site_url('shipments') ?>">
-            <i class="bi bi-box-seam"></i> Shipment
-        </a>
+<a href="<?= site_url('shipments') ?>">
+    <i class="bi bi-box-seam"></i> Shipment
+</a>
 
-        <a href="<?= site_url('manifests') ?>">
-            <i class="bi bi-truck"></i> Manifest
-        </a>
+<a href="<?= site_url('manifests') ?>">
+    <i class="bi bi-truck"></i> Manifest
+</a>
 
-        <a href="<?= site_url('pickups') ?>">
-            <i class="bi bi-bicycle"></i> Pickup
-        </a>
+<a href="<?= site_url('pickups') ?>">
+    <i class="bi bi-bicycle"></i> Pickup
+</a>
 
         <div class="menu-title">FINANCE</div>
 
