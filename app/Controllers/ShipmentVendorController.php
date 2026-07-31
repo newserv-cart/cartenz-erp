@@ -29,14 +29,14 @@ class ShipmentVendorController extends BaseController
             );
 
             return redirect()
-                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '#vendor')
+                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '?tab=vendor')
                 ->with(
                     'success',
                     $total . ' rekomendasi vendor berhasil dihitung.'
                 );
         } catch (\Throwable $e) {
             return redirect()
-                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '#vendor')
+                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '?tab=vendor')
                 ->with('error', $e->getMessage());
         }
     }
@@ -55,14 +55,14 @@ class ShipmentVendorController extends BaseController
             );
 
             return redirect()
-                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '#vendor')
+                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '?tab=vendor')
                 ->with(
                     'success',
                     'Vendor berhasil di-assign dan vendor cost dikunci.'
                 );
         } catch (\Throwable $e) {
             return redirect()
-                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '#vendor')
+                ->to(site_url('shipments/detail/' . (int) $shipmentId) . '?tab=vendor')
                 ->with('error', $e->getMessage());
         }
     }
