@@ -96,8 +96,8 @@ Express Rate
     <i class="bi bi-truck"></i> Manifest
 </a>
 
-<a href="<?= site_url('pickups') ?>">
-    <i class="bi bi-bicycle"></i> Pickup
+<a href="<?= site_url('operations/pickups') ?>">
+    <i class="bi bi-bicycle"></i> Pickup Operations
 </a>
 
         <div class="menu-title">FINANCE</div>

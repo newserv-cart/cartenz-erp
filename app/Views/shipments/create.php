@@ -145,14 +145,8 @@ $receivingLocationValue = old(
                         ></div>
                     </div>
 
-                    <div
-                        id="account_owner_selected"
-                        class="alert alert-light border mt-2 d-none"
-                    ></div>
 
-                    <div class="form-text">
-                        Nomor account hanya ditampilkan pada pencarian. Nama pengirim di bawah boleh diubah khusus untuk AWB ini.
-                    </div>
+
                 </div>
             <?php else: ?>
                 <?php $activeAccount = $accountOwners[0] ?? null; ?>
@@ -239,10 +233,7 @@ $receivingLocationValue = old(
                     ></div>
                 </div>
 
-                <div
-                    id="sender_history_selected"
-                    class="alert alert-light border mt-2 d-none"
-                ></div>
+
             </div>
             <?php else: ?>
                 <input type="hidden" name="sender_source" id="sender_source_new" value="NEW">
