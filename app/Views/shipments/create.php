@@ -2,20 +2,12 @@
 <?= $this->section('content') ?>
 
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Shipment</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <style>
+<style>
         #btnSaveSender,
         #btnSaveReceiver {
             display: none !important;
         }
     </style>
-</head>
-<body>
 <?php
 $inboundIntake = $inboundIntake ?? null;
 $intakePackages = $intakePackages ?? [];
@@ -88,6 +80,8 @@ $receivingLocationValue = old(
             $ownerContext['owner_id'] ?? 0
         ) ?>"
     >
+    <input type="hidden" name="customer_id" id="customer_id" value="<?= (int) old('customer_id', 0) ?>">
+    <input type="hidden" name="agent_id" id="agent_id" value="<?= (int) old('agent_id', 0) ?>">
 
 <div class="container mt-4 mb-5">
     <h2 class="mb-4">Create Shipment</h2>
@@ -129,55 +123,48 @@ $receivingLocationValue = old(
         <div class="card-body">
 
             <?php if (!empty($canChooseAnyOwner)): ?>
-                <div class="row align-items-end mb-3">
-                    <div class="col-md-9">
-                        <label class="form-label fw-bold">🏢 Account Owner</label>
-                        <select
-                            name="customer_id"
-                            id="customer_id"
-                            class="form-select"
+                <div class="mb-3">
+                    <label for="account_owner_search" class="form-label fw-bold">
+                        🔎 Cari Customer / Agent
+                    </label>
+
+                    <div class="position-relative">
+                        <input
+                            type="search"
+                            id="account_owner_search"
+                            class="form-control"
+                            placeholder="Ketik nomor account, nama, kota, telepon, atau alamat..."
+                            autocomplete="off"
                             required
                         >
-                            <option value="">-- Select Account Owner --</option>
 
-                            <?php foreach ($senderAddresses as $sender): ?>
-                                <?php
-                                    $senderId   = (int) ($sender['id'] ?? 0);
-                                    $customerId = (int) ($sender['customer_id'] ?? 0);
+                        <div
+                            id="account_owner_results"
+                            class="list-group position-absolute w-100 shadow d-none"
+                            style="z-index:1060;max-height:320px;overflow-y:auto;"
+                        ></div>
+                    </div>
 
-                                    $contactName = trim(
-                                        (string) ($sender['contact_name'] ?? '')
-                                    );
+                    <div
+                        id="account_owner_selected"
+                        class="alert alert-light border mt-2 d-none"
+                    ></div>
 
-                                    $companyName = trim(
-                                        (string) ($sender['company_name'] ?? '')
-                                    );
-
-                                    $optionLabel = $contactName;
-
-                                    if (
-                                        $companyName !== ''
-                                        && strcasecmp($companyName, $contactName) !== 0
-                                    ) {
-                                        $optionLabel .= ' — ' . $companyName;
-                                    }
-                                ?>
-
-                                <option
-                                    value="<?= $customerId ?>"
-                                    data-customer-id="<?= $customerId ?>"
-                                    <?= old('customer_id') == $customerId
-                                        ? 'selected'
-                                        : '' ?>
-                                >
-                                    <?= esc($optionLabel) ?>
-                                </option>
-                            <?php endforeach ?>
-                        </select>
+                    <div class="form-text">
+                        Nomor account hanya ditampilkan pada pencarian. Nama pengirim di bawah boleh diubah khusus untuk AWB ini.
                     </div>
                 </div>
-            <?php endif ?>
+            <?php else: ?>
+                <?php $activeAccount = $accountOwners[0] ?? null; ?>
+                <?php if ($activeAccount): ?>
+                    <div class="alert alert-light border mb-3">
+                        <strong><?= esc($activeAccount['account_code'] ?? '') ?></strong>
+                        &middot; <?= esc($activeAccount['account_name'] ?? '') ?>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
 
+            <?php if (empty($canChooseAnyOwner)): ?>
             <div class="mb-3">
                 <label class="form-label fw-bold">Sender Source</label>
 
@@ -257,6 +244,10 @@ $receivingLocationValue = old(
                     class="alert alert-light border mt-2 d-none"
                 ></div>
             </div>
+            <?php else: ?>
+                <input type="hidden" name="sender_source" id="sender_source_new" value="NEW">
+                <input type="hidden" name="sender_address_id" id="sender_address_id" value="">
+            <?php endif; ?>
 
             <div id="senderNewSection">
                 <div class="row">
@@ -1358,13 +1349,18 @@ $receivingLocationValue = old(
 <script src="<?= base_url('js/modules/shipment/commodity-rule.js') ?>"></script>
 
 <script>
+window.shipmentAccountOwners = <?= json_encode(
+    $accountOwners ?? [],
+    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+) ?>;
+
 window.addressHistorySearchUrl =
     <?= json_encode(
         site_url('customer-addresses/search')
     ) ?>;
 </script>
 
-<script src="<?= base_url('js/create-shipment.js?v=50.6') ?>"></script>
+<script src="<?= base_url('js/create-shipment.js?v=50.7') ?>"></script>
 <script src="<?= base_url('js/modules/shipment/shipment.js?v=49.7.4') ?>"></script>
 
 <?php if (!empty($intakePackages)): ?>

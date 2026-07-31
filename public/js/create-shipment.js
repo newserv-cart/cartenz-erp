@@ -18,6 +18,112 @@ document.addEventListener('DOMContentLoaded', function () {
         shipmentCreateForm.dataset.canChooseAnyOwner === '1';
 
     // =====================================================
+    // ACCOUNT OWNER SEARCH (ADMIN)
+    // =====================================================
+
+    const accountOwners = Array.isArray(window.shipmentAccountOwners)
+        ? window.shipmentAccountOwners
+        : [];
+
+    function setOwnerAccount(account, fillSender) {
+        const ownerTypeInput = document.getElementById('shipment_owner_type');
+        const ownerIdInput = document.getElementById('shipment_owner_id');
+        const customerIdInput = document.getElementById('customer_id');
+        const agentIdInput = document.getElementById('agent_id');
+        const searchInput = document.getElementById('account_owner_search');
+        const selectedBox = document.getElementById('account_owner_selected');
+
+        if (!account) {
+            if (ownerTypeInput) ownerTypeInput.value = '';
+            if (ownerIdInput) ownerIdInput.value = '';
+            if (customerIdInput) customerIdInput.value = '';
+            if (agentIdInput) agentIdInput.value = '';
+            selectedBox?.classList.add('d-none');
+            return;
+        }
+
+        if (ownerTypeInput) ownerTypeInput.value = account.owner_type || '';
+        if (ownerIdInput) ownerIdInput.value = String(account.owner_id || '');
+        if (customerIdInput) customerIdInput.value = account.owner_type === 'CUSTOMER'
+            ? String(account.owner_id || '') : '';
+        if (agentIdInput) agentIdInput.value = account.owner_type === 'AGENT'
+            ? String(account.owner_id || '') : '';
+        if (searchInput) searchInput.value = account.label || '';
+
+        if (selectedBox) {
+            selectedBox.innerHTML = '';
+            const strong = document.createElement('strong');
+            strong.textContent = account.account_code || '-';
+            const text = document.createTextNode(' · ' + (account.account_name || '-'));
+            selectedBox.appendChild(strong);
+            selectedBox.appendChild(text);
+            selectedBox.classList.remove('d-none');
+        }
+
+        if (fillSender !== false && account.sender) {
+            fillAddressFields('sender', account.sender);
+            const senderNew = document.getElementById('sender_source_new');
+            if (senderNew && senderNew.type === 'radio') {
+                senderNew.checked = true;
+                senderNew.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            const senderAddressId = document.getElementById('sender_address_id');
+            if (senderAddressId) senderAddressId.value = '';
+        }
+    }
+
+    function setupAccountOwnerSearch() {
+        const input = document.getElementById('account_owner_search');
+        const results = document.getElementById('account_owner_results');
+        if (!input || !results) return;
+
+        function hide() {
+            results.classList.add('d-none');
+            results.innerHTML = '';
+        }
+
+        function render() {
+            const keyword = input.value.trim().toLowerCase();
+            const matches = accountOwners.filter(function (account) {
+                if (!keyword) return true;
+                return String(account.search_text || account.label || '')
+                    .toLowerCase().includes(keyword);
+            }).slice(0, 30);
+
+            results.innerHTML = '';
+            if (matches.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'list-group-item text-muted';
+                empty.textContent = 'Account tidak ditemukan.';
+                results.appendChild(empty);
+            } else {
+                matches.forEach(function (account) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'list-group-item list-group-item-action';
+                    button.textContent = account.label || '-';
+                    button.addEventListener('click', function () {
+                        setOwnerAccount(account, true);
+                        hide();
+                    });
+                    results.appendChild(button);
+                });
+            }
+            results.classList.remove('d-none');
+        }
+
+        input.addEventListener('focus', render);
+        input.addEventListener('input', function () {
+            setOwnerAccount(null, false);
+            render();
+        });
+        document.addEventListener('click', function (event) {
+            if (event.target === input || results.contains(event.target)) return;
+            hide();
+        });
+    }
+
+    // =====================================================
     // ADDRESS SOURCE: NEW / HISTORY
     // =====================================================
 
@@ -314,12 +420,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 description.className =
                     'text-muted d-block';
 
-                const details = [
-                    address.company_name,
-                    address.phone,
-                    address.city,
-                    address.postal_code,
-                ].filter(Boolean);
+                const details = config.addressType === 'RECEIVER'
+                    ? [address.phone, address.country_name].filter(Boolean)
+                    : [
+                        address.company_name,
+                        address.phone,
+                        address.city,
+                        address.postal_code,
+                    ].filter(Boolean);
 
                 description.textContent =
                     details.join(' · ');
@@ -358,14 +466,22 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedDetails.className =
                                 'small text-muted mt-1';
 
-                            selectedDetails.textContent = [
-                                address.company_name,
-                                address.phone,
-                                address.address,
-                                address.city,
-                                address.postal_code,
-                                address.country_name,
-                            ]
+                            selectedDetails.textContent = (
+                                config.addressType === 'RECEIVER'
+                                    ? [
+                                        address.phone,
+                                        address.country_name,
+                                        address.address,
+                                    ]
+                                    : [
+                                        address.company_name,
+                                        address.phone,
+                                        address.address,
+                                        address.city,
+                                        address.postal_code,
+                                        address.country_name,
+                                    ]
+                            )
                                 .filter(Boolean)
                                 .join(' · ');
 
@@ -571,24 +687,23 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // =====================================================
-    // OWNER SYNC (admin only)
+    // ACCOUNT OWNER INITIALIZATION
     // =====================================================
 
-    if (canChooseAnyOwner) {
-        const customerSelect = document.getElementById('customer_id');
-        const ownerIdInput = document.getElementById('shipment_owner_id');
+    setupAccountOwnerSearch();
 
-        if (customerSelect && ownerIdInput) {
-            customerSelect.addEventListener('change', function () {
-                const option = this.options[this.selectedIndex];
+    const currentOwnerType = document.getElementById('shipment_owner_type')?.value || '';
+    const currentOwnerId = document.getElementById('shipment_owner_id')?.value || '';
+    const currentAccount = accountOwners.find(function (account) {
+        return String(account.owner_type || '') === String(currentOwnerType)
+            && String(account.owner_id || '') === String(currentOwnerId);
+    });
 
-                ownerIdInput.value = option?.value || '';
-            });
-
-            if (customerSelect.value) {
-                ownerIdInput.value = customerSelect.value;
-            }
-        }
+    if (currentAccount) {
+        const senderName = document.getElementById('sender_name')?.value || '';
+        setOwnerAccount(currentAccount, senderName.trim() === '');
+    } else if (!canChooseAnyOwner && accountOwners.length === 1) {
+        setOwnerAccount(accountOwners[0], true);
     }
 
     // =====================================================

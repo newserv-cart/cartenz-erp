@@ -88,6 +88,10 @@ Express Rate
     <i class="bi bi-box-seam"></i> Shipment
 </a>
 
+<a href="<?= site_url('shipments/report') ?>">
+    <i class="bi bi-funnel"></i> Shipment Report
+</a>
+
 <a href="<?= site_url('manifests') ?>">
     <i class="bi bi-truck"></i> Manifest
 </a>

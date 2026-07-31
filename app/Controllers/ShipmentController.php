@@ -103,6 +103,168 @@ class ShipmentController extends BaseController
             'shipments' => $shipments,
         ]);
     }
+public function report()
+{
+    if (!auth()->loggedIn()) {
+        return redirect()->to(site_url('login'));
+    }
+
+    $db = db_connect();
+    $filters = [
+        'owner_type' => strtoupper(trim((string) $this->request->getGet('owner_type'))),
+        'owner_id' => (int) $this->request->getGet('owner_id'),
+        'country_id' => (int) $this->request->getGet('country_id'),
+        'vendor_id' => (int) $this->request->getGet('vendor_id'),
+        'payment_status' => strtoupper(trim((string) $this->request->getGet('payment_status'))),
+        'tracking_status' => strtoupper(trim((string) $this->request->getGet('tracking_status'))),
+        'date_from' => trim((string) $this->request->getGet('date_from')),
+        'date_to' => trim((string) $this->request->getGet('date_to')),
+    ];
+
+$builder = $db
+    ->table('shipments s')
+    ->select('s.*');
+
+$hasInvoices = $db->tableExists('invoices');
+
+$invoiceStatusColumn = null;
+
+if ($hasInvoices) {
+    foreach (
+        [
+            'status',
+            'invoice_status',
+            'payment_status',
+        ] as $candidate
+    ) {
+        if ($db->fieldExists($candidate, 'invoices')) {
+            $invoiceStatusColumn = $candidate;
+            break;
+        }
+    }
+
+    $builder->join(
+        'invoices i',
+        'i.id = s.invoice_id',
+        'left'
+    );
+
+    if ($invoiceStatusColumn !== null) {
+        $builder->select(
+            'i.' . $invoiceStatusColumn . ' AS invoice_status'
+        );
+    } else {
+        $builder->select(
+            'NULL AS invoice_status',
+            false
+        );
+    }
+}
+
+    if (!$this->canChooseAnyOwner()) {
+        $ownerContext = (new ShipmentOwnerContextService())->resolve(
+            (int) (auth()->id() ?? 0), false, null, 0
+        );
+        $builder->where('s.owner_type', $ownerContext['owner_type'])
+            ->where('s.owner_id', $ownerContext['owner_id']);
+    } elseif (in_array($filters['owner_type'], ['CUSTOMER', 'AGENT'], true)
+        && $filters['owner_id'] > 0) {
+        $builder->where('s.owner_type', $filters['owner_type'])
+            ->where('s.owner_id', $filters['owner_id']);
+    }
+
+    if ($filters['country_id'] > 0) $builder->where('s.country_id', $filters['country_id']);
+    if ($filters['vendor_id'] > 0) $builder->where('s.vendor_id', $filters['vendor_id']);
+    if ($filters['tracking_status'] !== '') $builder->where('s.shipment_status', $filters['tracking_status']);
+    if ($filters['date_from'] !== '') $builder->where('s.shipment_date >=', $filters['date_from']);
+    if ($filters['date_to'] !== '') $builder->where('s.shipment_date <=', $filters['date_to']);
+
+    if ($filters['payment_status'] === 'CASH') {
+        $builder->where('s.payment_type', 'CASH');
+} elseif (
+    $hasInvoices
+    && $invoiceStatusColumn !== null
+    && in_array(
+        $filters['payment_status'],
+        [
+            'UNPAID',
+            'PARTIAL',
+            'PAID',
+            'OVERDUE',
+        ],
+        true
+    )
+) {
+    $builder->where(
+        'i.' . $invoiceStatusColumn,
+        $filters['payment_status']
+    );
+    } elseif ($filters['payment_status'] === 'NOT_INVOICED') {
+        $builder->where('s.payment_type', 'INVOICE')->where('s.invoice_id', null);
+    }
+
+    $shipments = $builder->orderBy('s.shipment_date', 'DESC')
+        ->orderBy('s.id', 'DESC')->limit(2000)->get()->getResultArray();
+
+    $accountOwners = $this->shipmentOwnerOptions();
+    $accountMap = [];
+    foreach ($accountOwners as $account) {
+        $accountMap[strtoupper((string) $account['owner_type']) . ':' . (int) $account['owner_id']] = $account;
+    }
+
+    $countryOptions = $db->table('countries')->where('status', 1)
+        ->orderBy('country_name', 'ASC')->get()->getResultArray();
+    $countryMap = [];
+    foreach ($countryOptions as $country) $countryMap[(int) $country['id']] = (string) ($country['country_name'] ?? '');
+
+    $vendorOptions = [];
+    $vendorMap = [];
+    if ($db->tableExists('vendors')) {
+        $vb = $db->table('vendors')->select('*');
+        if ($db->fieldExists('status', 'vendors')) $vb->where('status', 1);
+        $vendorOptions = $vb->orderBy('id', 'ASC')->get()->getResultArray();
+        foreach ($vendorOptions as &$vendor) {
+            $vendor['display_name'] = (string) ($vendor['vendor_name'] ?? $vendor['company_name'] ?? $vendor['name'] ?? ('Vendor #' . (int) ($vendor['id'] ?? 0)));
+            $vendorMap[(int) ($vendor['id'] ?? 0)] = $vendor['display_name'];
+        }
+        unset($vendor);
+    }
+
+    $trackingStatuses = [];
+    foreach ($shipments as &$shipment) {
+        $key = strtoupper((string) ($shipment['owner_type'] ?? '')) . ':' . (int) ($shipment['owner_id'] ?? 0);
+        $account = $accountMap[$key] ?? [];
+        $shipment['account_code'] = (string) ($account['account_code'] ?? '-');
+        $shipment['account_name'] = (string) ($account['account_name'] ?? '-');
+        $shipment['country_name'] = $countryMap[(int) ($shipment['country_id'] ?? 0)] ?? '-';
+        $shipment['vendor_name'] = $vendorMap[(int) ($shipment['vendor_id'] ?? 0)] ?? '-';
+        $shipment['payment_status_label'] = strtoupper((string) ($shipment['payment_type'] ?? '')) === 'CASH'
+            ? 'CASH'
+            : (strtoupper((string) ($shipment['invoice_status'] ?? '')) ?: (!empty($shipment['invoice_id']) ? 'INVOICED' : 'NOT INVOICED'));
+        $status = strtoupper((string) ($shipment['shipment_status'] ?? ''));
+        if ($status !== '') $trackingStatuses[$status] = $status;
+    }
+    unset($shipment);
+    ksort($trackingStatuses);
+
+    $summary = [
+        'total_shipments' => count($shipments),
+        'total_colly' => array_sum(array_map(static fn ($row) => (int) ($row['total_colly'] ?? 0), $shipments)),
+        'total_weight' => array_sum(array_map(static fn ($row) => (float) ($row['chargeable_weight'] ?? 0), $shipments)),
+        'total_charge' => array_sum(array_map(static fn ($row) => (float) ($row['total_charge'] ?? 0), $shipments)),
+    ];
+
+    return view('shipments/report', [
+        'shipments' => $shipments,
+        'filters' => $filters,
+        'accountOwners' => $accountOwners,
+        'countries' => $countryOptions,
+        'vendors' => $vendorOptions,
+        'trackingStatuses' => array_values($trackingStatuses),
+        'summary' => $summary,
+    ]);
+}
+
 public function testAwb()
 {
     return AwbGenerator::generate();
@@ -240,188 +402,22 @@ public function create()
 
     // Kode create lama berikutnya tetap lanjut di sini.
 
-        $senderAddressModel   = new CustomerAddressModel();
-        $receiverAddressModel = new CustomerAddressModel();
+        /* Account owner menjadi sumber default pengirim. */
+        $accountOwners = $this->shipmentOwnerOptions();
 
-        $addressSelect = implode(', ', [
-            'customer_addresses.*',
-            'countries.country_code',
-            'countries.country_name',
-            'express_zones.zone_code AS express_zone_code',
-            'customers.customer_name AS owner_customer_name',
-            'customers.customer_code AS owner_customer_code',
-        ]);
+        if (!$canChooseAnyOwner && is_array($ownerContext)) {
+            $accountOwners = array_values(array_filter(
+                $accountOwners,
+                static fn (array $account): bool =>
+                    strtoupper((string) ($account['owner_type'] ?? ''))
+                        === strtoupper((string) ($ownerContext['owner_type'] ?? ''))
+                    && (int) ($account['owner_id'] ?? 0)
+                        === (int) ($ownerContext['owner_id'] ?? 0)
+            ));
+        }
 
-        $senderOwnerCustomerId = 1;
-
-        $senderSql = <<<'SQL'
-SELECT
-    ca.*,
-    countries.country_code,
-    countries.country_name,
-    express_zones.zone_code AS express_zone_code,
-    customers.customer_name AS owner_customer_name,
-    customers.customer_code AS owner_customer_code
-
-FROM customer_addresses ca
-
-INNER JOIN (
-    SELECT
-        MAX(x.id) AS selected_id
-
-    FROM customer_addresses x
-
-    WHERE x.customer_id = ?
-      AND x.address_type = 'SENDER'
-      AND x.status = 1
-
-      /* Nama wajib layak */
-      AND CHAR_LENGTH(
-            TRIM(COALESCE(x.contact_name, ''))
-          ) >= 3
-
-      AND x.contact_name REGEXP '[A-Za-z]'
-
-      /* Telepon harus mengandung angka */
-      AND x.phone REGEXP '[0-9]'
-
-      AND CHAR_LENGTH(
-            REPLACE(
-                REPLACE(
-                    REPLACE(
-                        REPLACE(
-                            REPLACE(
-                                TRIM(COALESCE(x.phone, '')),
-                                ' ',
-                                ''
-                            ),
-                            '-',
-                            ''
-                        ),
-                        '+',
-                        ''
-                    ),
-                    '(',
-                    ''
-                ),
-                ')',
-                ''
-            )
-          ) >= 7
-
-      /* Alamat minimal layak */
-      AND CHAR_LENGTH(
-            TRIM(COALESCE(x.address, ''))
-          ) >= 10
-
-      /* Minimal memiliki kota atau kode pos */
-      AND (
-            TRIM(COALESCE(x.city, '')) <> ''
-            OR
-            TRIM(COALESCE(x.postal_code, '')) <> ''
-          )
-
-      /*
-       * Jangan tampilkan nama pengirim apabila salah satu
-       * data duplikatnya sudah masuk invoice.
-       */
-      AND NOT EXISTS (
-          SELECT 1
-
-          FROM customer_addresses used_address
-
-          INNER JOIN shipments s
-              ON s.sender_address_id = used_address.id
-
-          WHERE used_address.customer_id = x.customer_id
-            AND used_address.address_type = 'SENDER'
-
-            AND UPPER(
-                    TRIM(
-                        COALESCE(
-                            used_address.contact_name,
-                            ''
-                        )
-                    )
-                )
-                =
-                UPPER(
-                    TRIM(
-                        COALESCE(
-                            x.contact_name,
-                            ''
-                        )
-                    )
-                )
-
-            AND (
-                s.invoice_id IS NOT NULL
-                OR COALESCE(s.is_invoiced, 0) = 1
-            )
-      )
-
-    /*
-     * Satu nama pengirim hanya satu baris.
-     * MAX(id) mengambil data terbaru.
-     */
-    GROUP BY
-        x.customer_id,
-        UPPER(
-            TRIM(
-                COALESCE(
-                    x.contact_name,
-                    ''
-                )
-            )
-        )
-
-) clean_sender
-    ON clean_sender.selected_id = ca.id
-
-LEFT JOIN countries
-    ON countries.id = ca.country_id
-
-LEFT JOIN express_zones
-    ON express_zones.id = countries.express_zone_id
-
-INNER JOIN customers
-    ON customers.id = ca.customer_id
-
-WHERE customers.status = 1
-
-ORDER BY
-    ca.contact_name ASC
-SQL;
-
-        $senderAddresses = $db
-            ->query(
-                $senderSql,
-                [$senderOwnerCustomerId]
-            )
-            ->getResultArray();
-
-        $receiverAddresses = $receiverAddressModel
-            ->select($addressSelect)
-            ->join(
-                'countries',
-                'countries.id = customer_addresses.country_id',
-                'left'
-            )
-            ->join(
-                'express_zones',
-                'express_zones.id = countries.express_zone_id',
-                'left'
-            )
-            ->join(
-                'customers',
-                'customers.id = customer_addresses.customer_id',
-                'inner'
-            )
-            ->where('customer_addresses.address_type', 'RECEIVER')
-            ->where('customer_addresses.status', 1)
-            ->where('customers.status', 1)
-            ->orderBy('customer_addresses.contact_name', 'ASC')
-            ->findAll();
+        $senderAddresses = [];
+        $receiverAddresses = [];
 
         $automaticReceiving = $acceptanceService
             ->automaticContext(
@@ -432,6 +428,7 @@ SQL;
         return view('shipments/create', [
             'senderAddresses'   => $senderAddresses,
             'receiverAddresses' => $receiverAddresses,
+            'accountOwners'     => $accountOwners,
             'countries'         => (new CountryModel())
                 ->select(
                     'countries.*, ' .
@@ -1592,7 +1589,9 @@ SQL;
                 'owner_id'             => $ownerContext['owner_id'],
                 'created_by_user_id'   => $ownerContext['created_by_user_id'],
                 'entry_channel'        => $ownerContext['entry_channel'],
-                'sender_address_id'    => $senderAddressId,
+                'sender_address_id'    => $senderAddressId > 0
+                    ? $senderAddressId
+                    : null,
                 'sender_country_id'    =>
                     $sender['country_id'] ?? null,
                 'receiver_address_id'  => $receiverId,
@@ -2552,12 +2551,16 @@ SQL;
             ];
 
             if ($canChooseAnyOwner) {
-                $rules['customer_id'] =
+                $rules['owner_type'] =
+                    'required|in_list[CUSTOMER,AGENT]';
+                $rules['owner_id'] =
                     'required|is_natural_no_zero';
-            } else {
-                $rules['customer_id'] =
-                    'permit_empty|is_natural_no_zero';
             }
+
+            $rules['customer_id'] =
+                'permit_empty|is_natural_no_zero';
+            $rules['agent_id'] =
+                'permit_empty|is_natural_no_zero';
 
             if (!$this->validate($rules)) {
                 throw new \RuntimeException(
@@ -2849,8 +2852,7 @@ SQL;
 
             if ($senderSource === 'HISTORY') {
                 $senderAddress = $this->findOwnerAddress(
-                    (int) $this->request
-                        ->getPost('sender_address_id'),
+                    (int) $this->request->getPost('sender_address_id'),
                     $ownerContext,
                     'SENDER'
                 );
@@ -2860,18 +2862,21 @@ SQL;
                         'Riwayat pengirim tidak ditemukan atau bukan milik account ini.'
                     );
                 }
+
+                $senderAddressId = (int) ($senderAddress['id'] ?? 0);
             } else {
-                $senderAddress = $this->insertShipmentAddress(
+                /* Sender override hanya snapshot AWB, tidak masuk address book. */
+                $senderAddress = $this->shipmentAddressInput(
                     $ownerContext,
                     'SENDER',
                     'sender'
                 );
+                $senderAddressId = 0;
             }
 
             if ($receiverSource === 'HISTORY') {
                 $receiverAddress = $this->findOwnerAddress(
-                    (int) $this->request
-                        ->getPost('receiver_address_id'),
+                    (int) $this->request->getPost('receiver_address_id'),
                     $ownerContext,
                     'RECEIVER'
                 );
@@ -2882,6 +2887,7 @@ SQL;
                     );
                 }
             } else {
+                /* Receiver baru selalu disimpan ke riwayat account owner. */
                 $receiverAddress = $this->insertShipmentAddress(
                     $ownerContext,
                     'RECEIVER',
@@ -2889,10 +2895,8 @@ SQL;
                 );
             }
 
-            $senderAddressId = (int) ($senderAddress['id'] ?? 0);
-            $receiverId      = (int) ($receiverAddress['id'] ?? 0);
-
-            $sender   = $senderAddress;
+            $receiverId = (int) ($receiverAddress['id'] ?? 0);
+            $sender = $senderAddress;
             $receiver = $receiverAddress;
 
             $countryId = (int) ($receiverAddress['country_id'] ?? 0);
@@ -3079,7 +3083,9 @@ SQL;
             $awbNo = AwbGenerator::generate();
 
             $shipmentData = [
-                'company_id'           => $customer['company_id'] ?? null,
+                'company_id'           => $customer['company_id']
+                    ?? $agent['company_id']
+                    ?? null,
                 'awb_no'               => $awbNo,
                 'shipment_mode'        => 'MULTI_COLLY',
                 'customer_reference_no'=> $this->clean($post['customer_reference_no'] ?? ''),
@@ -4298,6 +4304,112 @@ private function shipmentAccessContext(): array
     ];
 }
 
+private function shipmentOwnerOptions(): array
+{
+    $db = db_connect();
+    $options = [];
+    $defaultAddresses = [];
+
+    if ($db->tableExists('customer_addresses')) {
+        $ab = $db->table('customer_addresses')->select('*')
+            ->where('address_type', 'SENDER')->where('status', 1);
+        if ($db->fieldExists('is_primary', 'customer_addresses')) {
+            $ab->orderBy('is_primary', 'DESC');
+        }
+        if ($db->fieldExists('is_default', 'customer_addresses')) {
+            $ab->orderBy('is_default', 'DESC');
+        }
+        $ab->orderBy('id', 'DESC');
+        foreach ($ab->get()->getResultArray() as $address) {
+            $addressOwnerType = strtoupper((string) ($address['owner_type'] ?? ''));
+            $addressOwnerId = (int) ($address['owner_id'] ?? 0);
+            if ($addressOwnerType === '' && (int) ($address['customer_id'] ?? 0) > 0) {
+                $addressOwnerType = 'CUSTOMER';
+                $addressOwnerId = (int) $address['customer_id'];
+            }
+            $key = $addressOwnerType . ':' . $addressOwnerId;
+            if ($key !== ':0' && !isset($defaultAddresses[$key])) $defaultAddresses[$key] = $address;
+        }
+    }
+
+    if ($db->tableExists('customers')) {
+        $b = $db->table('customers')->select('*');
+        if ($db->fieldExists('status', 'customers')) $b->where('status', 1);
+        foreach ($b->get()->getResultArray() as $row) {
+            $id = (int) ($row['id'] ?? 0); if ($id <= 0) continue;
+            $name = trim((string) ($row['customer_name'] ?? $row['company_name'] ?? ('Customer #' . $id)));
+            $options[] = $this->ownerOption('CUSTOMER', $id, 'CST' . str_pad((string) $id, 6, '0', STR_PAD_LEFT), $name, $row, $defaultAddresses['CUSTOMER:' . $id] ?? []);
+        }
+    }
+
+    if ($db->tableExists('agents')) {
+        $b = $db->table('agents')->select('*');
+        if ($db->fieldExists('status', 'agents')) $b->where('status', 1);
+        foreach ($b->get()->getResultArray() as $row) {
+            $id = (int) ($row['id'] ?? 0); if ($id <= 0) continue;
+            $name = trim((string) ($row['agent_name'] ?? $row['company_name'] ?? $row['name'] ?? $row['agent_code'] ?? ('Agent #' . $id)));
+            $options[] = $this->ownerOption('AGENT', $id, 'AG' . str_pad((string) $id, 6, '0', STR_PAD_LEFT), $name, $row, $defaultAddresses['AGENT:' . $id] ?? []);
+        }
+    }
+
+    usort($options, static fn (array $a, array $b): int => strcasecmp((string) $a['account_name'], (string) $b['account_name']));
+    return $options;
+}
+
+private function ownerOption(string $ownerType, int $ownerId, string $accountCode, string $accountName, array $master, array $address): array
+{
+    $pick = static function (array $keys, array ...$sources) {
+        foreach ($sources as $source) foreach ($keys as $key) {
+            if (array_key_exists($key, $source) && $source[$key] !== null && trim((string) $source[$key]) !== '') return $source[$key];
+        }
+        return '';
+    };
+    $sender = [
+        'contact_name' => $accountName,
+        'company_name' => (string) $pick(['company_name'], $master, $address),
+        'phone' => (string) $pick(['phone', 'mobile', 'telephone'], $address, $master),
+        'email' => (string) $pick(['email'], $address, $master),
+        'identity_number' => (string) $pick(['identity_number', 'identity_no', 'tax_number'], $address, $master),
+        'country_id' => (int) $pick(['country_id'], $address, $master),
+        'state' => (string) $pick(['state', 'province'], $address, $master),
+        'city' => (string) $pick(['city'], $address, $master),
+        'postal_code' => (string) $pick(['postal_code', 'postcode'], $address, $master),
+        'address' => (string) $pick(['address', 'complete_address'], $address, $master),
+    ];
+    return [
+        'owner_type' => $ownerType, 'owner_id' => $ownerId,
+        'customer_id' => $ownerType === 'CUSTOMER' ? $ownerId : 0,
+        'agent_id' => $ownerType === 'AGENT' ? $ownerId : 0,
+        'account_code' => $accountCode, 'account_name' => $accountName,
+        'label' => $accountCode . ' | ' . $accountName,
+        'search_text' => strtolower(implode(' ', array_filter([$accountCode, $accountName, $sender['company_name'], $sender['phone'], $sender['city'], $sender['state'], $sender['postal_code'], $sender['address']]))),
+        'sender' => $sender,
+    ];
+}
+
+private function shipmentAddressInput(array $ownerContext, string $addressType, string $prefix): array
+{
+    $request = service('request');
+    $contactName = trim((string) $request->getPost($prefix . '_name'));
+    $phone = trim((string) $request->getPost($prefix . '_phone'));
+    if ($contactName === '') throw new \RuntimeException(ucfirst($prefix) . ' name wajib diisi.');
+    if ($phone === '') throw new \RuntimeException(ucfirst($prefix) . ' phone wajib diisi.');
+    return [
+        'id' => 0, 'customer_id' => $ownerContext['customer_id'] ?? null,
+        'owner_type' => $ownerContext['owner_type'], 'owner_id' => $ownerContext['owner_id'],
+        'address_type' => strtoupper($addressType), 'contact_name' => $contactName,
+        'company_name' => trim((string) $request->getPost($prefix . '_company')),
+        'phone' => $phone, 'email' => trim((string) $request->getPost($prefix . '_email')),
+        'identity_number' => trim((string) $request->getPost($prefix . '_identity')),
+        'country_id' => (int) $request->getPost($prefix . '_country'),
+        'state' => trim((string) $request->getPost($prefix . '_province')),
+        'city' => trim((string) $request->getPost($prefix . '_city')),
+        'postal_code' => trim((string) $request->getPost($prefix . '_postal')),
+        'address' => trim((string) $request->getPost($prefix . '_address')),
+        'is_primary' => 0, 'source' => 'SHIPMENT_INPUT', 'status' => 1,
+    ];
+}
+
 private function findOwnerAddress(
     int $addressId,
     array $ownerContext,
@@ -4323,96 +4435,17 @@ private function insertShipmentAddress(
     string $addressType,
     string $prefix
 ): array {
-    $request = service('request');
+    $data = $this->shipmentAddressInput($ownerContext, $addressType, $prefix);
+    unset($data['id']);
 
-    $contactName = trim(
-        (string) $request->getPost(
-            $prefix . '_name'
-        )
-    );
-
-    $phone = trim(
-        (string) $request->getPost(
-            $prefix . '_phone'
-        )
-    );
-
-    if ($contactName === '') {
-        throw new \RuntimeException(
-            ucfirst($prefix) . ' name wajib diisi.'
-        );
+    if (strtoupper($addressType) === 'RECEIVER') {
+        $existing = db_connect()->table('customer_addresses')
+            ->where('owner_type', $data['owner_type'])->where('owner_id', $data['owner_id'])
+            ->where('address_type', 'RECEIVER')->where('contact_name', $data['contact_name'])
+            ->where('phone', $data['phone'])->where('country_id', $data['country_id'])
+            ->where('status', 1)->orderBy('id', 'DESC')->get()->getRowArray();
+        if ($existing) return $existing;
     }
-
-    if ($phone === '') {
-        throw new \RuntimeException(
-            ucfirst($prefix) . ' phone wajib diisi.'
-        );
-    }
-
-    $data = [
-        'customer_id' => $ownerContext['customer_id'],
-
-        'owner_type' => $ownerContext['owner_type'],
-
-        'owner_id' => $ownerContext['owner_id'],
-
-        'address_type' =>
-            strtoupper($addressType),
-
-        'contact_name' => $contactName,
-
-        'company_name' => trim(
-            (string) $request->getPost(
-                $prefix . '_company'
-            )
-        ),
-
-        'phone' => $phone,
-
-        'email' => trim(
-            (string) $request->getPost(
-                $prefix . '_email'
-            )
-        ),
-
-        'identity_number' => trim(
-            (string) $request->getPost(
-                $prefix . '_identity'
-            )
-        ),
-
-        'country_id' => (int) $request->getPost(
-            $prefix . '_country'
-        ),
-
-        'state' => trim(
-            (string) $request->getPost(
-                $prefix . '_province'
-            )
-        ),
-
-        'city' => trim(
-            (string) $request->getPost(
-                $prefix . '_city'
-            )
-        ),
-
-        'postal_code' => trim(
-            (string) $request->getPost(
-                $prefix . '_postal'
-            )
-        ),
-
-        'address' => trim(
-            (string) $request->getPost(
-                $prefix . '_address'
-            )
-        ),
-
-        'is_primary' => 0,
-        'source'      => 'SHIPMENT_INPUT',
-        'status'      => 1,
-    ];
 
     $model = new CustomerAddressModel();
 

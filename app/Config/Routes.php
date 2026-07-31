@@ -38,6 +38,7 @@ $routes->get('/', static function () {
 service('auth')->routes($routes);
 
 $routes->get('/shipments', 'ShipmentController::index');
+$routes->get('shipments/report', 'ShipmentController::report');
 $routes->get('/shipments/test-awb', 'ShipmentController::testAwb');
 
 $routes->get('shipments/create', 'ShipmentController::create');
