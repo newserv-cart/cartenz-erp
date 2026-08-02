@@ -1,8 +1,10 @@
 <h2>Generate Invoice</h2>
 
 <form
-method="post"
-action="<?= site_url('invoices/generate') ?>">
+    method="post"
+    action="<?= site_url('invoices/generate') ?>"
+>
+    <?= csrf_field() ?>
 
 <label>Customer</label>
 
@@ -25,18 +27,22 @@ class="form-control">
 <label>Date From</label>
 
 <input
-type="date"
-name="date_from"
-class="form-control">
+    type="date"
+    name="date_from"
+    class="form-control"
+    required
+>
 
 <br>
 
 <label>Date To</label>
 
 <input
-type="date"
-name="date_to"
-class="form-control">
+    type="date"
+    name="date_to"
+    class="form-control"
+    required
+>
 
 <br>
 
@@ -62,9 +68,10 @@ type="number"
 <br>
 
 <button
-class="btn btn-success">
-
-💰 Generate Invoice
+    type="submit"
+    class="btn btn-success"
+>
+    💰 Generate Invoice
 
 </button>
 

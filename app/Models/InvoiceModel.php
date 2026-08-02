@@ -15,6 +15,10 @@ class InvoiceModel extends Model
         'invoice_date',
         'due_date',
         'total_amount',
+        'vat_percent',
+'vat_amount',
+'extra_charge',
+'grand_total',
         'paid_amount',
         'balance_amount',
         'invoice_status'

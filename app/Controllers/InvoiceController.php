@@ -80,7 +80,13 @@ class InvoiceController extends BaseController
             ->findAll();
 
         if (empty($shipments)) {
-            return redirect()->back()->with('error', 'Tidak ada shipment yang bisa ditagih');
+            return redirect()
+    ->to(site_url('invoices/create'))
+    ->withInput()
+    ->with(
+        'error',
+        'Tidak ada shipment yang bisa ditagih'
+    );
         }
 
         $totalAmount = array_sum(array_column($shipments, 'total_charge'));
@@ -108,7 +114,13 @@ class InvoiceController extends BaseController
 
         if (!$invoiceId) {
             $db->transRollback();
-            return redirect()->back()->with('error', 'Gagal membuat invoice');
+            return redirect()
+    ->to(site_url('invoices/create'))
+    ->withInput()
+    ->with(
+        'error',
+        'Gagal membuat invoice'
+    );
         }
 
         foreach ($shipments as $shipment) {
@@ -127,7 +139,13 @@ class InvoiceController extends BaseController
         $db->transComplete();
 
         if ($db->transStatus() === false) {
-            return redirect()->back()->with('error', 'Gagal membuat invoice, proses dibatalkan');
+            return redirect()
+    ->to(site_url('invoices/create'))
+    ->withInput()
+    ->with(
+        'error',
+        'Gagal membuat invoice, proses dibatalkan'
+    );
         }
 
         return redirect()->to('/invoices')->with('success', 'Invoice berhasil dibuat');
